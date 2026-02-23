@@ -50,7 +50,19 @@ namespace Pulse.Revit.ExternalEvents
                         var element = doc.GetElement(new ElementId(elementId));
                         if (element == null) continue;
 
-                        var param = element.LookupParameter(paramName);
+                        // Try instance parameter first; fall back to the element type for type parameters.
+                        Parameter param = element.LookupParameter(paramName);
+                        if (param == null || param.IsReadOnly)
+                        {
+                            var typeId = element.GetTypeId();
+                            if (typeId != null && typeId != ElementId.InvalidElementId)
+                            {
+                                var typeElem = doc.GetElement(typeId);
+                                if (typeElem != null)
+                                    param = typeElem.LookupParameter(paramName);
+                            }
+                        }
+
                         if (param == null || param.IsReadOnly || param.StorageType != StorageType.String)
                             continue;
 
