@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows.Input;
 using Pulse.Core.Settings;
 
@@ -95,6 +96,17 @@ namespace Pulse.UI.ViewModels
             RevitCategory = source.Categories?.Count > 0 ? source.Categories[0] : string.Empty;
             foreach (var m in source.ParameterMappings ?? defaults.ParameterMappings)
                 Mappings.Add(new ParameterMappingViewModel(m));
+
+            // Merge-in any keys that exist in defaults but are absent from the stored settings.
+            // This ensures newly added parameter keys appear in the UI without requiring a reset.
+            var existingKeys = new HashSet<string>(
+                Mappings.Select(m => m.LogicalName),
+                StringComparer.OrdinalIgnoreCase);
+            foreach (var dm in defaults.ParameterMappings)
+            {
+                if (!existingKeys.Contains(dm.LogicalName))
+                    Mappings.Add(new ParameterMappingViewModel(dm));
+            }
 
             SaveCommand = new RelayCommand(ExecuteSave);
             ResetDefaultsCommand = new RelayCommand(ExecuteResetDefaults);
