@@ -19,106 +19,276 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Border Style="{DynamicResource CardBorderStyle}">
+    <Border Style="{DynamicResource CardBorderStyle}" Padding="0">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <!-- Header -->
-            <TextBlock Grid.Row="0"
-                       Text="System Topology"
-                       FontSize="12" FontWeight="SemiBold"
-                       Foreground="{DynamicResource ForegroundBrush}"
-                       Margin="0,0,0,6"/>
+            <!-- Title -->
+            <Border Grid.Row="0" Padding="10,8"
+                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+                <TextBlock Text="System Topology"
+                           FontSize="12" FontWeight="SemiBold"
+                           Foreground="{DynamicResource ForegroundBrush}"/>
+            </Border>
 
-            <!-- Topology TreeView -->
-            <TreeView Grid.Row="1"
-                      x:Name="TopologyTree"
-                      ItemsSource="{Binding RootNodes}"
-                      Foreground="{DynamicResource ForegroundBrush}"
-                      Style="{StaticResource PulseTreeViewStyle}"
-                      SelectedItemChanged="TopologyTree_SelectedItemChanged">
-                <TreeView.ItemContainerStyle>
-                    <Style TargetType="{x:Type TreeViewItem}" BasedOn="{StaticResource {x:Type TreeViewItem}}">
-                        <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}"/>
-                        <Setter Property="Visibility" Value="{Binding IsVisible, Converter={StaticResource BoolToVis}}"/>
-                        <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
-                        <Setter Property="Padding" Value="2"/>
-                        <Style.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
-                            </Trigger>
-                            <MultiTrigger>
-                                <MultiTrigger.Conditions>
-                                    <Condition Property="IsSelected" Value="True"/>
-                                    <Condition Property="IsSelectionActive" Value="False"/>
-                                </MultiTrigger.Conditions>
-                                <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
-                            </MultiTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TreeView.ItemContainerStyle>
-                <TreeView.ItemTemplate>
-                    <HierarchicalDataTemplate ItemsSource="{Binding Children}">
-                        <StackPanel Orientation="Horizontal" Margin="2,1">
-                            <!-- Node type icon -->
-                            <materialDesign:PackIcon Kind="{Binding Icon}"
-                                                     Width="16" Height="16"
-                                                     VerticalAlignment="Center"
-                                                     Margin="0,0,6,0"
-                                                     Foreground="{DynamicResource IconForegroundBrush}"/>
+            <!-- Panel cards -->
+            <ScrollViewer Grid.Row="1" Style="{StaticResource PulseScrollViewerStyle}">
+                <ItemsControl ItemsSource="{Binding RootNodes}" Margin="6,6,6,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <!-- ╔══════════════╗ -->
+                            <!-- ║  PANEL CARD  ║ -->
+                            <!-- ╚══════════════╝ -->
+                            <Border Margin="0,0,0,6"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1" CornerRadius="5"
+                                    Background="{DynamicResource SecondaryBackgroundBrush}"
+                                    Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <!-- Panel header row -->
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="30"/>
+                                        </Grid.ColumnDefinitions>
+                                        <!-- Selection button (col 0) -->
+                                        <Button Grid.Column="0"
+                                                Command="{Binding SelectCommand}"
+                                                Padding="10,8">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource PulseNodeButtonStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="ServerNetwork" Width="14" Height="14"
+                                                                         VerticalAlignment="Center" Margin="0,0,7,0"
+                                                                         Foreground="{DynamicResource IconForegroundBrush}"/>
+                                                <TextBlock Text="{Binding Label}" FontSize="12" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                           VerticalAlignment="Center"/>
+                                                <Border Style="{DynamicResource WarningBadgeStyle}"
+                                                        Visibility="{Binding WarningCount, Converter={StaticResource CountToVisibility}}"
+                                                        Margin="7,0,0,0">
+                                                    <TextBlock Text="{Binding WarningCount}" FontSize="9"
+                                                               FontWeight="Bold" Foreground="Black"/>
+                                                </Border>
+                                            </StackPanel>
+                                        </Button>
+                                        <!-- Expand/collapse chevron (col 1) -->
+                                        <ToggleButton Grid.Column="1"
+                                                      IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                                      OverridesDefaultStyle="True"
+                                                      Cursor="Hand" Focusable="False"
+                                                      Width="30" Background="Transparent"
+                                                      BorderThickness="0">
+                                            <ToggleButton.Template>
+                                                <ControlTemplate TargetType="ToggleButton">
+                                                    <Border Background="Transparent">
+                                                        <Path x:Name="Chev" Data="M 0,0 L 4,4 L 8,0"
+                                                              Stroke="{DynamicResource IconForegroundBrush}"
+                                                              StrokeThickness="1.5" StrokeLineJoin="Round"
+                                                              Width="8" Height="4"
+                                                              HorizontalAlignment="Center"
+                                                              VerticalAlignment="Center"
+                                                              RenderTransformOrigin="0.5,0.5">
+                                                            <Path.RenderTransform>
+                                                                <RotateTransform x:Name="CR" Angle="0"/>
+                                                            </Path.RenderTransform>
+                                                        </Path>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsChecked" Value="False">
+                                                            <Trigger.EnterActions>
+                                                                <BeginStoryboard><Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetName="CR"
+                                                                                     Storyboard.TargetProperty="Angle"
+                                                                                     To="-90" Duration="0:0:0.12"/>
+                                                                </Storyboard></BeginStoryboard>
+                                                            </Trigger.EnterActions>
+                                                            <Trigger.ExitActions>
+                                                                <BeginStoryboard><Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetName="CR"
+                                                                                     Storyboard.TargetProperty="Angle"
+                                                                                     To="0" Duration="0:0:0.12"/>
+                                                                </Storyboard></BeginStoryboard>
+                                                            </Trigger.ExitActions>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </ToggleButton.Template>
+                                        </ToggleButton>
+                                    </Grid>
 
-                            <!-- Label -->
-                            <TextBlock Text="{Binding Label}"
-                                       FontSize="12"
-                                       VerticalAlignment="Center"
-                                       Foreground="{DynamicResource ForegroundBrush}"/>
+                                    <!-- Panel content (loops), shown when expanded -->
+                                    <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                        <Border Height="1" Background="{DynamicResource BorderBrush}"/>
+                                        <ItemsControl ItemsSource="{Binding Children}" Margin="6,6,6,6">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <!-- ╔═════════════╗ -->
+                                                    <!-- ║  LOOP CARD  ║ -->
+                                                    <!-- ╚═════════════╝ -->
+                                                    <Border Margin="0,0,0,4"
+                                                            BorderBrush="{DynamicResource BorderBrush}"
+                                                            BorderThickness="1" CornerRadius="4"
+                                                            Background="{DynamicResource PrimaryBackgroundBrush}"
+                                                            Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
+                                                        <StackPanel>
+                                                            <!-- Loop header row -->
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="28"/>
+                                                                </Grid.ColumnDefinitions>
+                                                                <Button Grid.Column="0"
+                                                                        Command="{Binding SelectCommand}"
+                                                                        Padding="8,6">
+                                                                    <Button.Style>
+                                                                        <Style TargetType="Button" BasedOn="{StaticResource PulseNodeButtonStyle}">
+                                                                            <Style.Triggers>
+                                                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                    <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                                                                </DataTrigger>
+                                                                            </Style.Triggers>
+                                                                        </Style>
+                                                                    </Button.Style>
+                                                                    <StackPanel Orientation="Horizontal">
+                                                                        <materialDesign:PackIcon Kind="VectorPolyline" Width="13" Height="13"
+                                                                                                 VerticalAlignment="Center" Margin="0,0,6,0"
+                                                                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
+                                                                        <TextBlock Text="{Binding Label}" FontSize="11"
+                                                                                   Foreground="{DynamicResource ForegroundBrush}"
+                                                                                   VerticalAlignment="Center"/>
+                                                                        <TextBlock Text="{Binding SubInfo}" FontSize="10"
+                                                                                   Foreground="{DynamicResource IconForegroundBrush}"
+                                                                                   VerticalAlignment="Center" Margin="5,0,0,0" Opacity="0.7"/>
+                                                                        <Border Style="{DynamicResource WarningBadgeStyle}"
+                                                                                Visibility="{Binding WarningCount, Converter={StaticResource CountToVisibility}}"
+                                                                                Margin="6,0,0,0">
+                                                                            <TextBlock Text="{Binding WarningCount}" FontSize="9"
+                                                                                       FontWeight="Bold" Foreground="Black"/>
+                                                                        </Border>
+                                                                    </StackPanel>
+                                                                </Button>
+                                                                <ToggleButton Grid.Column="1"
+                                                                              IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                                                              OverridesDefaultStyle="True"
+                                                                              Cursor="Hand" Focusable="False"
+                                                                              Width="28" Background="Transparent"
+                                                                              BorderThickness="0">
+                                                                    <ToggleButton.Template>
+                                                                        <ControlTemplate TargetType="ToggleButton">
+                                                                            <Border Background="Transparent">
+                                                                                <Path x:Name="Chev2" Data="M 0,0 L 4,4 L 8,0"
+                                                                                      Stroke="{DynamicResource IconForegroundBrush}"
+                                                                                      StrokeThickness="1.5" StrokeLineJoin="Round"
+                                                                                      Width="8" Height="4"
+                                                                                      HorizontalAlignment="Center"
+                                                                                      VerticalAlignment="Center"
+                                                                                      RenderTransformOrigin="0.5,0.5">
+                                                                                    <Path.RenderTransform>
+                                                                                        <RotateTransform x:Name="CR2" Angle="0"/>
+                                                                                    </Path.RenderTransform>
+                                                                                </Path>
+                                                                            </Border>
+                                                                            <ControlTemplate.Triggers>
+                                                                                <Trigger Property="IsChecked" Value="False">
+                                                                                    <Trigger.EnterActions>
+                                                                                        <BeginStoryboard><Storyboard>
+                                                                                            <DoubleAnimation Storyboard.TargetName="CR2"
+                                                                                                             Storyboard.TargetProperty="Angle"
+                                                                                                             To="-90" Duration="0:0:0.12"/>
+                                                                                        </Storyboard></BeginStoryboard>
+                                                                                    </Trigger.EnterActions>
+                                                                                    <Trigger.ExitActions>
+                                                                                        <BeginStoryboard><Storyboard>
+                                                                                            <DoubleAnimation Storyboard.TargetName="CR2"
+                                                                                                             Storyboard.TargetProperty="Angle"
+                                                                                                             To="0" Duration="0:0:0.12"/>
+                                                                                        </Storyboard></BeginStoryboard>
+                                                                                    </Trigger.ExitActions>
+                                                                                </Trigger>
+                                                                            </ControlTemplate.Triggers>
+                                                                        </ControlTemplate>
+                                                                    </ToggleButton.Template>
+                                                                </ToggleButton>
+                                                            </Grid>
 
-                            <!-- Sub info (device count) -->
-                            <TextBlock Text="{Binding SubInfo}"
-                                       FontSize="10"
-                                       VerticalAlignment="Center"
-                                       Margin="6,0,0,0"
-                                       Foreground="{DynamicResource IconForegroundBrush}"
-                                       Opacity="0.7"/>
-
-                            <!-- Warning badge -->
-                            <Border Style="{DynamicResource WarningBadgeStyle}"
-                                    Visibility="{Binding WarningCount, Converter={StaticResource CountToVisibility}}"
-                                    Margin="6,0,0,0"
-                                    VerticalAlignment="Center">
-                                <TextBlock FontSize="9" Foreground="Black" FontWeight="Bold">
-                                    <Run Text="{Binding WarningCount, Mode=OneWay}"/>
-                                </TextBlock>
+                                                            <!-- Loop content (devices), shown when expanded -->
+                                                            <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                                                <Border Height="1" Background="{DynamicResource BorderBrush}"/>
+                                                                <ItemsControl ItemsSource="{Binding Children}" Margin="0,2,0,2">
+                                                                    <ItemsControl.ItemTemplate>
+                                                                        <DataTemplate>
+                                                                            <!-- Device row -->
+                                                                            <Button Command="{Binding SelectCommand}"
+                                                                                    Padding="20,5,8,5"
+                                                                                    Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
+                                                                                <Button.Style>
+                                                                                    <Style TargetType="Button" BasedOn="{StaticResource PulseNodeButtonStyle}">
+                                                                                        <Style.Triggers>
+                                                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                                <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                                                                            </DataTrigger>
+                                                                                        </Style.Triggers>
+                                                                                    </Style>
+                                                                                </Button.Style>
+                                                                                <StackPanel Orientation="Horizontal">
+                                                                                    <materialDesign:PackIcon Kind="AccessPoint"
+                                                                                                             Width="12" Height="12"
+                                                                                                             VerticalAlignment="Center" Margin="0,0,6,0"
+                                                                                                             Foreground="{DynamicResource IconForegroundBrush}"/>
+                                                                                    <TextBlock Text="{Binding Label}" FontSize="11"
+                                                                                               Foreground="{DynamicResource ForegroundBrush}"
+                                                                                               VerticalAlignment="Center"/>
+                                                                                    <Border Style="{DynamicResource WarningBadgeStyle}"
+                                                                                            Visibility="{Binding WarningCount, Converter={StaticResource CountToVisibility}}"
+                                                                                            Margin="6,0,0,0">
+                                                                                        <TextBlock Text="{Binding WarningCount}" FontSize="9"
+                                                                                                   FontWeight="Bold" Foreground="Black"/>
+                                                                                    </Border>
+                                                                                </StackPanel>
+                                                                            </Button>
+                                                                        </DataTemplate>
+                                                                    </ItemsControl.ItemTemplate>
+                                                                </ItemsControl>
+                                                            </StackPanel>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </StackPanel>
                             </Border>
-                        </StackPanel>
-                    </HierarchicalDataTemplate>
-                </TreeView.ItemTemplate>
-            </TreeView>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
 
             <!-- Empty state -->
             <StackPanel Grid.Row="1"
-                        HorizontalAlignment="Center"
-                        VerticalAlignment="Center"
+                        HorizontalAlignment="Center" VerticalAlignment="Center"
                         Visibility="{Binding RootNodes.Count, Converter={StaticResource CountToVisibility}, ConverterParameter=Invert}">
                 <materialDesign:PackIcon Kind="DatabaseOff" Width="40" Height="40"
                                          HorizontalAlignment="Center"
                                          Foreground="{DynamicResource IconForegroundBrush}" Opacity="0.4"/>
-                <TextBlock Text="No data loaded"
-                           FontSize="12"
+                <TextBlock Text="No data loaded" FontSize="12"
                            HorizontalAlignment="Center"
-                           Foreground="{DynamicResource IconForegroundBrush}"
-                           Opacity="0.6"
-                           Margin="0,8,0,0"/>
-                <TextBlock Text="Press Refresh to collect system data"
-                           FontSize="10"
+                           Foreground="{DynamicResource IconForegroundBrush}" Opacity="0.6" Margin="0,8,0,0"/>
+                <TextBlock Text="Press Refresh to collect system data" FontSize="10"
                            HorizontalAlignment="Center"
-                           Foreground="{DynamicResource IconForegroundBrush}"
-                           Opacity="0.4"
-                           Margin="0,2,0,0"/>
+                           Foreground="{DynamicResource IconForegroundBrush}" Opacity="0.4" Margin="0,2,0,0"/>
             </StackPanel>
         </Grid>
     </Border>
 </UserControl>
+

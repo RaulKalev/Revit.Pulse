@@ -303,6 +303,41 @@
     </Style>
 
     <!-- ======================== -->
+    <!--  Pulse Node Button Style -->
+    <!--  (clickable topology row) -->
+    <!-- ======================== -->
+    <Style x:Key="PulseNodeButtonStyle" TargetType="{x:Type Button}">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Background"            Value="Transparent" />
+        <Setter Property="Foreground"            Value="{DynamicResource ForegroundBrush}" />
+        <Setter Property="BorderThickness"       Value="0" />
+        <Setter Property="Padding"               Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Cursor"                Value="Hand" />
+        <Setter Property="FocusVisualStyle"      Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Border x:Name="Bg"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource HighlightBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SelectionHoverBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================== -->
     <!--  Card Border Style       -->
     <!-- ======================== -->
     <Style x:Key="CardBorderStyle" TargetType="{x:Type Border}">

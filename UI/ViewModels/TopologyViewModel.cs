@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows.Input;
 using Pulse.Core.Graph;
 using Pulse.Core.Modules;
 
@@ -34,8 +35,11 @@ namespace Pulse.UI.ViewModels
             get => _selectedNode;
             set
             {
+                var prev = _selectedNode;
                 if (SetField(ref _selectedNode, value))
                 {
+                    if (prev != null) prev.IsSelected = false;
+                    if (value != null) value.IsSelected = true;
                     NodeSelected?.Invoke(value?.GraphNode);
                 }
             }
@@ -80,12 +84,14 @@ namespace Pulse.UI.ViewModels
                 .Select(n => n.Id)
                 .ToList();
 
+            Action<TopologyNodeViewModel> onSelect = node => SelectedNode = node;
+
             // Build the tree recursively
             foreach (string rootId in rootIds)
             {
                 if (nodeMap.TryGetValue(rootId, out var rootNode))
                 {
-                    var vm = BuildNodeTree(rootNode, nodeMap, children, data);
+                    var vm = BuildNodeTree(rootNode, nodeMap, children, data, onSelect);
                     RootNodes.Add(vm);
                 }
             }
@@ -98,9 +104,10 @@ namespace Pulse.UI.ViewModels
             Node node,
             Dictionary<string, Node> nodeMap,
             Dictionary<string, List<string>> children,
-            ModuleData data)
+            ModuleData data,
+            Action<TopologyNodeViewModel> onSelect)
         {
-            var vm = new TopologyNodeViewModel(node);
+            var vm = new TopologyNodeViewModel(node, onSelect);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -132,7 +139,7 @@ namespace Pulse.UI.ViewModels
 
                 foreach (var (_, childNode, _) in childNodes)
                 {
-                    var childVm = BuildNodeTree(childNode, nodeMap, children, data);
+                    var childVm = BuildNodeTree(childNode, nodeMap, children, data, onSelect);
                     vm.Children.Add(childVm);
                 }
             }
@@ -265,11 +272,21 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _isExpanded, value);
         }
 
+        private bool _isSelected;
+        public bool IsSelected
+        {
+            get => _isSelected;
+            set => SetField(ref _isSelected, value);
+        }
+
+        public ICommand SelectCommand { get; }
+
         public ObservableCollection<TopologyNodeViewModel> Children { get; } = new ObservableCollection<TopologyNodeViewModel>();
 
-        public TopologyNodeViewModel(Node graphNode)
+        public TopologyNodeViewModel(Node graphNode, Action<TopologyNodeViewModel> onSelect = null)
         {
             GraphNode = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
+            SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
         }
 
         /// <summary>Returns a display icon path or character based on node type.</summary>
