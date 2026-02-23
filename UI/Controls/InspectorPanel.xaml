@@ -21,127 +21,158 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Border Style="{DynamicResource CardBorderStyle}">
+    <Border Style="{DynamicResource CardBorderStyle}" Padding="0">
         <Grid>
-            <!-- No selection state -->
+
+            <!-- ── No selection placeholder ── -->
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
                         Visibility="{Binding HasSelection, Converter={StaticResource InverseBoolToVis}}">
                 <materialDesign:PackIcon Kind="InformationOutline" Width="32" Height="32"
                                          HorizontalAlignment="Center"
                                          Foreground="{DynamicResource IconForegroundBrush}" Opacity="0.4"/>
                 <TextBlock Text="Select an item to inspect"
-                           FontSize="11"
-                           HorizontalAlignment="Center"
+                           FontSize="11" HorizontalAlignment="Center"
                            Foreground="{DynamicResource IconForegroundBrush}"
-                           Opacity="0.5"
-                           Margin="0,6,0,0"/>
+                           Opacity="0.5" Margin="0,6,0,0"/>
             </StackPanel>
 
-            <!-- Selection details -->
+            <!-- ── Selection content ── -->
             <ScrollViewer Style="{StaticResource PulseScrollViewerStyle}"
                           Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
-                <StackPanel Margin="4">
-                    <!-- Entity header -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <materialDesign:PackIcon Kind="InformationOutline" Width="18" Height="18"
-                                                 VerticalAlignment="Center" Margin="0,0,6,0"
-                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
-                        <TextBlock Text="Inspector" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource ForegroundBrush}" VerticalAlignment="Center"/>
-                    </StackPanel>
+                <StackPanel Margin="6,6,6,6">
 
-                    <!-- Entity type and name -->
-                    <TextBlock Text="{Binding EntityType}" FontSize="10"
-                               Foreground="{DynamicResource IconForegroundBrush}"
-                               Margin="0,0,0,2"/>
-                    <TextBlock Text="{Binding Title}" FontSize="16" FontWeight="Bold"
-                               Foreground="{DynamicResource ForegroundBrush}"
-                               TextWrapping="Wrap"
-                               Margin="0,0,0,8"/>
-
-                    <!-- Statistics row -->
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <!-- Warning count badge -->
-                        <Border Style="{DynamicResource WarningBadgeStyle}"
-                                Visibility="{Binding WarningCount, Converter={StaticResource CountToVisibility}}">
+                    <!-- ╔══════════════════════════════╗ -->
+                    <!-- ║  HEADER CARD (always visible) ║ -->
+                    <!-- ╚══════════════════════════════╝ -->
+                    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="5"
+                            Padding="10,8" Margin="0,0,0,6">
+                        <StackPanel>
+                            <!-- Entity type pill -->
+                            <Border Background="{DynamicResource HighlightBrush}"
+                                    CornerRadius="3" Padding="5,2"
+                                    HorizontalAlignment="Left" Margin="0,0,0,4">
+                                <TextBlock Text="{Binding EntityType}"
+                                           FontSize="9" FontWeight="Bold"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextOptions.TextFormattingMode="Display"/>
+                            </Border>
+                            <!-- Entity name -->
+                            <TextBlock Text="{Binding Title}"
+                                       FontSize="15" FontWeight="Bold"
+                                       Foreground="{DynamicResource ForegroundBrush}"
+                                       TextWrapping="Wrap" Margin="0,0,0,6"/>
+                            <!-- Badge row -->
                             <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="AlertOutline" Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,3,0" Foreground="Black"/>
-                                <TextBlock FontSize="10" FontWeight="Bold" Foreground="Black">
-                                    <Run Text="{Binding WarningCount, Mode=OneWay}"/>
-                                    <Run Text="warnings"/>
-                                </TextBlock>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- Device count -->
-                        <Border Style="{DynamicResource InfoBadgeStyle}"
-                                Visibility="{Binding ChildDeviceCount, Converter={StaticResource CountToVisibility}}">
-                            <StackPanel Orientation="Horizontal">
-                                <materialDesign:PackIcon Kind="AccessPoint" Width="12" Height="12" VerticalAlignment="Center" Margin="0,0,3,0" Foreground="Black"/>
-                                <TextBlock FontSize="10" FontWeight="Bold" Foreground="Black">
-                                    <Run Text="{Binding ChildDeviceCount, Mode=OneWay}"/>
-                                    <Run Text="devices"/>
-                                </TextBlock>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-
-                    <!-- Separator -->
-                    <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,4,0,8"/>
-
-                    <!-- Properties list -->
-                    <TextBlock Text="PROPERTIES" FontSize="10" FontWeight="SemiBold"
-                               Foreground="{DynamicResource IconForegroundBrush}"
-                               Margin="0,0,0,4"
-                               Visibility="{Binding Properties.Count, Converter={StaticResource CountToVisibility}}"/>
-                    <ItemsControl ItemsSource="{Binding Properties}" Margin="0,0,0,8">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,1">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="80"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding Key}" FontSize="11"
-                                               Foreground="{DynamicResource IconForegroundBrush}"
-                                               Margin="0,0,8,0"/>
-                                    <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11"
-                                               Foreground="{DynamicResource ForegroundBrush}"
-                                               TextWrapping="Wrap"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <!-- Warnings list -->
-                    <TextBlock Text="WARNINGS" FontSize="10" FontWeight="SemiBold"
-                               Foreground="{DynamicResource IconForegroundBrush}"
-                               Margin="0,0,0,4"
-                               Visibility="{Binding Warnings.Count, Converter={StaticResource CountToVisibility}}"/>
-                    <ItemsControl ItemsSource="{Binding Warnings}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Background="{DynamicResource HighlightBrush}"
-                                        CornerRadius="3" Padding="6,4" Margin="0,2">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <Border Background="{Binding Severity, Converter={StaticResource SeverityToBrush}}"
-                                                    CornerRadius="3" Padding="4,1" Margin="0,0,6,0">
-                                                <TextBlock Text="{Binding SeverityLabel}" FontSize="9"
-                                                           FontWeight="Bold" Foreground="Black"/>
-                                            </Border>
-                                            <TextBlock Text="{Binding RuleName}" FontSize="10"
-                                                       Foreground="{DynamicResource IconForegroundBrush}"
-                                                       VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                        <TextBlock Text="{Binding Message}" FontSize="11"
-                                                   Foreground="{DynamicResource ForegroundBrush}"
-                                                   TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                <Border Style="{DynamicResource WarningBadgeStyle}"
+                                        Visibility="{Binding WarningCount, Converter={StaticResource CountToVisibility}}"
+                                        Margin="0,0,4,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="AlertOutline" Width="11" Height="11"
+                                                                 VerticalAlignment="Center" Margin="0,0,3,0" Foreground="Black"/>
+                                        <TextBlock FontSize="10" FontWeight="Bold" Foreground="Black">
+                                            <Run Text="{Binding WarningCount, Mode=OneWay}"/>
+                                            <Run Text="warnings"/>
+                                        </TextBlock>
                                     </StackPanel>
                                 </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
+                                <Border Style="{DynamicResource InfoBadgeStyle}"
+                                        Visibility="{Binding ChildDeviceCount, Converter={StaticResource CountToVisibility}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="AccessPoint" Width="11" Height="11"
+                                                                 VerticalAlignment="Center" Margin="0,0,3,0" Foreground="Black"/>
+                                        <TextBlock FontSize="10" FontWeight="Bold" Foreground="Black">
+                                            <Run Text="{Binding ChildDeviceCount, Mode=OneWay}"/>
+                                            <Run Text="devices"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ╔══════════════════════════╗ -->
+                    <!-- ║  PROPERTIES CARD          ║ -->
+                    <!-- ╚══════════════════════════╝ -->
+                    <Expander Style="{StaticResource PulseExpanderStyle}"
+                              IsExpanded="True"
+                              Visibility="{Binding Properties.Count, Converter={StaticResource CountToVisibility}}">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="TagOutline" Width="13" Height="13"
+                                                         VerticalAlignment="Center" Margin="0,0,5,0"
+                                                         Foreground="{DynamicResource IconForegroundBrush}"/>
+                                <TextBlock Text="PROPERTIES" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <ItemsControl ItemsSource="{Binding Properties}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" MinWidth="80" MaxWidth="110"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0" Text="{Binding Key}" FontSize="11"
+                                                   Foreground="{DynamicResource IconForegroundBrush}"
+                                                   Margin="0,0,8,0" TextWrapping="NoWrap"/>
+                                        <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11"
+                                                   Foreground="{DynamicResource ForegroundBrush}"
+                                                   TextWrapping="Wrap"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander>
+
+                    <!-- ╔══════════════════════════╗ -->
+                    <!-- ║  WARNINGS CARD            ║ -->
+                    <!-- ╚══════════════════════════╝ -->
+                    <Expander Style="{StaticResource PulseExpanderStyle}"
+                              IsExpanded="True"
+                              Visibility="{Binding Warnings.Count, Converter={StaticResource CountToVisibility}}">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="AlertOutline" Width="13" Height="13"
+                                                         VerticalAlignment="Center" Margin="0,0,5,0"
+                                                         Foreground="#FFFFC107"/>
+                                <TextBlock Text="WARNINGS" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Border Background="#FFFFC107" CornerRadius="8" Padding="5,1" Margin="6,0,0,0">
+                                    <TextBlock Text="{Binding Warnings.Count}" FontSize="9" FontWeight="Bold" Foreground="Black"/>
+                                </Border>
+                            </StackPanel>
+                        </Expander.Header>
+                        <ItemsControl ItemsSource="{Binding Warnings}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource HighlightBrush}"
+                                            CornerRadius="3" Padding="8,6" Margin="0,0,0,4">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
+                                                <Border Background="{Binding Severity, Converter={StaticResource SeverityToBrush}}"
+                                                        CornerRadius="3" Padding="4,1" Margin="0,0,6,0">
+                                                    <TextBlock Text="{Binding SeverityLabel}" FontSize="9"
+                                                               FontWeight="Bold" Foreground="Black"/>
+                                                </Border>
+                                                <TextBlock Text="{Binding RuleName}" FontSize="10"
+                                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding Message}" FontSize="11"
+                                                       Foreground="{DynamicResource ForegroundBrush}"
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Expander>
+
                 </StackPanel>
             </ScrollViewer>
         </Grid>
