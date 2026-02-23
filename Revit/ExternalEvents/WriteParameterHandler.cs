@@ -50,24 +50,25 @@ namespace Pulse.Revit.ExternalEvents
                         var element = doc.GetElement(new ElementId(elementId));
                         if (element == null) continue;
 
-                        // Try instance parameter first; fall back to the element type for type parameters.
-                        Parameter param = element.LookupParameter(paramName);
-                        if (param == null || param.IsReadOnly)
+                        // Try instance parameter first, then the element type.
+                        // We always try both because LookupParameter on an instance can
+                        // return a type parameter that appears writable but whose Set()
+                        // has no effect when called via the instance — the type element
+                        // must be used directly for true type parameters.
+                        if (TryWriteParam(element, paramName, value))
                         {
-                            var typeId = element.GetTypeId();
-                            if (typeId != null && typeId != ElementId.InvalidElementId)
-                            {
-                                var typeElem = doc.GetElement(typeId);
-                                if (typeElem != null)
-                                    param = typeElem.LookupParameter(paramName);
-                            }
+                            count++;
+                            continue;
                         }
 
-                        if (param == null || param.IsReadOnly || param.StorageType != StorageType.String)
-                            continue;
+                        var typeId = element.GetTypeId();
+                        if (typeId == null || typeId == ElementId.InvalidElementId) continue;
 
-                        param.Set(value ?? string.Empty);
-                        count++;
+                        var typeElem = doc.GetElement(typeId);
+                        if (typeElem == null) continue;
+
+                        if (TryWriteParam(typeElem, paramName, value))
+                            count++;
                     }
 
                     tx.Commit();
@@ -83,5 +84,14 @@ namespace Pulse.Revit.ExternalEvents
         }
 
         public string GetName() => "Pulse.WriteParameter";
+
+        private static bool TryWriteParam(Element element, string paramName, string value)
+        {
+            var param = element.LookupParameter(paramName);
+            if (param == null || param.IsReadOnly || param.StorageType != StorageType.String)
+                return false;
+            param.Set(value ?? string.Empty);
+            return true;
+        }
     }
 }
