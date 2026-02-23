@@ -11,7 +11,12 @@
     mc:Ignorable="d">
 
     <UserControl.Resources>
-        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Border
@@ -53,7 +58,7 @@
                                 Height="20"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
-                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                Foreground="{DynamicResource IconBrush}"
                                 Kind="CloseCircleOutline" />
                         </Grid>
                         <ControlTemplate.Triggers>
@@ -88,7 +93,7 @@
                                 Height="20"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
-                                Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                Foreground="{DynamicResource IconBrush}"
                                 Kind="MinusCircleOutline" />
                         </Grid>
                         <ControlTemplate.Triggers>

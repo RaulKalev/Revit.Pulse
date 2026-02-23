@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Input;
 using Autodesk.Revit.UI;
+using Pulse.Helpers;
 using Pulse.UI.ViewModels;
 
 namespace Pulse.UI
@@ -24,6 +25,24 @@ namespace Pulse.UI
             _viewModel.Initialize(this);
 
             _resizer = new WindowResizer(this);
+
+            Loaded  += OnLoaded;
+            Closing += OnClosing;
+        }
+
+        private void OnLoaded(object sender, RoutedEventArgs e)
+        {
+            var p = WindowPlacementService.Load();
+            if (p == null) return;
+            Left   = p.Left;
+            Top    = p.Top;
+            Width  = p.Width;
+            Height = p.Height;
+        }
+
+        private void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            WindowPlacementService.Save(Left, Top, Width, Height);
         }
 
         // ---- Resize Grip Handlers (same pattern as original ProSchedules) ----
