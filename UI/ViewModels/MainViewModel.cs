@@ -437,26 +437,35 @@ namespace Pulse.UI.ViewModels
             // Prefer writing to the node's own Revit element (panel board / electrical circuit).
             // Fall back to stamping all descendant devices when no direct element is resolved.
             System.Collections.Generic.List<(long, string, string)> writes;
+            string writeTarget;
             if (vm.GraphNode.RevitElementId.HasValue)
             {
                 writes = new System.Collections.Generic.List<(long, string, string)>
                 {
                     (vm.GraphNode.RevitElementId.Value, paramName, configName)
                 };
+                writeTarget = vm.NodeType == "Panel" ? "FACP element" : "circuit element";
             }
             else if (vm.DescendantDeviceElementIds.Count > 0)
             {
                 writes = vm.DescendantDeviceElementIds
                     .Select(id => (id, paramName, configName))
                     .ToList();
+                writeTarget = "descendant devices (no direct element resolved)";
             }
-            else return;
+            else
+            {
+                StatusText = $"Config '{configName}' not written — no Revit element resolved for '{vm.Label}'.";
+                return;
+            }
 
             _writeParamHandler.Writes = writes;
 
             _writeParamHandler.OnCompleted = count =>
                 Application.Current?.Dispatcher?.Invoke(() =>
-                    StatusText = $"Config '{configName}' written to {count} device(s).");
+                    StatusText = count > 0
+                        ? $"Config '{configName}' written to {writeTarget} ({paramName})."
+                        : $"Write succeeded but 0 elements updated — check that '{paramName}' exists as a writable string parameter on the {writeTarget}.");
 
             _writeParamHandler.OnError = ex =>
                 Application.Current?.Dispatcher?.Invoke(() =>
