@@ -116,13 +116,24 @@ namespace Pulse.UI.ViewModels
 
             if (children.TryGetValue(node.Id, out var childIds))
             {
+                // Collect child nodes, sort numerically by type-appropriate key,
+                // then build their sub-trees.
+                var childNodes = new List<(string id, Node node, int sortKey)>();
                 foreach (string childId in childIds)
                 {
                     if (nodeMap.TryGetValue(childId, out var childNode))
                     {
-                        var childVm = BuildNodeTree(childNode, nodeMap, children, data);
-                        vm.Children.Add(childVm);
+                        int key = GetNumericSortKey(childNode);
+                        childNodes.Add((childId, childNode, key));
                     }
+                }
+
+                childNodes.Sort((a, b) => a.sortKey.CompareTo(b.sortKey));
+
+                foreach (var (_, childNode, _) in childNodes)
+                {
+                    var childVm = BuildNodeTree(childNode, nodeMap, children, data);
+                    vm.Children.Add(childVm);
                 }
             }
 
@@ -162,6 +173,57 @@ namespace Pulse.UI.ViewModels
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// Returns a numeric sort key for a node.
+        /// Loops:   parse the Loop number from the label ("Loop 3" → 3).
+        /// Devices:  parse the Address property as an integer.
+        /// Others:  fall back to parsing the label.
+        /// Strings that contain no leading integer sort after all numeric values.
+        /// </summary>
+        private static int GetNumericSortKey(Node node)
+        {
+            if (node.NodeType == "Device")
+            {
+                if (node.Properties.TryGetValue("Address", out string addr) && !string.IsNullOrWhiteSpace(addr))
+                    return ParseLeadingInt(addr);
+                // Fall back to label when address is absent
+                return ParseLeadingInt(node.Label);
+            }
+
+            // Loop, Panel, Zone — sort by the first integer found in the label
+            return ParseLeadingInt(node.Label);
+        }
+
+        /// <summary>
+        /// Extracts the first contiguous run of digits from a string and returns
+        /// it as an integer.  Returns int.MaxValue when no digit is found so that
+        /// label-less items always sort to the end.
+        /// </summary>
+        private static int ParseLeadingInt(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return int.MaxValue;
+
+            int start = -1;
+            for (int i = 0; i < text.Length; i++)
+            {
+                if (char.IsDigit(text[i]))
+                {
+                    if (start < 0) start = i;
+                }
+                else if (start >= 0)
+                {
+                    // First run of digits ended
+                    if (int.TryParse(text.Substring(start, i - start), out int v)) return v;
+                    start = -1;
+                }
+            }
+
+            // Digits ran to the end of the string
+            if (start >= 0 && int.TryParse(text.Substring(start), out int val)) return val;
+
+            return int.MaxValue;
         }
     }
 
