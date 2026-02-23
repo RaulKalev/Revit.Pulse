@@ -1,0 +1,69 @@
+<UserControl
+    x:Class="Pulse.UI.Controls.StatusStrip"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:converters="clr-namespace:Pulse.UI.Converters"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <converters:CountToVisibilityConverter x:Key="CountToVisibility"/>
+    </UserControl.Resources>
+
+    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="0,1,0,0"
+            CornerRadius="0,0,10,10"
+            Padding="8,2">
+        <DockPanel>
+            <!-- Left: Status text -->
+            <TextBlock Text="{Binding StatusText}"
+                       FontSize="10"
+                       Foreground="{DynamicResource IconForegroundBrush}"
+                       VerticalAlignment="Center"
+                       DockPanel.Dock="Left"
+                       TextTrimming="CharacterEllipsis"/>
+
+            <!-- Right: Summary badges -->
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" HorizontalAlignment="Right">
+                <!-- Device count -->
+                <StackPanel Orientation="Horizontal" Margin="8,0,0,0"
+                            Visibility="{Binding TotalDevices, Converter={StaticResource CountToVisibility}}">
+                    <materialDesign:PackIcon Kind="AccessPoint" Width="12" Height="12"
+                                             VerticalAlignment="Center" Margin="0,0,3,0"
+                                             Foreground="{DynamicResource IconForegroundBrush}"/>
+                    <TextBlock FontSize="10" VerticalAlignment="Center"
+                               Foreground="{DynamicResource IconForegroundBrush}">
+                        <Run Text="{Binding TotalDevices, Mode=OneWay}"/>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Warning count -->
+                <StackPanel Orientation="Horizontal" Margin="8,0,0,0"
+                            Visibility="{Binding TotalWarnings, Converter={StaticResource CountToVisibility}}">
+                    <materialDesign:PackIcon Kind="AlertOutline" Width="12" Height="12"
+                                             VerticalAlignment="Center" Margin="0,0,3,0"
+                                             Foreground="#FFFFC107"/>
+                    <TextBlock FontSize="10" VerticalAlignment="Center"
+                               Foreground="#FFFFC107">
+                        <Run Text="{Binding TotalWarnings, Mode=OneWay}"/>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Error count -->
+                <StackPanel Orientation="Horizontal" Margin="8,0,0,0"
+                            Visibility="{Binding TotalErrors, Converter={StaticResource CountToVisibility}}">
+                    <materialDesign:PackIcon Kind="AlertCircleOutline" Width="12" Height="12"
+                                             VerticalAlignment="Center" Margin="0,0,3,0"
+                                             Foreground="#FFDC6B6B"/>
+                    <TextBlock FontSize="10" VerticalAlignment="Center"
+                               Foreground="#FFDC6B6B">
+                        <Run Text="{Binding TotalErrors, Mode=OneWay}"/>
+                    </TextBlock>
+                </StackPanel>
+            </StackPanel>
+        </DockPanel>
+    </Border>
+</UserControl>
