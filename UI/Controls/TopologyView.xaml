@@ -52,6 +52,7 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="154"/>
                                             <ColumnDefinition Width="30"/>
                                         </Grid.ColumnDefinitions>
                                         <!-- Selection button (col 0) -->
@@ -82,8 +83,16 @@
                                                 </Border>
                                             </StackPanel>
                                         </Button>
-                                        <!-- Expand/collapse chevron (col 1) -->
-                                        <ToggleButton Grid.Column="1"
+                                        <!-- Config combobox (col 1) -->
+                                        <ComboBox Grid.Column="1"
+                                                  ItemsSource="{Binding AvailableConfigs}"
+                                                  SelectedItem="{Binding AssignedConfig, Mode=TwoWay}"
+                                                  Style="{StaticResource DarkComboBoxStyle}"
+                                                  VerticalAlignment="Center" Margin="0,0,4,0"
+                                                  Visibility="{Binding AvailableConfigs.Count,
+                                                               Converter={StaticResource CountToVisibility}}"/>
+                                        <!-- Expand/collapse chevron (col 2) -->
+                                        <ToggleButton Grid.Column="2"
                                                       IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                       OverridesDefaultStyle="True"
                                                       Cursor="Hand" Focusable="False"
@@ -146,6 +155,7 @@
                                                             <Grid>
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="*"/>
+                                                                    <ColumnDefinition Width="141"/>
                                                                     <ColumnDefinition Width="28"/>
                                                                 </Grid.ColumnDefinitions>
                                                                 <Button Grid.Column="0"
@@ -178,7 +188,15 @@
                                                                         </Border>
                                                                     </StackPanel>
                                                                 </Button>
-                                                                <ToggleButton Grid.Column="1"
+                                                                <!-- Loop config combobox (col 1) -->
+                                                                <ComboBox Grid.Column="1"
+                                                                          ItemsSource="{Binding AvailableConfigs}"
+                                                                          SelectedItem="{Binding AssignedConfig, Mode=TwoWay}"
+                                                                          Style="{StaticResource DarkComboBoxStyle}"
+                                                                          VerticalAlignment="Center" Margin="0,0,4,0"
+                                                                          Visibility="{Binding AvailableConfigs.Count,
+                                                                                       Converter={StaticResource CountToVisibility}}"/>
+                                                                <ToggleButton Grid.Column="2"
                                                                               IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                                               OverridesDefaultStyle="True"
                                                                               Cursor="Hand" Focusable="False"

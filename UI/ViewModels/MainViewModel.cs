@@ -42,6 +42,8 @@ namespace Pulse.UI.ViewModels
         private readonly ExternalEvent _resetEvent;
         private readonly SaveSettingsHandler _saveSettingsHandler;
         private readonly ExternalEvent _saveSettingsEvent;
+        private readonly WriteParameterHandler _writeParamHandler;
+        private readonly ExternalEvent _writeParamEvent;
 
         // Child ViewModels
         public TopologyViewModel Topology { get; }
@@ -132,7 +134,8 @@ namespace Pulse.UI.ViewModels
             Inspector = new InspectorViewModel();
 
             // Wire up topology selection events
-            Topology.NodeSelected += OnTopologyNodeSelected;
+            Topology.NodeSelected     += OnTopologyNodeSelected;
+            Topology.ConfigAssigned   += OnTopologyConfigAssigned;
 
             // Create ExternalEvent handlers
             _collectHandler = new CollectDevicesHandler();
@@ -149,6 +152,9 @@ namespace Pulse.UI.ViewModels
 
             _saveSettingsHandler = new SaveSettingsHandler();
             _saveSettingsEvent = ExternalEvent.Create(_saveSettingsHandler);
+
+            _writeParamHandler = new WriteParameterHandler();
+            _writeParamEvent   = ExternalEvent.Create(_writeParamHandler);
 
             // Create commands
             RefreshCommand = new RelayCommand(ExecuteRefresh, () => !IsLoading);
@@ -222,6 +228,7 @@ namespace Pulse.UI.ViewModels
 
             // Update topology
             Topology.LoadFromModuleData(data);
+            Topology.RestoreExpandState(UiStateService.Load().ExpandedNodeIds);
 
             // Update status
             int panelCount = data.Panels.Count;
@@ -399,6 +406,48 @@ namespace Pulse.UI.ViewModels
                 Owner = _ownerWindow
             };
             win.ShowDialog();
+        }
+
+        /// <summary>Save topology expand state to %APPDATA%\Pulse\ui-state.json.</summary>
+        public void SaveExpandState()
+        {
+            var state = UiStateService.Load();
+            state.ExpandedNodeIds = new System.Collections.Generic.HashSet<string>(Topology.GetExpandedNodeIds());
+            UiStateService.Save(state);
+        }
+
+        /// <summary>
+        /// Called when the user assigns a config in a panel/loop combobox.
+        /// Writes the config name to the appropriate Revit parameter on all descendant devices.
+        /// </summary>
+        private void OnTopologyConfigAssigned(TopologyNodeViewModel vm)
+        {
+            if (vm == null) return;
+
+            string paramName = null;
+            if (vm.NodeType == "Panel")
+                paramName = _activeSettings?.GetRevitParameterName(FireAlarmParameterKeys.PanelConfig);
+            else if (vm.NodeType == "Loop")
+                paramName = _activeSettings?.GetRevitParameterName(FireAlarmParameterKeys.LoopModuleConfig);
+
+            // No parameter configured or no devices to stamp — silently skip
+            if (string.IsNullOrEmpty(paramName) || vm.DescendantDeviceElementIds.Count == 0)
+                return;
+
+            var configName = vm.AssignedConfig ?? string.Empty;
+            _writeParamHandler.Writes = vm.DescendantDeviceElementIds
+                .Select(id => (id, paramName, configName))
+                .ToList();
+
+            _writeParamHandler.OnCompleted = count =>
+                Application.Current?.Dispatcher?.Invoke(() =>
+                    StatusText = $"Config '{configName}' written to {count} device(s).");
+
+            _writeParamHandler.OnError = ex =>
+                Application.Current?.Dispatcher?.Invoke(() =>
+                    StatusText = $"Could not write config: {ex.Message}");
+
+            _writeParamEvent.Raise();
         }
 
         /// <summary>Open the Settings dialog for the active module.</summary>

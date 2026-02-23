@@ -383,6 +383,134 @@
     </Style>
 
     <!-- ======================== -->
+    <!--  Dark ComboBox Style     -->
+    <!-- ======================== -->
+    <Style x:Key="DarkComboBoxStyle" TargetType="{x:Type ComboBox}">
+        <Setter Property="OverridesDefaultStyle"          Value="True" />
+        <Setter Property="SnapsToDevicePixels"            Value="True" />
+        <Setter Property="Background"                     Value="{DynamicResource SecondaryBackgroundBrush}" />
+        <Setter Property="Foreground"                     Value="{DynamicResource ForegroundBrush}" />
+        <Setter Property="BorderBrush"                    Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness"                Value="1" />
+        <Setter Property="Height"                         Value="26" />
+        <Setter Property="FontSize"                       Value="11" />
+        <Setter Property="FocusVisualStyle"               Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ComboBox}">
+                    <Grid>
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="22" />
+                                </Grid.ColumnDefinitions>
+                                <!-- Selected value -->
+                                <ContentPresenter Grid.Column="0"
+                                                  Content="{TemplateBinding SelectionBoxItem}"
+                                                  ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                                  Margin="8,0,2,0"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Left"
+                                                  IsHitTestVisible="False" />
+                                <!-- Dropdown arrow -->
+                                <Path Grid.Column="1"
+                                      Data="M 0,0 L 4,4 L 8,0"
+                                      Stroke="{DynamicResource IconForegroundBrush}"
+                                      StrokeThickness="1.5" StrokeLineJoin="Round"
+                                      Width="8" Height="4"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      IsHitTestVisible="False" />
+                            </Grid>
+                        </Border>
+                        <!-- Transparent toggle drives IsDropDownOpen -->
+                        <ToggleButton OverridesDefaultStyle="True"
+                                      Background="Transparent" BorderThickness="0"
+                                      IsChecked="{Binding Path=IsDropDownOpen,
+                                                          RelativeSource={RelativeSource TemplatedParent},
+                                                          Mode=TwoWay}"
+                                      Focusable="False" Cursor="Hand">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                    <Border Background="Transparent" CornerRadius="4" />
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <!-- Dropdown popup -->
+                        <Popup x:Name="PART_Popup"
+                               IsOpen="{TemplateBinding IsDropDownOpen}"
+                               AllowsTransparency="True"
+                               Focusable="False"
+                               Placement="Bottom"
+                               PopupAnimation="Slide">
+                            <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=Grid}}"
+                                    MaxHeight="200"
+                                    Margin="0,2,0,0">
+                                <ScrollViewer Style="{StaticResource PulseScrollViewerStyle}">
+                                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained" />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush"
+                                    Value="{DynamicResource IconForegroundBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsDropDownOpen" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#FF0078D7" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <!-- Item container style -->
+        <Setter Property="ItemContainerStyle">
+            <Setter.Value>
+                <Style TargetType="{x:Type ComboBoxItem}">
+                    <Setter Property="OverridesDefaultStyle"       Value="True" />
+                    <Setter Property="Background"                  Value="Transparent" />
+                    <Setter Property="Foreground"                  Value="{DynamicResource ForegroundBrush}" />
+                    <Setter Property="Padding"                     Value="8,5" />
+                    <Setter Property="FontSize"                    Value="11" />
+                    <Setter Property="FocusVisualStyle"            Value="{x:Null}" />
+                    <Setter Property="HorizontalContentAlignment" Value="Left" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="{x:Type ComboBoxItem}">
+                                <Border x:Name="Bg"
+                                        Background="{TemplateBinding Background}"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsHighlighted" Value="True">
+                                        <Setter TargetName="Bg" Property="Background"
+                                                Value="{DynamicResource HighlightBrush}" />
+                                    </Trigger>
+                                    <Trigger Property="IsSelected" Value="True">
+                                        <Setter TargetName="Bg" Property="Background"
+                                                Value="{DynamicResource SelectionHoverBrush}" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================== -->
     <!--  Card Border Style       -->
     <!-- ======================== -->
     <Style x:Key="CardBorderStyle" TargetType="{x:Type Border}">

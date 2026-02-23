@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows.Input;
 using Pulse.Core.Graph;
 using Pulse.Core.Modules;
+using Pulse.Core.Settings;
 
 namespace Pulse.UI.ViewModels
 {
@@ -24,10 +25,19 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         private List<TopologyNodeViewModel> _allNodes = new List<TopologyNodeViewModel>();
 
+        /// <summary>Current device config store — kept in sync after each load.</summary>
+        private DeviceConfigStore _deviceStore = new DeviceConfigStore();
+
         /// <summary>
         /// Fired when a node is selected in the topology.
         /// </summary>
         public event Action<Node> NodeSelected;
+
+        /// <summary>
+        /// Fired when the user picks a config in a panel/loop combobox.
+        /// MainViewModel handles the ExternalEvent write.
+        /// </summary>
+        public event Action<TopologyNodeViewModel> ConfigAssigned;
 
         private TopologyNodeViewModel _selectedNode;
         public TopologyNodeViewModel SelectedNode
@@ -86,12 +96,31 @@ namespace Pulse.UI.ViewModels
 
             Action<TopologyNodeViewModel> onSelect = node => SelectedNode = node;
 
+            // Load device config for combobox options and initial assignments
+            _deviceStore = DeviceConfigService.Load();
+            var panelOptions = _deviceStore.ControlPanels.Select(p => p.Name).ToList();
+            var loopOptions  = _deviceStore.LoopModules.Select(m => m.Name).ToList();
+
+            Action<TopologyNodeViewModel> onAssignConfig = vm =>
+            {
+                // Persist assignment locally
+                if (vm.NodeType == "Panel")
+                    _deviceStore.PanelAssignments[vm.Label] = vm.AssignedConfig ?? string.Empty;
+                else if (vm.NodeType == "Loop")
+                    _deviceStore.LoopAssignments[vm.Label] = vm.AssignedConfig ?? string.Empty;
+                DeviceConfigService.Save(_deviceStore);
+
+                // Notify MainViewModel so it can write to Revit
+                ConfigAssigned?.Invoke(vm);
+            };
+
             // Build the tree recursively
             foreach (string rootId in rootIds)
             {
                 if (nodeMap.TryGetValue(rootId, out var rootNode))
                 {
-                    var vm = BuildNodeTree(rootNode, nodeMap, children, data, onSelect);
+                    var vm = BuildNodeTree(rootNode, nodeMap, children, data, onSelect,
+                                          onAssignConfig, panelOptions, loopOptions);
                     RootNodes.Add(vm);
                 }
             }
@@ -105,9 +134,27 @@ namespace Pulse.UI.ViewModels
             Dictionary<string, Node> nodeMap,
             Dictionary<string, List<string>> children,
             ModuleData data,
-            Action<TopologyNodeViewModel> onSelect)
+            Action<TopologyNodeViewModel> onSelect,
+            Action<TopologyNodeViewModel> onAssignConfig,
+            IReadOnlyList<string> panelOptions,
+            IReadOnlyList<string> loopOptions)
         {
-            var vm = new TopologyNodeViewModel(node, onSelect);
+            // Determine available config options and current assignment for this node type
+            IReadOnlyList<string> availableConfigs = null;
+            string initialAssignment = null;
+
+            if (node.NodeType == "Panel")
+            {
+                availableConfigs = panelOptions;
+                _deviceStore.PanelAssignments.TryGetValue(node.Label, out initialAssignment);
+            }
+            else if (node.NodeType == "Loop")
+            {
+                availableConfigs = loopOptions;
+                _deviceStore.LoopAssignments.TryGetValue(node.Label, out initialAssignment);
+            }
+
+            var vm = new TopologyNodeViewModel(node, onSelect, onAssignConfig, availableConfigs, initialAssignment);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -139,10 +186,15 @@ namespace Pulse.UI.ViewModels
 
                 foreach (var (_, childNode, _) in childNodes)
                 {
-                    var childVm = BuildNodeTree(childNode, nodeMap, children, data, onSelect);
+                    var childVm = BuildNodeTree(childNode, nodeMap, children, data, onSelect,
+                                               onAssignConfig, panelOptions, loopOptions);
                     vm.Children.Add(childVm);
                 }
             }
+
+            // Collect device ElementIds for this node so the write handler knows which elements to stamp
+            if (node.NodeType == "Panel" || node.NodeType == "Loop")
+                CollectDescendantDeviceIds(vm);
 
             return vm;
         }
@@ -180,6 +232,32 @@ namespace Pulse.UI.ViewModels
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// Populate DescendantDeviceElementIds on a panel/loop node by walking its children.
+        /// </summary>
+        private static void CollectDescendantDeviceIds(TopologyNodeViewModel vm)
+        {
+            foreach (var child in vm.Children)
+            {
+                if (child.NodeType == "Device" && child.GraphNode.RevitElementId.HasValue)
+                    vm.DescendantDeviceElementIds.Add(child.GraphNode.RevitElementId.Value);
+                else
+                    CollectDescendantDeviceIds(child);
+            }
+        }
+
+        /// <summary>Returns the IDs of all currently expanded nodes (for UI state persistence).</summary>
+        public List<string> GetExpandedNodeIds()
+            => _allNodes.Where(n => n.IsExpanded).Select(n => n.GraphNode.Id).ToList();
+
+        /// <summary>Restores expand state for any node whose ID is in the provided set.</summary>
+        public void RestoreExpandState(IEnumerable<string> ids)
+        {
+            var idSet = new HashSet<string>(ids ?? Enumerable.Empty<string>());
+            foreach (var node in _allNodes)
+                node.IsExpanded = idSet.Contains(node.GraphNode.Id);
         }
 
         /// <summary>
@@ -265,7 +343,7 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _isVisible, value);
         }
 
-        private bool _isExpanded = true;
+        private bool _isExpanded = false;
         public bool IsExpanded
         {
             get => _isExpanded;
@@ -281,12 +359,49 @@ namespace Pulse.UI.ViewModels
 
         public ICommand SelectCommand { get; }
 
+        /// <summary>Config names available for this node type (Panel → panel configs, Loop → loop modules).</summary>
+        public ObservableCollection<string> AvailableConfigs { get; } = new ObservableCollection<string>();
+
+        /// <summary>RevitElementIds of all leaf Device descendants — used for Revit parameter writes.</summary>
+        public List<long> DescendantDeviceElementIds { get; } = new List<long>();
+
+        private readonly Action<TopologyNodeViewModel> _onAssignConfig;
+
+        private string _assignedConfig;
+        /// <summary>The currently assigned config name. Setting this triggers a save + Revit write.</summary>
+        public string AssignedConfig
+        {
+            get => _assignedConfig;
+            set
+            {
+                if (SetField(ref _assignedConfig, value))
+                    _onAssignConfig?.Invoke(this);
+            }
+}
+
         public ObservableCollection<TopologyNodeViewModel> Children { get; } = new ObservableCollection<TopologyNodeViewModel>();
 
-        public TopologyNodeViewModel(Node graphNode, Action<TopologyNodeViewModel> onSelect = null)
+        public TopologyNodeViewModel(
+            Node graphNode,
+            Action<TopologyNodeViewModel> onSelect = null,
+            Action<TopologyNodeViewModel> onAssignConfig = null,
+            IReadOnlyList<string> availableConfigs = null,
+            string initialAssignment = null)
         {
             GraphNode = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
+            _onAssignConfig = onAssignConfig;
+
+            // Populate combobox options: blank entry first (= no assignment)
+            if (availableConfigs != null && availableConfigs.Count > 0)
+            {
+                AvailableConfigs.Add(string.Empty);
+                foreach (var c in availableConfigs)
+                    AvailableConfigs.Add(c);
+            }
+
+            // Seed the assignment without firing the callback
+            _assignedConfig = initialAssignment ?? string.Empty;
         }
 
         /// <summary>Returns a display icon path or character based on node type.</summary>

@@ -39,6 +39,8 @@ namespace Pulse.Modules.FireAlarm
                     new ParameterMapping(FireAlarmParameterKeys.DeviceType, "Device type", isRequired: false),
                     new ParameterMapping(FireAlarmParameterKeys.CurrentDraw, "Current draw", isRequired: false),
                     new ParameterMapping(FireAlarmParameterKeys.DeviceId, "id", isRequired: false),
+                    new ParameterMapping(FireAlarmParameterKeys.PanelConfig, "FA_Panel_Config", isRequired: false),
+                    new ParameterMapping(FireAlarmParameterKeys.LoopModuleConfig, "FA_Loop_Config", isRequired: false),
                 }
             };
         }

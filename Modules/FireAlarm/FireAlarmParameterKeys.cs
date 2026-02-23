@@ -27,5 +27,11 @@ namespace Pulse.Modules.FireAlarm
 
         /// <summary>Logical key for the device id parameter.</summary>
         public const string DeviceId = "DeviceId";
+
+        /// <summary>Logical key for the Revit parameter that receives the assigned control-panel config name.</summary>
+        public const string PanelConfig = "PanelConfig";
+
+        /// <summary>Logical key for the Revit parameter that receives the assigned loop-module config name.</summary>
+        public const string LoopModuleConfig = "LoopModuleConfig";
     }
 }

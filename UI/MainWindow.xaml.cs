@@ -43,6 +43,7 @@ namespace Pulse.UI
         private void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             WindowPlacementService.Save(Left, Top, Width, Height);
+            _viewModel.SaveExpandState();
         }
 
         // ---- Resize Grip Handlers (same pattern as original ProSchedules) ----

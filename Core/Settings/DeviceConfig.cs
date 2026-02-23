@@ -90,5 +90,13 @@ namespace Pulse.Core.Settings
 
         [JsonProperty("loopModules")]
         public List<LoopModuleConfig> LoopModules { get; set; } = new List<LoopModuleConfig>();
+
+        /// <summary>Panel label → assigned ControlPanelConfig name.</summary>
+        [JsonProperty("panelAssignments")]
+        public Dictionary<string, string> PanelAssignments { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Loop label → assigned LoopModuleConfig name.</summary>
+        [JsonProperty("loopAssignments")]
+        public Dictionary<string, string> LoopAssignments { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 }
