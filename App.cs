@@ -11,8 +11,6 @@ namespace Pulse
     [AppLoader]
     public class App : IExternalApplication
     {
-        private RibbonPanel _ribbonPanel;
-
         public Result OnStartup(UIControlledApplication application)
         {
             string tabName = "Pulse";
@@ -26,9 +24,9 @@ namespace Pulse
                 // Tab already exists
             }
 
-            _ribbonPanel = application.CreateOrSelectPanel(tabName, "Tools");
+            var panel = application.CreateOrSelectPanel(tabName, "Tools");
 
-            _ribbonPanel.CreatePushButton<PulseCommand>()
+            panel.CreatePushButton<PulseCommand>()
                 .SetLargeImage("pack://application:,,,/Pulse;component/Assets/Pulse.tiff")
                 .SetText("Pulse")
                 .SetToolTip("Open the Pulse system control center.")
@@ -39,7 +37,6 @@ namespace Pulse
 
         public Result OnShutdown(UIControlledApplication application)
         {
-            _ribbonPanel?.Remove();
             return Result.Succeeded;
         }
     }
