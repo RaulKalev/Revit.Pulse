@@ -302,7 +302,7 @@
                                         Command="{Binding RemovePanelCommand}"
                                         ToolTip="Remove selected panel"
                                         Visibility="{Binding IsPanelsTabActive, Converter={StaticResource BoolToVis}}">
-                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" VerticalAlignment="Center"/>
+                                    <materialDesign:PackIcon Kind="Delete" Width="13" Height="13" VerticalAlignment="Center"/>
                                 </Button>
 
                                 <!-- Add Loop Module -->
@@ -323,7 +323,7 @@
                                         Command="{Binding RemoveLoopModuleCommand}"
                                         ToolTip="Remove selected module"
                                         Visibility="{Binding IsLoopModulesTabActive, Converter={StaticResource BoolToVis}}">
-                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" VerticalAlignment="Center"/>
+                                    <materialDesign:PackIcon Kind="Delete" Width="13" Height="13" VerticalAlignment="Center"/>
                                 </Button>
                             </StackPanel>
                         </Border>
@@ -358,7 +358,7 @@
                                         </Style.Triggers>
                                     </Style>
                                 </StackPanel.Style>
-                                <materialDesign:PackIcon Kind="ServerNetworkOff" Width="40" Height="40"
+                                <materialDesign:PackIcon Kind="DatabaseOff" Width="40" Height="40"
                                                          HorizontalAlignment="Center"
                                                          Foreground="{DynamicResource IconForegroundBrush}"
                                                          Opacity="0.35"/>
@@ -593,7 +593,7 @@
                     <DockPanel>
                         <!-- Storage path hint -->
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
-                            <materialDesign:PackIcon Kind="FileJsonOutline" Width="12" Height="12"
+                            <materialDesign:PackIcon Kind="FileDocument" Width="12" Height="12"
                                                      VerticalAlignment="Center"
                                                      Foreground="{DynamicResource IconForegroundBrush}"
                                                      Opacity="0.6"
