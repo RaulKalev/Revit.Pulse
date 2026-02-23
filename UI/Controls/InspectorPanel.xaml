@@ -6,6 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
     xmlns:converters="clr-namespace:Pulse.UI.Converters"
+    xmlns:controls="clr-namespace:Pulse.UI.Controls"
     mc:Ignorable="d">
 
     <UserControl.Resources>
@@ -23,22 +24,29 @@
 
     <Border Style="{DynamicResource CardBorderStyle}" Padding="0">
         <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-            <!-- ── No selection placeholder ── -->
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Visibility="{Binding HasSelection, Converter={StaticResource InverseBoolToVis}}">
-                <materialDesign:PackIcon Kind="InformationOutline" Width="32" Height="32"
-                                         HorizontalAlignment="Center"
-                                         Foreground="{DynamicResource IconForegroundBrush}" Opacity="0.4"/>
-                <TextBlock Text="Select an item to inspect"
-                           FontSize="11" HorizontalAlignment="Center"
-                           Foreground="{DynamicResource IconForegroundBrush}"
-                           Opacity="0.5" Margin="0,6,0,0"/>
-            </StackPanel>
+            <!-- ══ ROW 0 — existing inspector content ══ -->
+            <Grid Grid.Row="0">
 
-            <!-- ── Selection content ── -->
-            <ScrollViewer Style="{StaticResource PulseScrollViewerStyle}"
-                          Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
+                <!-- ── No selection placeholder ── -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                            Visibility="{Binding HasSelection, Converter={StaticResource InverseBoolToVis}}">
+                    <materialDesign:PackIcon Kind="InformationOutline" Width="32" Height="32"
+                                             HorizontalAlignment="Center"
+                                             Foreground="{DynamicResource IconForegroundBrush}" Opacity="0.4"/>
+                    <TextBlock Text="Select an item to inspect"
+                               FontSize="11" HorizontalAlignment="Center"
+                               Foreground="{DynamicResource IconForegroundBrush}"
+                               Opacity="0.5" Margin="0,6,0,0"/>
+                </StackPanel>
+
+                <!-- ── Selection content ── -->
+                <ScrollViewer Style="{StaticResource PulseScrollViewerStyle}"
+                              Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="6,6,6,6">
 
                     <!-- ╔══════════════════════════════╗ -->
@@ -175,6 +183,34 @@
 
                 </StackPanel>
             </ScrollViewer>
+
+            </Grid><!-- end Row 0 -->
+
+            <!-- ══ ROW 1 — capacity gauges (Panel / Loop only) ══ -->
+            <Border Grid.Row="1"
+                    Visibility="{Binding ShowGauges, Converter={StaticResource BoolToVis}}"
+                    BorderThickness="0,1,0,0"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    Background="{DynamicResource SecondaryBackgroundBrush}"
+                    Padding="4,8,4,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <controls:GaugeControl Grid.Column="0"
+                                           Value="{Binding AddressesUsed}"
+                                           Maximum="{Binding AddressesMax}"
+                                           Label="Addresses"
+                                           Unit="addr"/>
+                    <controls:GaugeControl Grid.Column="1"
+                                           Value="{Binding MaUsed}"
+                                           Maximum="{Binding MaMax}"
+                                           Label="Current"
+                                           Unit="mA"/>
+                </Grid>
+            </Border>
+
         </Grid>
     </Border>
 </UserControl>

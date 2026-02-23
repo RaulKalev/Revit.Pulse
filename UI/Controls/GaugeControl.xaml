@@ -1,0 +1,54 @@
+<UserControl
+    x:Class="Pulse.UI.Controls.GaugeControl"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    mc:Ignorable="d">
+
+    <!--
+        Speedometer-style semicircular gauge.
+        All geometry is computed in code-behind from Value / Maximum DPs.
+        Uses a Viewbox so the control scales to any size.
+    -->
+    <Viewbox Stretch="Uniform">
+        <Canvas Width="120" Height="76">
+
+            <!-- Static background track: full 180° ring above the flat line -->
+            <!-- M 12,52  outer arc CCW to 108,52  →  inner line  →  inner arc CW back -->
+            <Path x:Name="BackTrackPath"
+                  Data="M 12,52 A 48,48 0 0 0 108,52 L 92,52 A 32,32 0 0 1 28,52 Z"
+                  Fill="#22FFFFFF"/>
+
+            <!-- Value arc: geometry replaced in code-behind -->
+            <Path x:Name="ValueArcPath"/>
+
+            <!-- End-cap dots so the arc has round tips -->
+            <Ellipse x:Name="StartCapOuter" Width="8" Height="8" Fill="Transparent"/>
+            <Ellipse x:Name="EndCapOuter"   Width="8" Height="8" Fill="Transparent"/>
+
+            <!-- Large value number -->
+            <TextBlock x:Name="ValueText"
+                       Canvas.Left="0" Canvas.Top="28"
+                       Width="120" TextAlignment="Center"
+                       FontSize="16" FontWeight="Bold"
+                       Foreground="White"/>
+
+            <!-- "/max unit" sub-label -->
+            <TextBlock x:Name="MaxText"
+                       Canvas.Left="0" Canvas.Top="47"
+                       Width="120" TextAlignment="Center"
+                       FontSize="9" Opacity="0.55"
+                       Foreground="White"/>
+
+            <!-- Gauge label (ADDRESSES / CURRENT) -->
+            <TextBlock x:Name="LabelText"
+                       Canvas.Left="0" Canvas.Top="60"
+                       Width="120" TextAlignment="Center"
+                       FontSize="8" FontWeight="SemiBold" Opacity="0.45"
+                       Foreground="White"
+                       TextOptions.TextFormattingMode="Display"/>
+
+        </Canvas>
+    </Viewbox>
+</UserControl>

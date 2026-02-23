@@ -3,6 +3,7 @@ using System.Linq;
 using Pulse.Core.Graph;
 using Pulse.Core.Modules;
 using Pulse.Core.Rules;
+using Pulse.Core.Settings;
 
 namespace Pulse.UI.ViewModels
 {
@@ -61,6 +62,43 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _hasSelection, value);
         }
 
+        // ── Gauge data (Panel / Loop only) ────────────────────────────────
+
+        private bool _showGauges;
+        public bool ShowGauges
+        {
+            get => _showGauges;
+            set => SetField(ref _showGauges, value);
+        }
+
+        private int _addressesUsed;
+        public int AddressesUsed
+        {
+            get => _addressesUsed;
+            set => SetField(ref _addressesUsed, value);
+        }
+
+        private int _addressesMax;
+        public int AddressesMax
+        {
+            get => _addressesMax;
+            set => SetField(ref _addressesMax, value);
+        }
+
+        private double _maUsed;
+        public double MaUsed
+        {
+            get => _maUsed;
+            set => SetField(ref _maUsed, value);
+        }
+
+        private double _maMax;
+        public double MaMax
+        {
+            get => _maMax;
+            set => SetField(ref _maMax, value);
+        }
+
         /// <summary>Key-value properties of the selected entity.</summary>
         public ObservableCollection<PropertyItem> Properties { get; } = new ObservableCollection<PropertyItem>();
 
@@ -116,15 +154,18 @@ namespace Pulse.UI.ViewModels
                 {
                     var panel = data.Panels.Find(p => p.EntityId == node.Id);
                     ChildDeviceCount = panel?.Loops.Sum(l => l.Devices.Count) ?? 0;
+                    LoadPanelGauges(node.Label, panel);
                 }
                 else if (node.NodeType == "Loop")
                 {
                     var loop = data.Loops.Find(l => l.EntityId == node.Id);
                     ChildDeviceCount = loop?.Devices.Count ?? 0;
+                    LoadLoopGauges(node.Label, loop);
                 }
                 else
                 {
                     ChildDeviceCount = 0;
+                    ShowGauges = false;
                 }
             }
         }
@@ -132,15 +173,59 @@ namespace Pulse.UI.ViewModels
         /// <summary>Clear the inspector panel.</summary>
         public void Clear()
         {
-            HasSelection = false;
-            Title = null;
-            EntityType = null;
-            EntityId = null;
+            HasSelection  = false;
+            Title         = null;
+            EntityType    = null;
+            EntityId      = null;
             RevitElementId = null;
-            WarningCount = 0;
+            WarningCount  = 0;
             ChildDeviceCount = 0;
+            ShowGauges    = false;
+            AddressesUsed = 0;
+            AddressesMax  = 0;
+            MaUsed        = 0;
+            MaMax         = 0;
             Properties.Clear();
             Warnings.Clear();
+        }
+
+        // ── Gauge helpers ─────────────────────────────────────────────────
+
+        private void LoadPanelGauges(string panelLabel, Pulse.Core.SystemModel.Panel panel)
+        {
+            ShowGauges = false;
+            if (panel == null) return;
+
+            var store = DeviceConfigService.Load();
+            if (!store.PanelAssignments.TryGetValue(panelLabel, out string assignedName)) return;
+
+            var cfg = store.ControlPanels.FirstOrDefault(p => p.Name == assignedName);
+            if (cfg == null) return;
+
+            int loopCount = System.Math.Max(panel.Loops.Count, 1);
+            AddressesMax  = cfg.AddressesPerLoop * loopCount;
+            MaMax         = cfg.MaxMaPerLoop * loopCount;
+            AddressesUsed = panel.Loops.Sum(l => l.Devices.Count);
+            MaUsed        = panel.Loops.Sum(l => l.Devices.Sum(d => d.CurrentDraw ?? 0));
+            ShowGauges    = true;
+        }
+
+        private void LoadLoopGauges(string loopLabel, Pulse.Core.SystemModel.Loop loop)
+        {
+            ShowGauges = false;
+            if (loop == null) return;
+
+            var store = DeviceConfigService.Load();
+            if (!store.LoopAssignments.TryGetValue(loopLabel, out string assignedName)) return;
+
+            var cfg = store.LoopModules.FirstOrDefault(m => m.Name == assignedName);
+            if (cfg == null) return;
+
+            AddressesMax  = cfg.AddressesPerLoop;
+            MaMax         = cfg.MaxMaPerLoop;
+            AddressesUsed = loop.Devices.Count;
+            MaUsed        = loop.Devices.Sum(d => d.CurrentDraw ?? 0);
+            ShowGauges    = true;
         }
     }
 
