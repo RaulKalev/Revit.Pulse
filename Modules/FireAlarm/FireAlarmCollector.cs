@@ -26,7 +26,43 @@ namespace Pulse.Modules.FireAlarm
                 ProcessElements(elements, settings, data);
             }
 
+            // Second pass: resolve Panel.RevitElementId from a dedicated element category
+            ResolvePanelElementIds(collectorContext, settings, data);
+
             return data;
+        }
+
+        /// <summary>
+        /// Looks up panel board elements in the user-configured category and matches them
+        /// to topology panels by name, populating <see cref="Panel.RevitElementId"/>.
+        /// </summary>
+        private static void ResolvePanelElementIds(
+            ICollectorContext collectorContext,
+            ModuleSettings settings,
+            ModuleData data)
+        {
+            string panelCategory  = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelElementCategory);
+            string panelNameParam = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelElementNameParam);
+
+            if (string.IsNullOrWhiteSpace(panelCategory) || string.IsNullOrWhiteSpace(panelNameParam))
+                return;
+
+            // Quick lookup: display name → Panel
+            var panelByLabel = new Dictionary<string, Panel>(StringComparer.OrdinalIgnoreCase);
+            foreach (var panel in data.Panels)
+                panelByLabel[panel.DisplayName] = panel;
+
+            var panelElements = collectorContext.GetElements(
+                panelCategory,
+                new System.Collections.Generic.List<string> { panelNameParam });
+
+            foreach (var element in panelElements)
+            {
+                if (!element.Parameters.TryGetValue(panelNameParam, out string nameValue)) continue;
+                if (string.IsNullOrWhiteSpace(nameValue)) continue;
+                if (panelByLabel.TryGetValue(nameValue.Trim(), out var panel) && !panel.RevitElementId.HasValue)
+                    panel.RevitElementId = element.ElementId;
+            }
         }
 
         /// <summary>
@@ -36,12 +72,13 @@ namespace Pulse.Modules.FireAlarm
         private void ProcessElements(IReadOnlyList<ElementData> elements, ModuleSettings settings, ModuleData data)
         {
             // Resolve Revit parameter names from logical keys
-            string panelParam = settings.GetRevitParameterName(FireAlarmParameterKeys.Panel);
-            string loopParam = settings.GetRevitParameterName(FireAlarmParameterKeys.Loop);
-            string addressParam = settings.GetRevitParameterName(FireAlarmParameterKeys.Address);
-            string deviceTypeParam = settings.GetRevitParameterName(FireAlarmParameterKeys.DeviceType);
-            string currentDrawParam = settings.GetRevitParameterName(FireAlarmParameterKeys.CurrentDraw);
-            string deviceIdParam = settings.GetRevitParameterName(FireAlarmParameterKeys.DeviceId);
+            string panelParam           = settings.GetRevitParameterName(FireAlarmParameterKeys.Panel);
+            string loopParam            = settings.GetRevitParameterName(FireAlarmParameterKeys.Loop);
+            string addressParam         = settings.GetRevitParameterName(FireAlarmParameterKeys.Address);
+            string deviceTypeParam      = settings.GetRevitParameterName(FireAlarmParameterKeys.DeviceType);
+            string currentDrawParam     = settings.GetRevitParameterName(FireAlarmParameterKeys.CurrentDraw);
+            string deviceIdParam        = settings.GetRevitParameterName(FireAlarmParameterKeys.DeviceId);
+            string circuitElementIdParam = settings.GetRevitParameterName(FireAlarmParameterKeys.CircuitElementId);
 
             // Track panels and loops for deduplication
             var panelMap = new Dictionary<string, Panel>(StringComparer.OrdinalIgnoreCase);
@@ -78,6 +115,17 @@ namespace Pulse.Modules.FireAlarm
                     loopMap[compositeLoopKey] = loop;
                     panel.Loops.Add(loop);
                     data.Loops.Add(loop);
+                }
+
+                // Resolve Loop.RevitElementId from the circuit element ID parameter (first device wins)
+                if (!loop.RevitElementId.HasValue)
+                {
+                    string circuitIdValue = GetParam(element, circuitElementIdParam);
+                    if (!string.IsNullOrWhiteSpace(circuitIdValue)
+                        && long.TryParse(circuitIdValue, out long circuitId))
+                    {
+                        loop.RevitElementId = circuitId;
+                    }
                 }
 
                 // Create device

@@ -430,14 +430,29 @@ namespace Pulse.UI.ViewModels
             else if (vm.NodeType == "Loop")
                 paramName = _activeSettings?.GetRevitParameterName(FireAlarmParameterKeys.LoopModuleConfig);
 
-            // No parameter configured or no devices to stamp — silently skip
-            if (string.IsNullOrEmpty(paramName) || vm.DescendantDeviceElementIds.Count == 0)
-                return;
+            if (string.IsNullOrEmpty(paramName)) return;
 
             var configName = vm.AssignedConfig ?? string.Empty;
-            _writeParamHandler.Writes = vm.DescendantDeviceElementIds
-                .Select(id => (id, paramName, configName))
-                .ToList();
+
+            // Prefer writing to the node's own Revit element (panel board / electrical circuit).
+            // Fall back to stamping all descendant devices when no direct element is resolved.
+            System.Collections.Generic.List<(long, string, string)> writes;
+            if (vm.GraphNode.RevitElementId.HasValue)
+            {
+                writes = new System.Collections.Generic.List<(long, string, string)>
+                {
+                    (vm.GraphNode.RevitElementId.Value, paramName, configName)
+                };
+            }
+            else if (vm.DescendantDeviceElementIds.Count > 0)
+            {
+                writes = vm.DescendantDeviceElementIds
+                    .Select(id => (id, paramName, configName))
+                    .ToList();
+            }
+            else return;
+
+            _writeParamHandler.Writes = writes;
 
             _writeParamHandler.OnCompleted = count =>
                 Application.Current?.Dispatcher?.Invoke(() =>

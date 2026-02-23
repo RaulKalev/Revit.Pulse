@@ -19,14 +19,20 @@ namespace Pulse.Modules.FireAlarm
             // Create panel nodes
             foreach (Panel panel in data.Panels)
             {
-                var node = new Node(panel.EntityId, panel.DisplayName, "Panel");
+                var node = new Node(panel.EntityId, panel.DisplayName, "Panel")
+                {
+                    RevitElementId = panel.RevitElementId,
+                };
                 data.Nodes.Add(node);
             }
 
             // Create loop nodes and connect to panels
             foreach (Loop loop in data.Loops)
             {
-                var node = new Node(loop.EntityId, loop.DisplayName, "Loop");
+                var node = new Node(loop.EntityId, loop.DisplayName, "Loop")
+                {
+                    RevitElementId = loop.RevitElementId,
+                };
                 node.Properties["DeviceCount"] = loop.Devices.Count.ToString();
                 data.Nodes.Add(node);
 

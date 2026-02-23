@@ -33,5 +33,24 @@ namespace Pulse.Modules.FireAlarm
 
         /// <summary>Logical key for the Revit parameter that receives the assigned loop-module config name.</summary>
         public const string LoopModuleConfig = "LoopModuleConfig";
+
+        /// <summary>
+        /// Logical key whose mapped value is the Revit category name used to look up
+        /// panel board elements (e.g. "Electrical Equipment").  Stored as a
+        /// ParameterMapping so it is editable in the settings UI like any other value.
+        /// </summary>
+        public const string PanelElementCategory = "PanelElementCategory";
+
+        /// <summary>
+        /// Logical key for the parameter on panel board elements whose value
+        /// identifies the panel by name (must match the Panel parameter on devices).
+        /// </summary>
+        public const string PanelElementNameParam = "PanelElementNameParam";
+
+        /// <summary>
+        /// Logical key for the parameter on each fire-alarm device that stores the
+        /// integer ElementId of its parent electrical circuit.
+        /// </summary>
+        public const string CircuitElementId = "CircuitElementId";
     }
 }

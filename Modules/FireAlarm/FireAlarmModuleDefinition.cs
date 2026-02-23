@@ -41,6 +41,9 @@ namespace Pulse.Modules.FireAlarm
                     new ParameterMapping(FireAlarmParameterKeys.DeviceId, "id", isRequired: false),
                     new ParameterMapping(FireAlarmParameterKeys.PanelConfig, "FA_Panel_Config", isRequired: false),
                     new ParameterMapping(FireAlarmParameterKeys.LoopModuleConfig, "FA_Loop_Config", isRequired: false),
+                    new ParameterMapping(FireAlarmParameterKeys.PanelElementCategory, "Electrical Equipment", isRequired: false),
+                    new ParameterMapping(FireAlarmParameterKeys.PanelElementNameParam, "Mark", isRequired: false),
+                    new ParameterMapping(FireAlarmParameterKeys.CircuitElementId, "FA_Circuit_ElementId", isRequired: false),
                 }
             };
         }
