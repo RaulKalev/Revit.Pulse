@@ -249,8 +249,55 @@ namespace Pulse.UI.ViewModels
             if (node.RevitElementId.HasValue)
             {
                 _selectHandler.ElementIdToSelect = node.RevitElementId.Value;
+                _selectHandler.ContextIds = GetNeighbourIds(node);
                 _selectEvent.Raise();
             }
+        }
+
+        /// <summary>
+        /// For a Device node, returns the Revit element IDs of the previous and
+        /// next device on the same loop (sorted by numeric address).
+        /// Returns an empty list for non-device nodes or when no neighbours exist.
+        /// </summary>
+        private List<long> GetNeighbourIds(Node node)
+        {
+            var result = new List<long>();
+
+            if (_currentData == null || node.NodeType != "Device") return result;
+
+            // Find the device entry matching this node
+            var device = _currentData.Devices.Find(
+                d => d.RevitElementId.HasValue && d.RevitElementId.Value == node.RevitElementId.Value);
+            if (device == null) return result;
+
+            // Get all sibling devices on the same loop, sorted by numeric address
+            var siblings = _currentData.Devices
+                .FindAll(d => d.LoopId == device.LoopId && d.RevitElementId.HasValue);
+
+            siblings.Sort((a, b) => ParseAddress(a.Address).CompareTo(ParseAddress(b.Address)));
+
+            int idx = siblings.FindIndex(d => d.RevitElementId.Value == node.RevitElementId.Value);
+            if (idx < 0) return result;
+
+            if (idx > 0)
+                result.Add(siblings[idx - 1].RevitElementId.Value);
+            if (idx < siblings.Count - 1)
+                result.Add(siblings[idx + 1].RevitElementId.Value);
+
+            return result;
+        }
+
+        private static int ParseAddress(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address)) return int.MaxValue;
+            for (int i = 0; i < address.Length; i++)
+            {
+                if (!char.IsDigit(address[i])) continue;
+                int end = i;
+                while (end < address.Length && char.IsDigit(address[end])) end++;
+                if (int.TryParse(address.Substring(i, end - i), out int v)) return v;
+            }
+            return int.MaxValue;
         }
 
         /// <summary>
