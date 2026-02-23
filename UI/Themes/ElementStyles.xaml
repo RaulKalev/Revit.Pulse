@@ -9,6 +9,16 @@
     </ResourceDictionary.MergedDictionaries>
 
     <!-- ======================== -->
+    <!--  Field Label Style       -->
+    <!--  (section labels in forms) -->
+    <!-- ======================== -->
+    <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+        <Setter Property="FontSize"   Value="10" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource IconForegroundBrush}" />
+    </Style>
+
+    <!-- ======================== -->
     <!--  Pulse Action Button     -->
     <!-- ======================== -->
     <Style x:Key="PulseActionButtonStyle" TargetType="{x:Type Button}">

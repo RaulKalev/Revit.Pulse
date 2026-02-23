@@ -52,6 +52,7 @@ namespace Pulse.UI.ViewModels
         public ICommand ResetOverridesCommand { get; }
         public ICommand FilterWarningsCommand { get; }
         public ICommand OpenSettingsCommand { get; }
+        public ICommand OpenDeviceConfiguratorCommand { get; }
 
         // Status
         private string _statusText = "Ready. Press Refresh to load system data.";
@@ -154,6 +155,7 @@ namespace Pulse.UI.ViewModels
             ResetOverridesCommand = new RelayCommand(ExecuteResetOverrides);
             FilterWarningsCommand = new RelayCommand(_ => ShowWarningsOnly = !ShowWarningsOnly);
             OpenSettingsCommand = new RelayCommand(ExecuteOpenSettings);
+            OpenDeviceConfiguratorCommand = new RelayCommand(ExecuteOpenDeviceConfigurator);
 
             // Load previously saved settings from Extensible Storage (we are on the API thread here)
             LoadInitialSettings(uiApp.ActiveUIDocument?.Document);
@@ -386,6 +388,17 @@ namespace Pulse.UI.ViewModels
             {
                 // Silently fall back to defaults — storage may not exist yet
             }
+        }
+
+        /// <summary>Open the Device Configurator dialog.</summary>
+        private void ExecuteOpenDeviceConfigurator()
+        {
+            var vm = new DeviceConfigViewModel();
+            var win = new DeviceConfiguratorWindow(vm)
+            {
+                Owner = _ownerWindow
+            };
+            win.ShowDialog();
         }
 
         /// <summary>Open the Settings dialog for the active module.</summary>

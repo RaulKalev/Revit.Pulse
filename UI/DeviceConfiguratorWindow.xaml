@@ -1,0 +1,633 @@
+<Window
+    x:Class="Pulse.UI.DeviceConfiguratorWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="clr-namespace:Pulse.UI"
+    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+    Title="Pulse — Device Configurator"
+    Width="720"
+    Height="540"
+    MinWidth="560"
+    MinHeight="420"
+    AllowsTransparency="True"
+    Background="Transparent"
+    WindowStyle="None"
+    WindowStartupLocation="CenterOwner"
+    mc:Ignorable="d">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/DarkTheme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.Dark.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/ElementStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+            <!-- Dark TextBox -->
+            <Style x:Key="DarkTextBoxStyle" TargetType="{x:Type TextBox}">
+                <Setter Property="Background"        Value="{DynamicResource SecondaryBackgroundBrush}" />
+                <Setter Property="Foreground"        Value="{DynamicResource ForegroundBrush}" />
+                <Setter Property="BorderBrush"       Value="{DynamicResource BorderBrush}" />
+                <Setter Property="BorderThickness"   Value="1" />
+                <Setter Property="Padding"           Value="7,5" />
+                <Setter Property="FontSize"          Value="12" />
+                <Setter Property="CaretBrush"        Value="{DynamicResource ForegroundBrush}" />
+                <Setter Property="SelectionBrush"    Value="#FF0078D7" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type TextBox}">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4"
+                                    Padding="{TemplateBinding Padding}">
+                                <ScrollViewer x:Name="PART_ContentHost"
+                                              Focusable="False"
+                                              HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Hidden" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsFocused" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#FF0078D7" />
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource IconForegroundBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Dark ListBoxItem -->
+            <Style x:Key="DarkListBoxItemStyle" TargetType="ListBoxItem">
+                <Setter Property="Background"       Value="Transparent" />
+                <Setter Property="Foreground"       Value="{DynamicResource ForegroundBrush}" />
+                <Setter Property="Padding"          Value="10,7" />
+                <Setter Property="FontSize"         Value="12" />
+                <Setter Property="BorderThickness"  Value="0" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="Bg"
+                                    Background="{TemplateBinding Background}"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bg" Property="Background" Value="{DynamicResource HighlightBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SelectionHoverBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- Tab button style -->
+            <Style x:Key="TabButtonStyle" TargetType="Button">
+                <Setter Property="OverridesDefaultStyle"       Value="True" />
+                <Setter Property="Background"                  Value="Transparent" />
+                <Setter Property="Foreground"                  Value="{DynamicResource IconForegroundBrush}" />
+                <Setter Property="BorderThickness"             Value="0,0,0,2" />
+                <Setter Property="BorderBrush"                 Value="Transparent" />
+                <Setter Property="Padding"                     Value="12,8" />
+                <Setter Property="FontSize"                    Value="11" />
+                <Setter Property="FontWeight"                  Value="SemiBold" />
+                <Setter Property="Cursor"                      Value="Hand" />
+                <Setter Property="FocusVisualStyle"            Value="{x:Null}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}" />
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- Active tab button style (override) -->
+            <Style x:Key="TabButtonActiveStyle" TargetType="Button"
+                   BasedOn="{StaticResource TabButtonStyle}">
+                <Setter Property="Foreground"   Value="{DynamicResource ForegroundBrush}" />
+                <Setter Property="BorderBrush"  Value="#FF0078D7" />
+            </Style>
+
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Background="Transparent">
+        <!-- Glass edge glow -->
+        <Border BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="2"
+                CornerRadius="10"
+                Opacity="0.7"
+                SnapsToDevicePixels="True">
+            <Border.Effect>
+                <BlurEffect KernelType="Gaussian" Radius="2" />
+            </Border.Effect>
+        </Border>
+
+        <!-- Main surface -->
+        <Border Margin="2"
+                Background="{DynamicResource PrimaryBackgroundBrush}"
+                CornerRadius="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="30" />   <!-- Title bar -->
+                    <RowDefinition Height="*" />    <!-- Body -->
+                    <RowDefinition Height="Auto" /> <!-- Footer -->
+                </Grid.RowDefinitions>
+
+                <!-- ── Title bar ─────────────────────────────────────────── -->
+                <ui:TitleBar Grid.Row="0" IsMinimizeVisible="False" />
+
+                <!-- ── Body ─────────────────────────────────────────────── -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="190" MinWidth="140" />  <!-- Sidebar: list -->
+                        <ColumnDefinition Width="1" />                   <!-- Divider -->
+                        <ColumnDefinition Width="*" />                   <!-- Form -->
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ── Left Sidebar ──────────────────────────────────── -->
+                    <Grid Grid.Column="0"
+                          Background="{DynamicResource SecondaryBackgroundBrush}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />  <!-- Tab header -->
+                            <RowDefinition Height="1" />     <!-- Separator -->
+                            <RowDefinition Height="*" />     <!-- List -->
+                            <RowDefinition Height="Auto" />  <!-- Add / Remove buttons -->
+                        </Grid.RowDefinitions>
+
+                        <!-- Tab header buttons -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal">
+                            <!-- Control Panels tab -->
+                            <Button Command="{Binding SelectPanelsTabCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPanelsTabActive}" Value="True">
+                                                <Setter Property="Foreground"  Value="{DynamicResource ForegroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="#FF0078D7" />
+                                                <Setter Property="BorderThickness" Value="0,0,0,2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <TextBlock Text="Panels" FontSize="11" FontWeight="SemiBold" />
+                            </Button>
+
+                            <!-- Loop Modules tab -->
+                            <Button Command="{Binding SelectLoopModulesTabCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsLoopModulesTabActive}" Value="True">
+                                                <Setter Property="Foreground"  Value="{DynamicResource ForegroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="#FF0078D7" />
+                                                <Setter Property="BorderThickness" Value="0,0,0,2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <TextBlock Text="Loop Modules" FontSize="11" FontWeight="SemiBold" />
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Separator line -->
+                        <Border Grid.Row="1" Background="{DynamicResource BorderBrush}" />
+
+                        <!-- Item list — Panels -->
+                        <ListBox Grid.Row="2"
+                                 ItemsSource="{Binding Panels}"
+                                 SelectedItem="{Binding SelectedPanel, Mode=TwoWay}"
+                                 ItemContainerStyle="{StaticResource DarkListBoxItemStyle}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 Visibility="{Binding IsPanelsTabActive, Converter={StaticResource BoolToVis}}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource ForegroundBrush}" />
+                                        <TextBlock FontSize="10"
+                                                   Foreground="{DynamicResource IconForegroundBrush}"
+                                                   Opacity="0.7"
+                                                   Margin="0,1,0,0">
+                                            <Run Text="{Binding MaxLoopCount, Mode=OneWay}" />
+                                            <Run Text=" loops · " />
+                                            <Run Text="{Binding AddressesPerLoop, Mode=OneWay}" />
+                                            <Run Text=" addr/loop" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- Item list — Loop Modules -->
+                        <ListBox Grid.Row="2"
+                                 ItemsSource="{Binding LoopModules}"
+                                 SelectedItem="{Binding SelectedLoopModule, Mode=TwoWay}"
+                                 ItemContainerStyle="{StaticResource DarkListBoxItemStyle}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 Visibility="{Binding IsLoopModulesTabActive, Converter={StaticResource BoolToVis}}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource ForegroundBrush}" />
+                                        <TextBlock FontSize="10"
+                                                   Foreground="{DynamicResource IconForegroundBrush}"
+                                                   Opacity="0.7"
+                                                   Margin="0,1,0,0">
+                                            <Run Text="{Binding MaxLoopCount, Mode=OneWay}" />
+                                            <Run Text=" loops · " />
+                                            <Run Text="{Binding AddressesPerLoop, Mode=OneWay}" />
+                                            <Run Text=" addr/loop" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- Add / Remove buttons -->
+                        <Border Grid.Row="3"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                Padding="6,5">
+                            <StackPanel Orientation="Horizontal">
+                                <!-- Add Panel -->
+                                <Button Style="{StaticResource PulseActionButtonStyle}"
+                                        Command="{Binding AddPanelCommand}"
+                                        ToolTip="Add new control panel"
+                                        Visibility="{Binding IsPanelsTabActive, Converter={StaticResource BoolToVis}}"
+                                        Margin="0,0,4,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Plus" Width="13" Height="13"
+                                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBlock Text="Add Panel" FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Remove Panel -->
+                                <Button Style="{StaticResource NegativeActionButtonStyle}"
+                                        Command="{Binding RemovePanelCommand}"
+                                        ToolTip="Remove selected panel"
+                                        Visibility="{Binding IsPanelsTabActive, Converter={StaticResource BoolToVis}}">
+                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" VerticalAlignment="Center"/>
+                                </Button>
+
+                                <!-- Add Loop Module -->
+                                <Button Style="{StaticResource PulseActionButtonStyle}"
+                                        Command="{Binding AddLoopModuleCommand}"
+                                        ToolTip="Add new loop module"
+                                        Visibility="{Binding IsLoopModulesTabActive, Converter={StaticResource BoolToVis}}"
+                                        Margin="0,0,4,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Plus" Width="13" Height="13"
+                                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBlock Text="Add Module" FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Remove Loop Module -->
+                                <Button Style="{StaticResource NegativeActionButtonStyle}"
+                                        Command="{Binding RemoveLoopModuleCommand}"
+                                        ToolTip="Remove selected module"
+                                        Visibility="{Binding IsLoopModulesTabActive, Converter={StaticResource BoolToVis}}">
+                                    <materialDesign:PackIcon Kind="TrashCanOutline" Width="13" Height="13" VerticalAlignment="Center"/>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Vertical divider -->
+                    <Border Grid.Column="1"
+                            Background="{DynamicResource BorderBrush}" />
+
+                    <!-- ── Form Area ──────────────────────────────────────── -->
+                    <ScrollViewer Grid.Column="2"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Padding="20,16,20,8">
+                        <Grid>
+
+                        <!-- ══════════════════════════════════ -->
+                        <!--  CONTROL PANELS FORM              -->
+                        <!-- ══════════════════════════════════ -->
+                        <StackPanel Visibility="{Binding IsPanelsTabActive, Converter={StaticResource BoolToVis}}">
+
+                            <!-- Empty state -->
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Margin="0,60,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedPanel}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <materialDesign:PackIcon Kind="ServerNetworkOff" Width="40" Height="40"
+                                                         HorizontalAlignment="Center"
+                                                         Foreground="{DynamicResource IconForegroundBrush}"
+                                                         Opacity="0.35"/>
+                                <TextBlock Text="No panel selected"
+                                           FontSize="13"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.6"
+                                           Margin="0,10,0,4"/>
+                                <TextBlock Text="Add a panel or select one from the list"
+                                           FontSize="10"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.4"/>
+                            </StackPanel>
+
+                            <!-- Edit form -->
+                            <StackPanel>
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedPanel}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- Section heading -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <materialDesign:PackIcon Kind="ServerNetwork" Width="18" Height="18"
+                                                             Foreground="#FF0078D7" VerticalAlignment="Center"
+                                                             Margin="0,0,8,0"/>
+                                    <TextBlock Text="Control Panel Configuration"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,16"/>
+
+                                <!-- Name -->
+                                <TextBlock Text="PANEL NAME" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding SelectedPanel.Name, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Panel Addresses -->
+                                <TextBlock Text="PANEL ADDRESSES" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="The address(es) this panel occupies in the system (e.g. &quot;1&quot; or &quot;1,2,3&quot; or &quot;1-4&quot;)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPanel.PanelAddresses, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Addresses per loop -->
+                                <TextBlock Text="ADDRESSES PER LOOP" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Maximum number of SLC device addresses per loop card (e.g. 127 for most FACP systems)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPanel.AddressesPerLoop, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Max loop count -->
+                                <TextBlock Text="MAX LOOP COUNT" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Maximum number of loop cards that can be installed in this panel."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPanel.MaxLoopCount, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Max mA per loop -->
+                                <TextBlock Text="MAX mA PER LOOP" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Maximum SLC current (milliamps) the loop card can supply to connected devices."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPanel.MaxMaPerLoop, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,8"/>
+
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- ══════════════════════════════════ -->
+                        <!--  LOOP MODULES FORM                -->
+                        <!-- ══════════════════════════════════ -->
+                        <StackPanel Visibility="{Binding IsLoopModulesTabActive, Converter={StaticResource BoolToVis}}">
+
+                            <!-- Empty state -->
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Margin="0,60,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedLoopModule}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <materialDesign:PackIcon Kind="VectorPolyline" Width="40" Height="40"
+                                                         HorizontalAlignment="Center"
+                                                         Foreground="{DynamicResource IconForegroundBrush}"
+                                                         Opacity="0.35"/>
+                                <TextBlock Text="No loop module selected"
+                                           FontSize="13"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.6"
+                                           Margin="0,10,0,4"/>
+                                <TextBlock Text="Add a module or select one from the list"
+                                           FontSize="10"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.4"/>
+                            </StackPanel>
+
+                            <!-- Edit form -->
+                            <StackPanel>
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedLoopModule}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- Section heading -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <materialDesign:PackIcon Kind="VectorPolyline" Width="18" Height="18"
+                                                             Foreground="#FF0078D7" VerticalAlignment="Center"
+                                                             Margin="0,0,8,0"/>
+                                    <TextBlock Text="Loop Module Configuration"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,16"/>
+
+                                <!-- Name -->
+                                <TextBlock Text="MODULE NAME" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,4"/>
+                                <TextBox Text="{Binding SelectedLoopModule.Name, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Panel Addresses -->
+                                <TextBlock Text="PANEL ADDRESSES" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="The address(es) this module occupies on the parent panel (e.g. &quot;3&quot; or &quot;3-4&quot;)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedLoopModule.PanelAddresses, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Addresses per loop -->
+                                <TextBlock Text="ADDRESSES PER LOOP" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Maximum number of SLC device addresses this module provides per loop output."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedLoopModule.AddressesPerLoop, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Max loop count -->
+                                <TextBlock Text="MAX LOOP COUNT" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Number of SLC loop outputs provided by this module."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedLoopModule.MaxLoopCount, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Max mA per loop -->
+                                <TextBlock Text="MAX mA PER LOOP" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Maximum SLC current (milliamps) this module can supply per loop output."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedLoopModule.MaxMaPerLoop, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,8"/>
+
+                            </StackPanel>
+                        </StackPanel>
+
+                        </Grid>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- ── Footer ─────────────────────────────────────────────── -->
+                <Border Grid.Row="2"
+                        Background="{DynamicResource SecondaryBackgroundBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,1,0,0"
+                        CornerRadius="0,0,8,8"
+                        Padding="16,8">
+                    <DockPanel>
+                        <!-- Storage path hint -->
+                        <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
+                            <materialDesign:PackIcon Kind="FileJsonOutline" Width="12" Height="12"
+                                                     VerticalAlignment="Center"
+                                                     Foreground="{DynamicResource IconForegroundBrush}"
+                                                     Opacity="0.6"
+                                                     Margin="0,0,5,0"/>
+                            <TextBlock Text="%APPDATA%\Pulse\device-config.json"
+                                       FontSize="9"
+                                       Foreground="{DynamicResource IconForegroundBrush}"
+                                       Opacity="0.5"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <!-- Cancel / Save -->
+                        <StackPanel Orientation="Horizontal"
+                                    DockPanel.Dock="Right"
+                                    HorizontalAlignment="Right">
+                            <Button Style="{StaticResource PulseActionButtonStyle}"
+                                    Command="{Binding CancelCommand}"
+                                    Margin="0,0,8,0">
+                                <TextBlock Text="Cancel" FontSize="11" />
+                            </Button>
+                            <Button Style="{StaticResource PulsePrimaryButtonStyle}"
+                                    Command="{Binding SaveCommand}"
+                                    ToolTip="Save all changes to device-config.json">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ContentSave" Width="14" Height="14"
+                                                             VerticalAlignment="Center" Margin="0,0,4,0" />
+                                    <TextBlock Text="Save" FontSize="11" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

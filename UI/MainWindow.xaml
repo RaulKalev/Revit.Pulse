@@ -102,7 +102,15 @@
                                 </StackPanel>
                             </ToggleButton>
 
-                            <!-- Reset overrides -->
+                            <!-- Device Configurator -->
+                            <Button Style="{StaticResource PulseActionButtonStyle}"
+                                    Command="{Binding OpenDeviceConfiguratorCommand}"
+                                    ToolTip="Configure control panels and loop modules"
+                                    Margin="0,0,4,0">
+                                <materialDesign:PackIcon Kind="ServerCog" Width="14" Height="14" VerticalAlignment="Center"/>
+                            </Button>
+
+                            <!-- Settings -->
                             <Button Style="{StaticResource PulseActionButtonStyle}"
                                     Command="{Binding OpenSettingsCommand}"
                                     ToolTip="Configure parameter mappings"
