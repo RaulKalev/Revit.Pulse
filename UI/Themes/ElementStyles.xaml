@@ -5,6 +5,7 @@
 
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesignTheme.ComboBox.xaml" />
+        <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/DarkTheme.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
     <!-- ======================== -->
@@ -79,10 +80,10 @@
     <!--  ScrollBar — full dark   -->
     <!-- ======================== -->
 
-    <!-- Thumb used inside both orientations -->
+    <!-- Shared sub-templates referenced by both named styles below -->
     <ControlTemplate x:Key="PulseScrollThumbTemplate" TargetType="{x:Type Thumb}">
         <Border x:Name="Bd"
-                Background="{DynamicResource ScrollBarThumbBrush}"
+                Background="{StaticResource ScrollBarThumbBrush}"
                 CornerRadius="3"
                 Opacity="0.55" />
         <ControlTemplate.Triggers>
@@ -172,48 +173,130 @@
         </Style.Triggers>
     </Style>
 
-    <!-- Implicit ScrollViewer style — transparent background, dark bars -->
-    <Style TargetType="{x:Type ScrollViewer}">
-        <Setter Property="OverridesDefaultStyle"          Value="True" />
-        <Setter Property="Background"                     Value="Transparent" />
-        <Setter Property="HorizontalScrollBarVisibility"  Value="Hidden" />
-        <Setter Property="VerticalScrollBarVisibility"    Value="Auto" />
+    <!-- ================================================================ -->
+    <!--  PulseScrollViewerStyle  — explicit-keyed dark ScrollViewer       -->
+    <!--  Apply with: Style="{StaticResource PulseScrollViewerStyle}"      -->
+    <!-- ================================================================ -->
+    <Style x:Key="PulseScrollViewerStyle" TargetType="{x:Type ScrollViewer}">
+        <Setter Property="OverridesDefaultStyle"         Value="True" />
+        <Setter Property="Background"                    Value="Transparent" />
+        <Setter Property="VerticalScrollBarVisibility"   Value="Auto" />
+        <Setter Property="HorizontalScrollBarVisibility" Value="Hidden" />
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type ScrollViewer}">
-                    <Grid>
+                    <Grid SnapsToDevicePixels="True">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-
-                        <ScrollContentPresenter Grid.Column="0" Grid.Row="0"
-                                                CanContentScroll="{TemplateBinding CanContentScroll}"
-                                                Content="{TemplateBinding Content}"
-                                                ContentTemplate="{TemplateBinding ContentTemplate}" />
-
+                        <ScrollContentPresenter Grid.Column="0"
+                                                CanContentScroll="{TemplateBinding CanContentScroll}" />
                         <ScrollBar x:Name="PART_VerticalScrollBar"
-                                   Grid.Column="1" Grid.Row="0"
+                                   Grid.Column="1"
                                    Orientation="Vertical"
-                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                   Minimum="0"
                                    Maximum="{TemplateBinding ScrollableHeight}"
-                                   Minimum="0"
+                                   ViewportSize="{TemplateBinding ViewportHeight}"
                                    Value="{TemplateBinding VerticalOffset}"
-                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}" />
-
-                        <ScrollBar x:Name="PART_HorizontalScrollBar"
-                                   Grid.Column="0" Grid.Row="1"
-                                   Orientation="Horizontal"
-                                   ViewportSize="{TemplateBinding ViewportWidth}"
-                                   Maximum="{TemplateBinding ScrollableWidth}"
-                                   Minimum="0"
-                                   Value="{TemplateBinding HorizontalOffset}"
-                                   Visibility="{TemplateBinding ComputedHorizontalScrollBarVisibility}" />
+                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                   OverridesDefaultStyle="True"
+                                   Width="14" Background="Transparent">
+                            <ScrollBar.Template>
+                                <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                    <Grid Background="Transparent" SnapsToDevicePixels="True">
+                                        <Border Background="{StaticResource SecondaryBackgroundBrush}" CornerRadius="4" />
+                                        <Track x:Name="PART_Track" Margin="3,0" IsDirectionReversed="True"
+                                               Minimum="{TemplateBinding Minimum}"
+                                               Maximum="{TemplateBinding Maximum}"
+                                               Orientation="{TemplateBinding Orientation}"
+                                               ViewportSize="{TemplateBinding ViewportSize}"
+                                               Value="{TemplateBinding Value}">
+                                            <Track.DecreaseRepeatButton><RepeatButton Visibility="Collapsed" /></Track.DecreaseRepeatButton>
+                                            <Track.Thumb>
+                                                <Thumb OverridesDefaultStyle="True"
+                                                       Template="{StaticResource PulseScrollThumbTemplate}" />
+                                            </Track.Thumb>
+                                            <Track.IncreaseRepeatButton><RepeatButton Visibility="Collapsed" /></Track.IncreaseRepeatButton>
+                                        </Track>
+                                    </Grid>
+                                </ControlTemplate>
+                            </ScrollBar.Template>
+                        </ScrollBar>
                     </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ================================================================ -->
+    <!--  PulseTreeViewStyle  — explicit-keyed dark TreeView               -->
+    <!--  Apply with: Style="{StaticResource PulseTreeViewStyle}"          -->
+    <!--  (wrap-in-ScrollViewer approach; bypasses MDT's internal SV)      -->
+    <!-- ================================================================ -->
+    <Style x:Key="PulseTreeViewStyle" TargetType="{x:Type TreeView}">
+        <Setter Property="OverridesDefaultStyle" Value="True" />
+        <Setter Property="Background"            Value="Transparent" />
+        <Setter Property="BorderThickness"       Value="0" />
+        <Setter Property="VirtualizingStackPanel.IsVirtualizing" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type TreeView}">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                        <ScrollViewer Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Auto"
+                                      CanContentScroll="True"
+                                      OverridesDefaultStyle="True"
+                                      SnapsToDevicePixels="True">
+                            <ScrollViewer.Template>
+                                <ControlTemplate TargetType="{x:Type ScrollViewer}">
+                                    <Grid SnapsToDevicePixels="True">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ScrollContentPresenter Grid.Column="0"
+                                                                CanContentScroll="{TemplateBinding CanContentScroll}" />
+                                        <ScrollBar x:Name="PART_VerticalScrollBar"
+                                                   Grid.Column="1"
+                                                   Orientation="Vertical"
+                                                   Minimum="0"
+                                                   Maximum="{TemplateBinding ScrollableHeight}"
+                                                   ViewportSize="{TemplateBinding ViewportHeight}"
+                                                   Value="{TemplateBinding VerticalOffset}"
+                                                   Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
+                                                   OverridesDefaultStyle="True"
+                                                   Width="14" Background="Transparent">
+                                            <ScrollBar.Template>
+                                                <ControlTemplate TargetType="{x:Type ScrollBar}">
+                                                    <Grid Background="Transparent" SnapsToDevicePixels="True">
+                                                        <Border Background="{StaticResource SecondaryBackgroundBrush}" CornerRadius="4" />
+                                                        <Track x:Name="PART_Track" Margin="3,0" IsDirectionReversed="True"
+                                                               Minimum="{TemplateBinding Minimum}"
+                                                               Maximum="{TemplateBinding Maximum}"
+                                                               Orientation="{TemplateBinding Orientation}"
+                                                               ViewportSize="{TemplateBinding ViewportSize}"
+                                                               Value="{TemplateBinding Value}">
+                                                            <Track.DecreaseRepeatButton><RepeatButton Visibility="Collapsed" /></Track.DecreaseRepeatButton>
+                                                            <Track.Thumb>
+                                                                <Thumb OverridesDefaultStyle="True"
+                                                                       Template="{StaticResource PulseScrollThumbTemplate}" />
+                                                            </Track.Thumb>
+                                                            <Track.IncreaseRepeatButton><RepeatButton Visibility="Collapsed" /></Track.IncreaseRepeatButton>
+                                                        </Track>
+                                                    </Grid>
+                                                </ControlTemplate>
+                                            </ScrollBar.Template>
+                                        </ScrollBar>
+                                    </Grid>
+                                </ControlTemplate>
+                            </ScrollViewer.Template>
+                            <ItemsPresenter />
+                        </ScrollViewer>
+                    </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>

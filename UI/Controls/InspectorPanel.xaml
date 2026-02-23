@@ -38,72 +38,8 @@
             </StackPanel>
 
             <!-- Selection details -->
-            <ScrollViewer Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
-                <ScrollViewer.Template>
-                    <ControlTemplate TargetType="{x:Type ScrollViewer}">
-                        <Grid SnapsToDevicePixels="True">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <ScrollContentPresenter Grid.Column="0"
-                                                    CanContentScroll="{TemplateBinding CanContentScroll}"/>
-                            <ScrollBar x:Name="PART_VerticalScrollBar"
-                                       Grid.Column="1"
-                                       Orientation="Vertical"
-                                       Minimum="0"
-                                       Maximum="{TemplateBinding ScrollableHeight}"
-                                       ViewportSize="{TemplateBinding ViewportHeight}"
-                                       Value="{TemplateBinding VerticalOffset}"
-                                       Visibility="{TemplateBinding ComputedVerticalScrollBarVisibility}"
-                                       OverridesDefaultStyle="True"
-                                       Width="10" MinWidth="10"
-                                       Background="Transparent">
-                                <ScrollBar.Template>
-                                    <ControlTemplate TargetType="{x:Type ScrollBar}">
-                                        <Grid Background="Transparent" SnapsToDevicePixels="True">
-                                            <Border Background="{DynamicResource SecondaryBackgroundBrush}" CornerRadius="4" Opacity="1.0"/>
-                                            <Track x:Name="PART_Track"
-                                                   Margin="3,0,3,0"
-                                                   IsDirectionReversed="True"
-                                                   Minimum="{TemplateBinding Minimum}"
-                                                   Maximum="{TemplateBinding Maximum}"
-                                                   Orientation="{TemplateBinding Orientation}"
-                                                   ViewportSize="{TemplateBinding ViewportSize}"
-                                                   Value="{TemplateBinding Value}">
-                                                <Track.DecreaseRepeatButton>
-                                                    <RepeatButton Visibility="Collapsed"/>
-                                                </Track.DecreaseRepeatButton>
-                                                <Track.Thumb>
-                                                    <Thumb OverridesDefaultStyle="True" Opacity="0.55">
-                                                        <Thumb.Style>
-                                                            <Style TargetType="{x:Type Thumb}">
-                                                                <Setter Property="Template">
-                                                                    <Setter.Value>
-                                                                        <ControlTemplate TargetType="{x:Type Thumb}">
-                                                                            <Border Background="{DynamicResource ScrollBarThumbBrush}" CornerRadius="4"/>
-                                                                        </ControlTemplate>
-                                                                    </Setter.Value>
-                                                                </Setter>
-                                                                <Style.Triggers>
-                                                                    <Trigger Property="IsMouseOver" Value="True"><Setter Property="Opacity" Value="0.85"/></Trigger>
-                                                                    <Trigger Property="IsDragging"  Value="True"><Setter Property="Opacity" Value="1.0"/></Trigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Thumb.Style>
-                                                    </Thumb>
-                                                </Track.Thumb>
-                                                <Track.IncreaseRepeatButton>
-                                                    <RepeatButton Visibility="Collapsed"/>
-                                                </Track.IncreaseRepeatButton>
-                                            </Track>
-                                        </Grid>
-                                    </ControlTemplate>
-                                </ScrollBar.Template>
-                            </ScrollBar>
-                        </Grid>
-                    </ControlTemplate>
-                </ScrollViewer.Template>
+            <ScrollViewer Style="{StaticResource PulseScrollViewerStyle}"
+                          Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="4">
                     <!-- Entity header -->
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
