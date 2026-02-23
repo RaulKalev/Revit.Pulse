@@ -9,7 +9,12 @@
     mc:Ignorable="d">
 
     <UserControl.Resources>
-        <converters:CountToVisibilityConverter x:Key="CountToVisibility"/>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/DarkTheme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <converters:CountToVisibilityConverter x:Key="CountToVisibility"/>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Border Background="{DynamicResource SecondaryBackgroundBrush}"
