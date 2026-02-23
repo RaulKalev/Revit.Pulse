@@ -44,6 +44,10 @@ namespace Pulse.Revit.Services
                     ElementId = element.Id.Value
                 };
 
+                // Always expose the element's built-in Name (family type name) so
+                // matchers can use it without requiring a configured parameter.
+                data.Parameters["_Name"] = element.Name ?? string.Empty;
+
                 foreach (string paramName in parameterNames)
                 {
                     string value = GetParameterValue(element, paramName);

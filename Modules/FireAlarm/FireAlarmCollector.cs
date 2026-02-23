@@ -44,24 +44,59 @@ namespace Pulse.Modules.FireAlarm
             string panelCategory  = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelElementCategory);
             string panelNameParam = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelElementNameParam);
 
-            if (string.IsNullOrWhiteSpace(panelCategory) || string.IsNullOrWhiteSpace(panelNameParam))
+            if (string.IsNullOrWhiteSpace(panelCategory))
                 return;
 
-            // Quick lookup: display name → Panel
+            // Quick lookup: panel display name → Panel
             var panelByLabel = new Dictionary<string, Panel>(StringComparer.OrdinalIgnoreCase);
             foreach (var panel in data.Panels)
                 panelByLabel[panel.DisplayName] = panel;
 
-            var panelElements = collectorContext.GetElements(
-                panelCategory,
-                new System.Collections.Generic.List<string> { panelNameParam });
+            var paramList = new System.Collections.Generic.List<string>();
+            if (!string.IsNullOrWhiteSpace(panelNameParam))
+                paramList.Add(panelNameParam);
+            // _Name is always injected by the collector service — no need to request it.
+
+            var panelElements = collectorContext.GetElements(panelCategory, paramList);
 
             foreach (var element in panelElements)
             {
-                if (!element.Parameters.TryGetValue(panelNameParam, out string nameValue)) continue;
-                if (string.IsNullOrWhiteSpace(nameValue)) continue;
-                if (panelByLabel.TryGetValue(nameValue.Trim(), out var panel) && !panel.RevitElementId.HasValue)
-                    panel.RevitElementId = element.ElementId;
+                Panel matched = null;
+
+                // 1. Try configured parameter — exact match
+                if (!string.IsNullOrWhiteSpace(panelNameParam)
+                    && element.Parameters.TryGetValue(panelNameParam, out string paramValue)
+                    && !string.IsNullOrWhiteSpace(paramValue))
+                {
+                    panelByLabel.TryGetValue(paramValue.Trim(), out matched);
+                }
+
+                // 2. Try built-in element Name — exact match
+                if (matched == null
+                    && element.Parameters.TryGetValue("_Name", out string elemName)
+                    && !string.IsNullOrWhiteSpace(elemName))
+                {
+                    panelByLabel.TryGetValue(elemName.Trim(), out matched);
+                }
+
+                // 3. Try built-in element Name — starts-with match
+                //    Handles cases like type name "ATS keskseade, Pea" matching panel "ATS keskseade"
+                if (matched == null
+                    && element.Parameters.TryGetValue("_Name", out string elemName2)
+                    && !string.IsNullOrWhiteSpace(elemName2))
+                {
+                    foreach (var kvp in panelByLabel)
+                    {
+                        if (elemName2.StartsWith(kvp.Key, StringComparison.OrdinalIgnoreCase))
+                        {
+                            matched = kvp.Value;
+                            break;
+                        }
+                    }
+                }
+
+                if (matched != null && !matched.RevitElementId.HasValue)
+                    matched.RevitElementId = element.ElementId;
             }
         }
 
