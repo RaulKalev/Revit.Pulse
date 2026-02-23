@@ -10,6 +10,7 @@
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
         <converters:CountToVisibilityConverter x:Key="CountToVisibility"/>
         <converters:SeverityToBrushConverter x:Key="SeverityToBrush"/>
     </UserControl.Resources>
@@ -18,7 +19,7 @@
         <Grid>
             <!-- No selection state -->
             <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
-                        Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}, ConverterParameter=Invert}">
+                        Visibility="{Binding HasSelection, Converter={StaticResource InverseBoolToVis}}">
                 <materialDesign:PackIcon Kind="InformationOutline" Width="32" Height="32"
                                          HorizontalAlignment="Center"
                                          Foreground="{DynamicResource IconForegroundBrush}" Opacity="0.4"/>

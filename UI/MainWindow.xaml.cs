@@ -21,6 +21,7 @@ namespace Pulse.UI
 
             _viewModel = new MainViewModel(uiApp);
             DataContext = _viewModel;
+            _viewModel.Initialize(this);
 
             _resizer = new WindowResizer(this);
         }

@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows;
 using System.Windows.Input;
+using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using Pulse.Core.Modules;
 using Pulse.Core.Rules;
@@ -10,6 +12,8 @@ using Pulse.Core.Settings;
 using Pulse.Core.Graph;
 using Pulse.Modules.FireAlarm;
 using Pulse.Revit.ExternalEvents;
+using Pulse.Revit.Storage;
+using Pulse.UI;
 
 namespace Pulse.UI.ViewModels
 {
@@ -36,6 +40,8 @@ namespace Pulse.UI.ViewModels
         private readonly ExternalEvent _overrideEvent;
         private readonly ResetOverridesHandler _resetHandler;
         private readonly ExternalEvent _resetEvent;
+        private readonly SaveSettingsHandler _saveSettingsHandler;
+        private readonly ExternalEvent _saveSettingsEvent;
 
         // Child ViewModels
         public TopologyViewModel Topology { get; }
@@ -45,6 +51,7 @@ namespace Pulse.UI.ViewModels
         public ICommand RefreshCommand { get; }
         public ICommand ResetOverridesCommand { get; }
         public ICommand FilterWarningsCommand { get; }
+        public ICommand OpenSettingsCommand { get; }
 
         // Status
         private string _statusText = "Ready. Press Refresh to load system data.";
@@ -106,6 +113,9 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _activeModuleName, value);
         }
 
+        // Owner window — set via Initialize() so settings dialog can use it as parent
+        private Window _ownerWindow;
+
         public MainViewModel(UIApplication uiApp)
         {
             _uiApp = uiApp ?? throw new ArgumentNullException(nameof(uiApp));
@@ -136,10 +146,26 @@ namespace Pulse.UI.ViewModels
             _resetHandler = new ResetOverridesHandler();
             _resetEvent = ExternalEvent.Create(_resetHandler);
 
+            _saveSettingsHandler = new SaveSettingsHandler();
+            _saveSettingsEvent = ExternalEvent.Create(_saveSettingsHandler);
+
             // Create commands
             RefreshCommand = new RelayCommand(ExecuteRefresh, () => !IsLoading);
             ResetOverridesCommand = new RelayCommand(ExecuteResetOverrides);
             FilterWarningsCommand = new RelayCommand(_ => ShowWarningsOnly = !ShowWarningsOnly);
+            OpenSettingsCommand = new RelayCommand(ExecuteOpenSettings);
+
+            // Load previously saved settings from Extensible Storage (we are on the API thread here)
+            LoadInitialSettings(uiApp.ActiveUIDocument?.Document);
+        }
+
+        /// <summary>
+        /// Call this from the View's code-behind immediately after setting DataContext.
+        /// Stores a reference to the parent window used to position the settings dialog.
+        /// </summary>
+        public void Initialize(Window owner)
+        {
+            _ownerWindow = owner;
         }
 
         /// <summary>
@@ -290,5 +316,64 @@ namespace Pulse.UI.ViewModels
                 Topology.ClearFilter();
             }
         }
-    }
+
+        // ─── Settings ────────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Read previously saved settings from Extensible Storage and apply them.
+        /// Called once during construction while still on the Revit API thread.
+        /// </summary>
+        private void LoadInitialSettings(Document doc)
+        {
+            if (doc == null) return;
+            try
+            {
+                var service = new ExtensibleStorageService(doc);
+                var allSettings = service.ReadSettings();
+                if (allSettings != null && allSettings.TryGetValue(_activeModule.ModuleId, out var stored))
+                {
+                    _activeSettings = stored;
+                }
+            }
+            catch
+            {
+                // Silently fall back to defaults — storage may not exist yet
+            }
+        }
+
+        /// <summary>Open the Settings dialog for the active module.</summary>
+        private void ExecuteOpenSettings()
+        {
+            var defaults = _activeModule.GetDefaultSettings();
+            var settingsVm = new SettingsViewModel(
+                _activeSettings, defaults,
+                _activeModule.DisplayName,
+                _activeModule.Description);
+
+            settingsVm.SettingsSaved += OnSettingsSaved;
+
+            var settingsWin = new SettingsWindow(settingsVm)
+            {
+                Owner = _ownerWindow
+            };
+            settingsWin.ShowDialog();
+        }
+
+        /// <summary>
+        /// Called when the user confirms new settings in the dialog.
+        /// Updates the active settings in memory and persists them asynchronously.
+        /// </summary>
+        private void OnSettingsSaved(ModuleSettings newSettings)
+        {
+            _activeSettings = newSettings;
+            StatusText = "Settings applied. Press Refresh to reload data.";
+
+            _saveSettingsHandler.Settings = newSettings;
+            _saveSettingsHandler.OnSaved = () =>
+                Application.Current?.Dispatcher?.Invoke(() => StatusText = "Settings saved to document.");
+            _saveSettingsHandler.OnError = ex =>
+                Application.Current?.Dispatcher?.Invoke(() => StatusText = $"Could not save settings: {ex.Message}");
+
+            _saveSettingsEvent.Raise();
+        }    }
 }

@@ -104,6 +104,13 @@
 
                             <!-- Reset overrides -->
                             <Button Style="{StaticResource PulseActionButtonStyle}"
+                                    Command="{Binding OpenSettingsCommand}"
+                                    ToolTip="Configure parameter mappings"
+                                    Margin="0,0,4,0">
+                                <materialDesign:PackIcon Kind="Cog" Width="14" Height="14" VerticalAlignment="Center"/>
+                            </Button>
+
+                            <Button Style="{StaticResource PulseActionButtonStyle}"
                                     Command="{Binding ResetOverridesCommand}"
                                     ToolTip="Reset temporary graphic overrides in Revit"
                                     Margin="0,0,4,0">

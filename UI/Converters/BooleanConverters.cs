@@ -19,22 +19,31 @@ namespace Pulse.UI.Converters
         }
     }
 
-    /// <summary>Returns Visibility.Visible when value > 0, otherwise Collapsed.</summary>
+    /// <summary>Returns Visibility.Visible when value > 0, otherwise Collapsed. Pass ConverterParameter=Invert to reverse.</summary>
     public class CountToVisibilityConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is int count)
-            {
-                return count > 0 ? Visibility.Visible : Visibility.Collapsed;
-            }
-            return Visibility.Collapsed;
+            bool invert = string.Equals(parameter as string, "Invert", StringComparison.OrdinalIgnoreCase);
+            bool hasItems = value is int count && count > 0;
+            if (invert) hasItems = !hasItems;
+            return hasItems ? Visibility.Visible : Visibility.Collapsed;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotSupportedException();
         }
+    }
+
+    /// <summary>Returns Visibility.Collapsed when value is true, Visible when false.</summary>
+    public class InverseBoolToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is bool b && b ? Visibility.Collapsed : Visibility.Visible;
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
     }
 
     /// <summary>Returns Visibility.Collapsed when value is null or empty string.</summary>
