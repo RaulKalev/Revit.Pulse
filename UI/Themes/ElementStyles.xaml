@@ -69,6 +69,41 @@
     </Style>
 
     <!-- ======================== -->
+    <!--  Negative Action Button  -->
+    <!--  (delete/remove actions) -->
+    <!-- ======================== -->
+    <Style x:Key="NegativeActionButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource PulseActionButtonStyle}">
+        <Setter Property="Foreground" Value="#FFDC6B6B" />
+        <Setter Property="BorderBrush" Value="#66DC6B6B" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type Button}">
+                    <Border x:Name="ButtonBorder"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="5"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="ButtonBorder" Property="Background" Value="#33DC6B6B" />
+                            <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="#FFDC6B6B" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="ButtonBorder" Property="Background" Value="#66DC6B6B" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ======================== -->
     <!--  TreeView Node Style     -->
     <!-- ======================== -->
     <Style x:Key="TopologyTreeViewItemStyle" TargetType="{x:Type TreeViewItem}">
