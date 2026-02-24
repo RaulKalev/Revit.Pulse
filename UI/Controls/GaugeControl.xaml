@@ -23,10 +23,10 @@
                        Foreground="White"
                        TextOptions.TextFormattingMode="Display"/>
 
-            <!-- Static background track: full 180° ring, Cx=70 Cy=78 OuterR=58 InnerR=35 -->
-            <!-- M 12,78 A 58,58 0 0 0 128,78 L 105,78 A 35,35 0 0 1 35,78 Z -->
+            <!-- Static background track: full 180° ring, Cx=70 Cy=78 OuterR=58 InnerR=22 -->
+            <!-- M 12,78 A 58,58 0 0 0 128,78 L 92,78 A 22,22 0 0 1 48,78 Z -->
             <Path x:Name="BackTrackPath"
-                  Data="M 12,78 A 58,58 0 0 0 128,78 L 105,78 A 35,35 0 0 1 35,78 Z"
+                  Data="M 12,78 A 58,58 0 0 0 128,78 L 92,78 A 22,22 0 0 1 48,78 Z"
                   Fill="#22FFFFFF"/>
 
             <!-- Value arc: geometry replaced in code-behind -->
@@ -34,14 +34,14 @@
 
             <!-- Combined "value / max unit" — large bold, centered inside the arc -->
             <TextBlock x:Name="ValueText"
-                       Canvas.Left="0" Canvas.Top="46"
+                       Canvas.Left="0" Canvas.Top="40"
                        Width="140" TextAlignment="Center"
                        FontSize="14" FontWeight="Bold"
                        Foreground="White"/>
 
             <!-- Percentage below the value text -->
             <TextBlock x:Name="PercentText"
-                       Canvas.Left="0" Canvas.Top="63"
+                       Canvas.Left="0" Canvas.Top="57"
                        Width="140" TextAlignment="Center"
                        FontSize="9" Opacity="0.50"
                        Foreground="White"/>
