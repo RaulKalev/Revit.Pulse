@@ -810,6 +810,7 @@ namespace Pulse.UI.Controls
         // ── Loop popup ────────────────────────────────────────────────────
 
         private string _popupLoopKey; // "panelName::loopName" open in LoopPopup
+        private bool   _suppressWireChange;
 
         private void LoopPopupFlip_Click(object sender, RoutedEventArgs e)
         {
@@ -827,6 +828,20 @@ namespace Pulse.UI.Controls
         {
             _currentVm?.RemoveLineFromSelectedLoop();
             LoopPopup.IsOpen = false;
+        }
+
+        private void LoopPopupWireCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_suppressWireChange) return;
+            if (!LoopPopup.IsOpen || _currentVm == null || string.IsNullOrEmpty(_popupLoopKey)) return;
+
+            var selected = LoopPopupWireCombo.SelectedItem as string;
+            int dbl2 = _popupLoopKey.IndexOf("::", StringComparison.Ordinal);
+            string pName = dbl2 >= 0 ? _popupLoopKey.Substring(0, dbl2) : _popupLoopKey;
+            string lName = dbl2 >= 0 ? _popupLoopKey.Substring(dbl2 + 2) : _popupLoopKey;
+
+            string wireName = (selected == null || selected == "(None)") ? null : selected;
+            _currentVm.SetLoopWire(pName, lName, wireName);
         }
 
         // ── Level context popup ───────────────────────────────────────────
@@ -882,6 +897,16 @@ namespace Pulse.UI.Controls
                     $"Remove line ({wires} \u2192 {wires - 1})");
                 LoopPopupRemoveLineButton.Visibility = wires > 2
                     ? Visibility.Visible : Visibility.Collapsed;
+
+                // Populate wire combobox
+                _suppressWireChange = true;
+                var wireNames = new System.Collections.Generic.List<string> { "(None)" };
+                wireNames.AddRange(_currentVm.GetAvailableWireNames());
+                LoopPopupWireCombo.ItemsSource = wireNames;
+                string currentWire = _currentVm.GetLoopWire(pName, lName);
+                LoopPopupWireCombo.SelectedItem = string.IsNullOrEmpty(currentWire) ? "(None)" : currentWire;
+                LoopPopupWireCombo.Visibility = wireNames.Count > 1 ? Visibility.Visible : Visibility.Collapsed;
+                _suppressWireChange = false;
 
                 LoopPopup.IsOpen = true;
                 e.Handled = true;

@@ -44,6 +44,7 @@ namespace Pulse.Modules.FireAlarm
                     new ParameterMapping(FireAlarmParameterKeys.PanelElementCategory, "Electrical Equipment", isRequired: false),
                     new ParameterMapping(FireAlarmParameterKeys.PanelElementNameParam, "Mark", isRequired: false),
                     new ParameterMapping(FireAlarmParameterKeys.CircuitElementId, "FA_Circuit_ElementId", isRequired: false),
+                    new ParameterMapping(FireAlarmParameterKeys.Wire, "FA_Wire", isRequired: false),
                 }
             };
         }

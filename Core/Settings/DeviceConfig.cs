@@ -77,6 +77,38 @@ namespace Pulse.Core.Settings
     }
 
     /// <summary>
+    /// Configuration record for a wire type used in a fire-alarm installation.
+    /// </summary>
+    public class WireConfig
+    {
+        [JsonProperty("id")]
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+
+        [JsonProperty("name")]
+        public string Name { get; set; } = "New Wire";
+
+        /// <summary>Number of conductors in the cable (e.g. 2 for a standard loop cable).</summary>
+        [JsonProperty("coreCount")]
+        public int CoreCount { get; set; } = 2;
+
+        /// <summary>Cross‑section area of each conductor in mm².</summary>
+        [JsonProperty("coreSizeMm2")]
+        public double CoreSizeMm2 { get; set; } = 0.5;
+
+        /// <summary>Cable colour designation (e.g. "Red/Black", "Grey").</summary>
+        [JsonProperty("color")]
+        public string Color { get; set; } = string.Empty;
+
+        /// <summary>Whether the cable has an overall or individual-core shield/screen.</summary>
+        [JsonProperty("hasShielding")]
+        public bool HasShielding { get; set; }
+
+        /// <summary>Whether the cable is rated fire-resistant (e.g. FP200, MICC).</summary>
+        [JsonProperty("isFireResistant")]
+        public bool IsFireResistant { get; set; }
+    }
+
+    /// <summary>
     /// Root object persisted to the local JSON file.
     /// Contains all configured control panels and loop modules.
     /// </summary>
@@ -110,5 +142,13 @@ namespace Pulse.Core.Settings
         /// <summary>Level name → overridden elevation (Revit feet), set by Move mode in the diagram.</summary>
         [JsonProperty("levelElevationOffsets")]
         public Dictionary<string, double> LevelElevationOffsets { get; set; } = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>User-defined cable/wire definitions selectable on loops.</summary>
+        [JsonProperty("wires")]
+        public List<WireConfig> Wires { get; set; } = new List<WireConfig>();
+
+        /// <summary>"panelName::loopName" → assigned WireConfig name.</summary>
+        [JsonProperty("loopWireAssignments")]
+        public Dictionary<string, string> LoopWireAssignments { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 }

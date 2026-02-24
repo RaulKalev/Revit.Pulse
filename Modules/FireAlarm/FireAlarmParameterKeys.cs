@@ -52,5 +52,8 @@ namespace Pulse.Modules.FireAlarm
         /// integer ElementId of its parent electrical circuit.
         /// </summary>
         public const string CircuitElementId = "CircuitElementId";
+
+        /// <summary>Logical key for the wire/cable type assigned to a loop, written to device elements.</summary>
+        public const string Wire = "Wire";
     }
 }

@@ -133,6 +133,13 @@
                 <Setter Property="BorderBrush"  Value="#FF0078D7" />
             </Style>
 
+            <!-- Dark CheckBox style for wire form -->
+            <Style x:Key="DarkCheckBoxStyle" TargetType="CheckBox">
+                <Setter Property="Foreground"    Value="{DynamicResource ForegroundBrush}" />
+                <Setter Property="FontSize"      Value="12" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
         </ResourceDictionary>
     </Window.Resources>
 
@@ -165,7 +172,7 @@
                 <!-- ── Body ─────────────────────────────────────────────── -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="190" MinWidth="140" />  <!-- Sidebar: list -->
+                        <ColumnDefinition Width="215" MinWidth="160" />  <!-- Sidebar: list -->
                         <ColumnDefinition Width="1" />                   <!-- Divider -->
                         <ColumnDefinition Width="*" />                   <!-- Form -->
                     </Grid.ColumnDefinitions>
@@ -183,9 +190,10 @@
                         <!-- Tab header buttons -->
                         <StackPanel Grid.Row="0" Orientation="Horizontal">
                             <!-- Control Panels tab -->
-                            <Button Command="{Binding SelectPanelsTabCommand}">
+                            <Button Command="{Binding SelectPanelsTabCommand}" Padding="10,8">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
+                                        <Setter Property="Padding" Value="10,8"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsPanelsTabActive}" Value="True">
                                                 <Setter Property="Foreground"  Value="{DynamicResource ForegroundBrush}" />
@@ -199,9 +207,10 @@
                             </Button>
 
                             <!-- Loop Modules tab -->
-                            <Button Command="{Binding SelectLoopModulesTabCommand}">
+                            <Button Command="{Binding SelectLoopModulesTabCommand}" Padding="10,8">
                                 <Button.Style>
                                     <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
+                                        <Setter Property="Padding" Value="10,8"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding IsLoopModulesTabActive}" Value="True">
                                                 <Setter Property="Foreground"  Value="{DynamicResource ForegroundBrush}" />
@@ -211,7 +220,24 @@
                                         </Style.Triggers>
                                     </Style>
                                 </Button.Style>
-                                <TextBlock Text="Loop Modules" FontSize="11" FontWeight="SemiBold" />
+                                <TextBlock Text="Modules" FontSize="11" FontWeight="SemiBold" />
+                            </Button>
+
+                            <!-- Wire tab -->
+                            <Button Command="{Binding SelectWiresTabCommand}" Padding="10,8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
+                                        <Setter Property="Padding" Value="10,8"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsWiresTabActive}" Value="True">
+                                                <Setter Property="Foreground"  Value="{DynamicResource ForegroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="#FF0078D7" />
+                                                <Setter Property="BorderThickness" Value="0,0,0,2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <TextBlock Text="Wire" FontSize="11" FontWeight="SemiBold" />
                             </Button>
                         </StackPanel>
 
@@ -278,6 +304,36 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
 
+                        <!-- Item list — Wires -->
+                        <ListBox Grid.Row="2"
+                                 ItemsSource="{Binding Wires}"
+                                 SelectedItem="{Binding SelectedWire, Mode=TwoWay}"
+                                 ItemContainerStyle="{StaticResource DarkListBoxItemStyle}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 Visibility="{Binding IsWiresTabActive, Converter={StaticResource BoolToVis}}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource ForegroundBrush}" />
+                                        <TextBlock FontSize="10"
+                                                   Foreground="{DynamicResource IconForegroundBrush}"
+                                                   Opacity="0.7"
+                                                   Margin="0,1,0,0">
+                                            <Run Text="{Binding CoreCount, Mode=OneWay}" />
+                                            <Run Text="×" />
+                                            <Run Text="{Binding CoreSizeMm2, Mode=OneWay}" />
+                                            <Run Text=" mm²" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
                         <!-- Add / Remove buttons -->
                         <Border Grid.Row="3"
                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -323,6 +379,27 @@
                                         Command="{Binding RemoveLoopModuleCommand}"
                                         ToolTip="Remove selected module"
                                         Visibility="{Binding IsLoopModulesTabActive, Converter={StaticResource BoolToVis}}">
+                                    <materialDesign:PackIcon Kind="Delete" Width="13" Height="13" VerticalAlignment="Center"/>
+                                </Button>
+
+                                <!-- Add Wire -->
+                                <Button Style="{StaticResource PulseActionButtonStyle}"
+                                        Command="{Binding AddWireCommand}"
+                                        ToolTip="Add new wire type"
+                                        Visibility="{Binding IsWiresTabActive, Converter={StaticResource BoolToVis}}"
+                                        Margin="0,0,4,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Plus" Width="13" Height="13"
+                                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBlock Text="Add Wire" FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Remove Wire -->
+                                <Button Style="{StaticResource NegativeActionButtonStyle}"
+                                        Command="{Binding RemoveWireCommand}"
+                                        ToolTip="Remove selected wire type"
+                                        Visibility="{Binding IsWiresTabActive, Converter={StaticResource BoolToVis}}">
                                     <materialDesign:PackIcon Kind="Delete" Width="13" Height="13" VerticalAlignment="Center"/>
                                 </Button>
                             </StackPanel>
@@ -575,6 +652,126 @@
                                 <TextBox Text="{Binding SelectedLoopModule.MaxMaPerLoop, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource DarkTextBoxStyle}"
                                          Margin="0,0,0,8"/>
+
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- ══════════════════════════════════ -->
+                        <!--  WIRE FORM                          -->
+                        <!-- ══════════════════════════════════ -->
+                        <StackPanel Visibility="{Binding IsWiresTabActive, Converter={StaticResource BoolToVis}}">
+
+                            <!-- Empty state -->
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Margin="0,60,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedWire}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <materialDesign:PackIcon Kind="CableData" Width="40" Height="40"
+                                                         HorizontalAlignment="Center"
+                                                         Foreground="{DynamicResource IconForegroundBrush}"
+                                                         Opacity="0.35"/>
+                                <TextBlock Text="No wire type selected"
+                                           FontSize="13"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.6"
+                                           Margin="0,10,0,4"/>
+                                <TextBlock Text="Add a wire type or select one from the list"
+                                           FontSize="10"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.4"/>
+                            </StackPanel>
+
+                            <!-- Edit form -->
+                            <StackPanel>
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedWire}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- Section heading -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <materialDesign:PackIcon Kind="CableData" Width="18" Height="18"
+                                                             Foreground="#FF0078D7" VerticalAlignment="Center"
+                                                             Margin="0,0,8,0"/>
+                                    <TextBlock Text="Wire Type Configuration"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,16"/>
+
+                                <!-- Wire Name -->
+                                <TextBlock Text="WIRE NAME" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,4"/>
+                                <TextBlock Text="Descriptive name shown in loop selectors (e.g. &quot;FP200 2×1.5&quot;)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedWire.Name, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Core Count + Core Size (side by side) -->
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="CORE COUNT" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SelectedWire.CoreCount, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="CORE SIZE (mm²)" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SelectedWire.CoreSizeMm2, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Color -->
+                                <TextBlock Text="COLOR" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,4"/>
+                                <TextBlock Text="Cable colour or colour code (e.g. &quot;Red/Black&quot;, &quot;Grey&quot;)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedWire.Color, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Shielding + Fire Resistance checkboxes -->
+                                <TextBlock Text="CABLE PROPERTIES" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,8"/>
+                                <CheckBox IsChecked="{Binding SelectedWire.HasShielding, Mode=TwoWay}"
+                                          Style="{StaticResource DarkCheckBoxStyle}"
+                                          Content="Shielded / Screened"
+                                          Margin="0,0,0,8"/>
+                                <CheckBox IsChecked="{Binding SelectedWire.IsFireResistant, Mode=TwoWay}"
+                                          Style="{StaticResource DarkCheckBoxStyle}"
+                                          Content="Fire Resistant"
+                                          Margin="0,0,0,8"/>
 
                             </StackPanel>
                         </StackPanel>

@@ -170,6 +170,9 @@ namespace Pulse.UI.ViewModels
                 _saveDiagramEvent.Raise();
             };
 
+            // Wire diagram wire-assignment writes
+            Diagram.WireAssigned = OnDiagramWireAssigned;
+
             // Create commands
             RefreshCommand = new RelayCommand(ExecuteRefresh, () => !IsLoading);
             ResetOverridesCommand = new RelayCommand(ExecuteResetOverrides);
@@ -251,6 +254,7 @@ namespace Pulse.UI.ViewModels
             Diagram.LoadPanels(data.Panels, data.Loops, diagramConfigStore);
             Diagram.LoadFlipStates(diagramConfigStore);
             Diagram.LoadLoopExtraLines(diagramConfigStore);
+            Diagram.LoadLoopWireAssignments(diagramConfigStore);
 
             // Update status
             int panelCount = data.Panels.Count;
@@ -495,6 +499,51 @@ namespace Pulse.UI.ViewModels
             _writeParamHandler.OnError = ex =>
                 Application.Current?.Dispatcher?.Invoke(() =>
                     StatusText = $"Could not write config: {ex.Message}");
+
+            _writeParamEvent.Raise();
+        }
+
+        /// <summary>
+        /// Called when the user assigns a wire type to a loop in the diagram.
+        /// Writes the wire name to the configured Revit parameter on all descendant devices.
+        /// </summary>
+        private void OnDiagramWireAssigned(string panelName, string loopName, string wireName)
+        {
+            if (_currentData == null) return;
+
+            string paramName = _activeSettings?.GetRevitParameterName(
+                Modules.FireAlarm.FireAlarmParameterKeys.Wire);
+            if (string.IsNullOrEmpty(paramName)) return;
+
+            // Find the loop by display name
+            var loop = _currentData.Loops.Find(l =>
+                string.Equals(l.DisplayName, loopName, StringComparison.OrdinalIgnoreCase));
+            if (loop == null) return;
+
+            var elementIds = loop.Devices
+                .Where(d => d.RevitElementId.HasValue)
+                .Select(d => d.RevitElementId.Value)
+                .ToList();
+
+            if (elementIds.Count == 0)
+            {
+                StatusText = $"Wire '{wireName}' saved, but no Revit elements found for loop '{loopName}'.";
+                return;
+            }
+
+            _writeParamHandler.Writes = elementIds
+                .Select(id => (id, paramName, wireName ?? string.Empty))
+                .ToList();
+
+            _writeParamHandler.OnCompleted = count =>
+                Application.Current?.Dispatcher?.Invoke(() =>
+                    StatusText = count > 0
+                        ? $"Wire '{wireName}' written to {count} devices in loop '{loopName}' ({paramName})."
+                        : $"Wire '{wireName}' saved but 0 elements updated — check that '{paramName}' exists as a writable string parameter.");
+
+            _writeParamHandler.OnError = ex =>
+                Application.Current?.Dispatcher?.Invoke(() =>
+                    StatusText = $"Could not write wire: {ex.Message}");
 
             _writeParamEvent.Raise();
         }

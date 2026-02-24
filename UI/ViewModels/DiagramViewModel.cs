@@ -229,6 +229,64 @@ namespace Pulse.UI.ViewModels
             DeviceConfigService.Save(store);
         }
 
+        // ── Loop wire assignments ─────────────────────────────────────────────
+
+        private Dictionary<string, string> _wireAssignments =
+            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Raised after <see cref="SetLoopWire"/> so the caller can write the value
+        /// to Revit. Args are (panelName, loopName, wireName — null means cleared).
+        /// </summary>
+        public Action<string, string, string> WireAssigned { get; set; }
+
+        /// <summary>Load wire assignments from the persisted store.</summary>
+        public void LoadLoopWireAssignments(DeviceConfigStore store)
+        {
+            _wireAssignments = new Dictionary<string, string>(
+                store?.LoopWireAssignments ?? new Dictionary<string, string>(),
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Returns the assigned wire name for the given loop, or null if none.</summary>
+        public string GetLoopWire(string panelName, string loopName)
+        {
+            string key = panelName + "::" + loopName;
+            return _wireAssignments.TryGetValue(key, out string w) ? w : null;
+        }
+
+        /// <summary>
+        /// Assign a wire to a loop, persist to disk, and raise <see cref="WireAssigned"/>.
+        /// Pass null or empty <paramref name="wireName"/> to clear the assignment.
+        /// </summary>
+        public void SetLoopWire(string panelName, string loopName, string wireName)
+        {
+            string key = panelName + "::" + loopName;
+            if (string.IsNullOrEmpty(wireName))
+                _wireAssignments.Remove(key);
+            else
+                _wireAssignments[key] = wireName;
+
+            var store = DeviceConfigService.Load();
+            store.LoopWireAssignments = new Dictionary<string, string>(
+                _wireAssignments, StringComparer.OrdinalIgnoreCase);
+            DeviceConfigService.Save(store);
+
+            WireAssigned?.Invoke(panelName, loopName, wireName);
+        }
+
+        /// <summary>Returns the names of all defined wire types from the config store.</summary>
+        public IReadOnlyList<string> GetAvailableWireNames()
+        {
+            var store = DeviceConfigService.Load();
+            var names = new List<string>();
+            if (store.Wires != null)
+                foreach (var w in store.Wires)
+                    if (!string.IsNullOrWhiteSpace(w.Name))
+                        names.Add(w.Name);
+            return names;
+        }
+
         // ── Visibility preferences ────────────────────────────────────────
 
         private LevelVisibilitySettings _visibility = new LevelVisibilitySettings();
