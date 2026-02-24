@@ -49,12 +49,11 @@ namespace Pulse.Revit.Services
                 data.Parameters["_Name"] = element.Name ?? string.Empty;
 
                 // Inject the elevation (feet) of the element's host level when available.
-                if (element is FamilyInstance fi)
+                if (element is FamilyInstance fi && fi.LevelId != ElementId.InvalidElementId)
                 {
-                    Level lvl = fi.Level;
-                    if (lvl != null)
+                    if (_doc.GetElement(fi.LevelId) is Level hostLevel)
                         data.Parameters["_LevelElevation"] =
-                            lvl.Elevation.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            hostLevel.Elevation.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 }
 
                 foreach (string paramName in parameterNames)
