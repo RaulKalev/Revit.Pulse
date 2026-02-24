@@ -792,8 +792,28 @@ namespace Pulse.UI.Controls
                             int    wireCount      = _currentVm.GetLoopWireCount(panel.Name, loopInfo.Name);
                             double wireSpacing    = _canvasSettings.WireSpacingPx;
                             double effectiveLoopH = wireSpacing * (wireCount - 1);
-                            double botY    = topY + effectiveLoopH;
-                            double farEdge = flipped ? (w - wireRight) : wireLeft;
+                            double botY = topY + effectiveLoopH;
+
+                            // ── Compute farEdge — stretch outward if devices overflow ──────────
+                            int    total     = maj.TotalDevices;
+                            int    maxPerRow = total > 0 ? (int)Math.Ceiling((double)total / wireCount) : 0;
+                            double baseEdge  = flipped ? (w - wireRight) : wireLeft;
+                            double span0     = Math.Abs(laneX - baseEdge);
+
+                            // Device spacing: fixed setting or auto-fit to default span
+                            double deviceSpacing = (_canvasSettings.DeviceSpacingPx > 0 && total > 0)
+                                ? _canvasSettings.DeviceSpacingPx
+                                : (maxPerRow > 0 ? span0 / (maxPerRow + 1) : span0);
+
+                            // If fixed spacing causes overflow, push farEdge outward
+                            double farEdge = baseEdge;
+                            if (total > 0)
+                            {
+                                double requiredReach = deviceSpacing * (maxPerRow + 1);
+                                farEdge = flipped
+                                    ? Math.Max(baseEdge, laneX + requiredReach)
+                                    : Math.Min(baseEdge, laneX - requiredReach);
+                            }
 
                             // ── Vertical spine (panel top → first wire) ───────────
                             Line(wireBrush, laneX, rectTop, laneX, topY);
@@ -818,11 +838,10 @@ namespace Pulse.UI.Controls
                             Canvas.SetTop(hitRect,  topY - 2);
                             DiagramCanvas.Children.Add(hitRect);
 
-                            if (maj.TotalDevices <= 0) continue;
+                            if (total <= 0) continue;
 
                             // Build a flat, ordered list of device types for this loop
-                            // (one entry per device slot, sorted by type for consistency)
-                            var flatTypes = new List<string>(maj.TotalDevices);
+                            var flatTypes = new List<string>(total);
                             if (maj.TypeCounts != null)
                             {
                                 foreach (var (dt, cnt) in maj.TypeCounts)
@@ -831,27 +850,16 @@ namespace Pulse.UI.Controls
                             }
                             else
                             {
-                                for (int k = 0; k < maj.TotalDevices; k++) flatTypes.Add(null);
+                                for (int k = 0; k < total; k++) flatTypes.Add(null);
                             }
 
-                            // ── Devices distributed evenly across all wires ───────
-                            // Pre-compute one shared column-X grid for ALL devices in the loop
-                            // so that devices on different wire rows are vertically aligned.
-                            double span  = Math.Abs(laneX - farEdge);
-                            int total    = maj.TotalDevices;
-                            double deviceSpacing = _canvasSettings.DeviceSpacingPx > 0
-                                ? _canvasSettings.DeviceSpacingPx
-                                : span / (total + 1);
-
-                            var devPositions = new double[total];
-                            for (int i = 0; i < total; i++)
-                                devPositions[i] = flipped
-                                    ? farEdge - deviceSpacing * (i + 1)
-                                    : wireLeft + deviceSpacing * (i + 1);
-
-                            // Distribute devices across wires using the shared column grid
+                            // ── Devices: each wire row starts at laneX and grows outward ─────
+                            // Right-side (flipped):  laneX + ds*(di+1)  → grows rightward
+                            // Left-side  (normal):   laneX - ds*(di+1)  → grows leftward
+                            // Using per-row column index di (not a global offset) means column 0
+                            // lands at the same X on every wire row → true vertical alignment.
                             int devRemain = total;
-                            int devOffset = 0;
+                            int devOffset = 0;    // tracks position in flatTypes for device-type labels
                             for (int wi = 0; wi < wireCount; wi++)
                             {
                                 // Ceiling-divide remaining devices among remaining wires
@@ -859,7 +867,10 @@ namespace Pulse.UI.Controls
                                 double wY    = topY + wi * wireSpacing;
                                 for (int di = 0; di < wireDevs; di++)
                                 {
-                                    double devX    = devPositions[devOffset];
+                                    // di is the per-row column index → same column = same X across rows
+                                    double devX = flipped
+                                        ? laneX + deviceSpacing * (di + 1)
+                                        : laneX - deviceSpacing * (di + 1);
                                     string devType = devOffset < flatTypes.Count ? flatTypes[devOffset] : null;
                                     devOffset++;
 
