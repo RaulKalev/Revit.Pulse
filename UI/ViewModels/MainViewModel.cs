@@ -549,6 +549,10 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         private void OnDiagramWireAssigned(string panelName, string loopName, string wireName)
         {
+            // Always sync topology combobox immediately — independent of Revit write path
+            var topoNode = Topology.FindLoopNode(panelName, loopName);
+            topoNode?.SetAssignedWireSilent(wireName ?? string.Empty);
+
             if (_currentData == null) return;
 
             string paramName = _activeSettings?.GetRevitParameterName(
@@ -586,10 +590,6 @@ namespace Pulse.UI.ViewModels
                     StatusText = $"Could not write wire: {ex.Message}");
 
             _writeParamEvent.Raise();
-
-            // Sync topology combobox silently (no re-save / Revit write)
-            var topoNode = Topology.FindLoopNode(panelName, loopName);
-            topoNode?.SetAssignedWireSilent(wireName ?? string.Empty);
         }
 
         /// <summary>Open the Settings dialog for the active module.</summary>
