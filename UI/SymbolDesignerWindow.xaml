@@ -242,6 +242,26 @@
                                   FontSize="11">
                             <TextBlock Text="Snap" FontSize="11" />
                         </CheckBox>
+
+                        <!-- Separator -->
+                        <Border Width="1" Height="18" Background="{DynamicResource BorderBrush}"
+                                VerticalAlignment="Center" Margin="0,0,12,0" />
+
+                        <!-- Import DXF / SVG -->
+                        <Button x:Name="BtnImport"
+                                VerticalAlignment="Center"
+                                Margin="0,0,0,0"
+                                Click="BtnImport_Click"
+                                Style="{StaticResource ToolButtonStyle}"
+                                Width="Auto" Height="26"
+                                Padding="8,0"
+                                ToolTip="Import DXF or SVG file — entities are added to the canvas">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="FolderOpen" Width="14" Height="14"
+                                                         VerticalAlignment="Center" Margin="0,0,5,0" />
+                                <TextBlock Text="Import DXF / SVG" FontSize="11" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </WrapPanel>
                 </Border>
 

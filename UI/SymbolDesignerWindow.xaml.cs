@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using Microsoft.Win32;
 using Pulse.Core.Settings;
 using Pulse.UI.ViewModels;
 
@@ -1111,6 +1112,58 @@ namespace Pulse.UI
         {
             if (sender is Button btn && btn.Tag is string hex)
                 _vm.FillColor = hex;
+        }
+
+        // ─── Import DXF / SVG ─────────────────────────────────────────────────
+
+        private void BtnImport_Click(object sender, RoutedEventArgs e)
+        {
+            var dlg = new OpenFileDialog
+            {
+                Title       = "Import symbol from DXF or SVG",
+                Filter      = "Supported files|*.dxf;*.svg|DXF files (*.dxf)|*.dxf|SVG files (*.svg)|*.svg|All files|*.*",
+                FilterIndex = 1
+            };
+
+            if (dlg.ShowDialog(this) != true) return;
+
+            ImportFromFile(dlg.FileName);
+        }
+
+        private void ImportFromFile(string filePath)
+        {
+            List<SymbolElement> imported;
+
+            try
+            {
+                string ext = System.IO.Path.GetExtension(filePath).ToLowerInvariant();
+                imported = ext == ".svg"
+                    ? SvgImportService.Import(filePath, _vm.ViewboxWidthMm, _vm.ViewboxHeightMm)
+                    : DxfImportService.Import(filePath, _vm.ViewboxWidthMm, _vm.ViewboxHeightMm);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Failed to import: {ex.Message}",
+                    "Import Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            if (imported == null || imported.Count == 0)
+            {
+                MessageBox.Show(
+                    "No supported entities were found in the file.",
+                    "Import",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                return;
+            }
+
+            // Commit each imported element (adds to undo stack individually)
+            foreach (var el in imported)
+                _vm.CommitElement(el);
         }
 
         // ─── Utility ──────────────────────────────────────────────────────────
