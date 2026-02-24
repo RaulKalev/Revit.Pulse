@@ -62,6 +62,25 @@ namespace Pulse.UI
         // ─── Selection handles ────────────────────────────────────────────────
         private readonly List<UIElement> _handleElements = new List<UIElement>();
 
+        // ─── Multi-selection ────────────────────────────────────────────────
+        private readonly HashSet<SymbolElement>  _multiSelection   = new HashSet<SymbolElement>();
+        private readonly List<UIElement>          _multiOverlays    = new List<UIElement>();
+        // Multi-element move: per-element original point lists
+        private Dictionary<SymbolElement, List<SymbolPoint>> _multiDragOriginals;
+        private readonly List<UIElement> _multiPreviews = new List<UIElement>();
+
+        // ─── Rubber-band selection ────────────────────────────────────────────
+        private bool      _isRubberBanding;
+        private Point     _rubberBandStartRaw;   // canvas px, not snapped
+        private Rectangle _rubberBandRect;
+
+        // ─── Snap cross (movable snap origin) ───────────────────────────────────
+        private const string SnapOriginTag        = "SnapOrigin";
+        private readonly List<UIElement> _snapCrossElements = new List<UIElement>();
+        private Ellipse _snapCrossDot;  // the hit-testable centre dot
+        private bool  _isDraggingSnapOrigin;
+        private Point _snapOriginDragOffsetMm;   // offset from dot centre to clicked point
+
         // ─── Constructor ──────────────────────────────────────────────────────
 
         public SymbolDesignerWindow(SymbolDesignerViewModel viewModel)
@@ -75,11 +94,12 @@ namespace Pulse.UI
             _vm.Elements.CollectionChanged += Elements_CollectionChanged;
             _vm.CanvasSizeChanged          += OnCanvasSizeChanged;
             _vm.ToolChanged                += OnToolChanged;
+            _vm.SnapOriginChanged          += DrawSnapCross;
             _vm.Saved     += _ => Close();
             _vm.Cancelled += Close;
 
-            // Draw grid once the canvas is laid out
-            DrawingCanvas.Loaded += (_, __) => { DrawGrid(); };
+            // Draw grid and snap cross once the canvas is laid out
+            DrawingCanvas.Loaded += (_, __) => { DrawGrid(); DrawSnapCross(); };
 
             // Keyboard shortcuts
             KeyDown += OnKeyDown;
@@ -153,7 +173,295 @@ namespace Pulse.UI
             _gridElements.Add(tb);
         }
 
-        private void OnCanvasSizeChanged() => DrawGrid();
+        private void OnCanvasSizeChanged() { DrawGrid(); DrawSnapCross(); }
+
+        // ─── Snap cross (movable origin) ──────────────────────────────────────
+
+        private void DrawSnapCross()
+        {
+            foreach (var el in _snapCrossElements)
+                DrawingCanvas.Children.Remove(el);
+            _snapCrossElements.Clear();
+            _snapCrossDot = null;
+
+            double cx = _vm.SnapOriginXMm * Ppm;
+            double cy = _vm.SnapOriginYMm * Ppm;
+            double arm = 10;  // pixels each side
+            var greenBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0xE0, 0x60));
+            greenBrush.Freeze();
+
+            var hLine = new Line
+            {
+                X1 = cx - arm, Y1 = cy, X2 = cx + arm, Y2 = cy,
+                Stroke = greenBrush, StrokeThickness = 1.5, IsHitTestVisible = false
+            };
+            var vLine = new Line
+            {
+                X1 = cx, Y1 = cy - arm, X2 = cx, Y2 = cy + arm,
+                Stroke = greenBrush, StrokeThickness = 1.5, IsHitTestVisible = false
+            };
+
+            const double dotR = 5;
+            var dot = new Ellipse
+            {
+                Width = dotR * 2, Height = dotR * 2,
+                Fill = new SolidColorBrush(Color.FromArgb(0x60, 0x00, 0xFF, 0x80)),
+                Stroke = greenBrush, StrokeThickness = 1.2,
+                Cursor = Cursors.SizeAll,
+                IsHitTestVisible = true,
+                Tag = SnapOriginTag,
+                ToolTip = "Drag to move snap origin"
+            };
+            Canvas.SetLeft(dot, cx - dotR);
+            Canvas.SetTop( dot, cy - dotR);
+
+            foreach (var l in new UIElement[] { hLine, vLine, dot })
+                Panel.SetZIndex(l, 250);
+
+            DrawingCanvas.Children.Add(hLine);
+            DrawingCanvas.Children.Add(vLine);
+            DrawingCanvas.Children.Add(dot);
+            _snapCrossElements.Add(hLine);
+            _snapCrossElements.Add(vLine);
+            _snapCrossElements.Add(dot);
+            _snapCrossDot = dot;
+        }
+
+        private void MoveSnapCrossVisual(double xMm, double yMm)
+        {
+            // Fast update of the cross position without a full rebuild
+            if (_snapCrossElements.Count < 3) return;
+            double cx = xMm * Ppm, cy = yMm * Ppm, arm = 10, dotR = 5;
+
+            if (_snapCrossElements[0] is Line h) { h.X1 = cx - arm; h.Y1 = cy; h.X2 = cx + arm; h.Y2 = cy; }
+            if (_snapCrossElements[1] is Line v) { v.X1 = cx; v.Y1 = cy - arm; v.X2 = cx; v.Y2 = cy + arm; }
+            if (_snapCrossElements[2] is Ellipse d)
+            {
+                Canvas.SetLeft(d, cx - dotR);
+                Canvas.SetTop( d, cy - dotR);
+            }
+        }
+
+        // ─── Multi-selection overlays ─────────────────────────────────────────
+
+        private void ClearMultiSelectionOverlays()
+        {
+            foreach (var o in _multiOverlays)
+                DrawingCanvas.Children.Remove(o);
+            _multiOverlays.Clear();
+        }
+
+        private void UpdateMultiSelectionOverlays()
+        {
+            ClearMultiSelectionOverlays();
+            foreach (var el in _multiSelection)
+            {
+                var ov = CreateSelectionOverlay(el);
+                if (ov == null) continue;
+                Panel.SetZIndex(ov, 201);
+                DrawingCanvas.Children.Add(ov);
+                _multiOverlays.Add(ov);
+            }
+            // Update info label
+            if (_multiSelection.Count > 1)
+                _vm.SelectionInfo = $"{_multiSelection.Count} elements selected";
+            else
+                _vm.SelectionInfo = "";
+        }
+
+        private void ClearAllSelection()
+        {
+            _vm.SelectedElement = null;
+            ClearSelectionOverlay();
+            _multiSelection.Clear();
+            ClearMultiSelectionOverlays();
+            _vm.SelectionInfo = "";
+        }
+
+        // ─── Rubber-band selection ────────────────────────────────────────────
+
+        private void StartRubberBand(Point rawPx)
+        {
+            _isRubberBanding    = true;
+            _rubberBandStartRaw = rawPx;
+
+            _rubberBandRect = new Rectangle
+            {
+                Stroke          = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0xAA, 0xFF)),
+                StrokeThickness = 1,
+                StrokeDashArray = new DoubleCollection { 4, 2 },
+                Fill            = new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0xAA, 0xFF)),
+                IsHitTestVisible = false
+            };
+            Panel.SetZIndex(_rubberBandRect, 500);
+            Canvas.SetLeft(_rubberBandRect, rawPx.X);
+            Canvas.SetTop( _rubberBandRect, rawPx.Y);
+            _rubberBandRect.Width  = 0;
+            _rubberBandRect.Height = 0;
+            DrawingCanvas.Children.Add(_rubberBandRect);
+            DrawingCanvas.CaptureMouse();
+        }
+
+        private void UpdateRubberBand(Point rawPx)
+        {
+            if (_rubberBandRect == null) return;
+            double x = Math.Min(_rubberBandStartRaw.X, rawPx.X);
+            double y = Math.Min(_rubberBandStartRaw.Y, rawPx.Y);
+            double w = Math.Abs(rawPx.X - _rubberBandStartRaw.X);
+            double h = Math.Abs(rawPx.Y - _rubberBandStartRaw.Y);
+            Canvas.SetLeft(_rubberBandRect, x);
+            Canvas.SetTop (_rubberBandRect, y);
+            _rubberBandRect.Width  = w;
+            _rubberBandRect.Height = h;
+        }
+
+        private void CommitRubberBand(Point rawPx)
+        {
+            DrawingCanvas.ReleaseMouseCapture();
+            if (_rubberBandRect != null)
+            {
+                DrawingCanvas.Children.Remove(_rubberBandRect);
+                _rubberBandRect = null;
+            }
+            _isRubberBanding = false;
+
+            double x1mm = Math.Min(_rubberBandStartRaw.X, rawPx.X) / Ppm;
+            double y1mm = Math.Min(_rubberBandStartRaw.Y, rawPx.Y) / Ppm;
+            double x2mm = Math.Max(_rubberBandStartRaw.X, rawPx.X) / Ppm;
+            double y2mm = Math.Max(_rubberBandStartRaw.Y, rawPx.Y) / Ppm;
+            var selRect = new Rect(x1mm, y1mm, x2mm - x1mm, y2mm - y1mm);
+
+            if (selRect.Width < 0.2 && selRect.Height < 0.2) return; // tiny drag = click
+
+            _multiSelection.Clear();
+            _vm.SelectedElement = null;
+            ClearSelectionOverlay();
+
+            foreach (var el in _vm.Elements)
+            {
+                var bb = GetBoundingBoxMm(el);
+                if (!bb.IsEmpty && selRect.IntersectsWith(bb))
+                    _multiSelection.Add(el);
+            }
+
+            // Single hit → promote to single selection (enables transforms)
+            if (_multiSelection.Count == 1)
+            {
+                _vm.SelectedElement = _multiSelection.First();
+                _multiSelection.Clear();
+                UpdateSelectionOverlay();
+            }
+            else if (_multiSelection.Count > 1)
+            {
+                UpdateMultiSelectionOverlays();
+            }
+        }
+
+        private void CancelRubberBand()
+        {
+            DrawingCanvas.ReleaseMouseCapture();
+            if (_rubberBandRect != null)
+            {
+                DrawingCanvas.Children.Remove(_rubberBandRect);
+                _rubberBandRect = null;
+            }
+            _isRubberBanding = false;
+        }
+
+        // ─── Multi-element move ───────────────────────────────────────────────
+
+        private void StartMultiMove(Point startMm)
+        {
+            _multiDragOriginals = new Dictionary<SymbolElement, List<SymbolPoint>>();
+            foreach (var el in _multiSelection)
+                _multiDragOriginals[el] = el.Points.ToList();
+
+            _dragMode    = DragMode.Move;
+            _dragStartMm = startMm;
+            _isDraggingTransform = true;
+
+            // Hide originals
+            foreach (var el in _multiSelection)
+                if (_elementToShape.TryGetValue(el, out var s)) s.Visibility = Visibility.Hidden;
+            ClearMultiSelectionOverlays();
+
+            DrawingCanvas.CaptureMouse();
+        }
+
+        private void UpdateMultiMovePreview(Point currentMm)
+        {
+            // Clear previous previews
+            foreach (var p in _multiPreviews) DrawingCanvas.Children.Remove(p);
+            _multiPreviews.Clear();
+
+            double dx = currentMm.X - _dragStartMm.X;
+            double dy = currentMm.Y - _dragStartMm.Y;
+
+            foreach (var kv in _multiDragOriginals)
+            {
+                var moved = new SymbolElement
+                {
+                    Type = kv.Key.Type, StrokeColor = kv.Key.StrokeColor,
+                    StrokeThicknessMm = kv.Key.StrokeThicknessMm,
+                    IsFilled = kv.Key.IsFilled, FillColor = kv.Key.FillColor,
+                    IsClosed = kv.Key.IsClosed,
+                    Points = kv.Value.Select(p => new SymbolPoint(p.X + dx, p.Y + dy)).ToList()
+                };
+                var shape = CreateShape(moved, opacityMultiplier: 0.75);
+                if (shape == null) continue;
+                Panel.SetZIndex(shape, 150);
+                DrawingCanvas.Children.Add(shape);
+                _multiPreviews.Add(shape);
+            }
+        }
+
+        private void CommitMultiMove(Point currentMm)
+        {
+            foreach (var p in _multiPreviews) DrawingCanvas.Children.Remove(p);
+            _multiPreviews.Clear();
+
+            // Restore visibility before rebuild
+            foreach (var el in _multiDragOriginals.Keys)
+                if (_elementToShape.TryGetValue(el, out var s)) s.Visibility = Visibility.Visible;
+
+            double dx = currentMm.X - _dragStartMm.X;
+            double dy = currentMm.Y - _dragStartMm.Y;
+
+            // Build new elements list; replace all at once
+            var replacements = new List<(SymbolElement old, SymbolElement newEl)>();
+            foreach (var kv in _multiDragOriginals)
+            {
+                var newEl = kv.Key.Clone();
+                newEl.Points = kv.Value.Select(p => new SymbolPoint(p.X + dx, p.Y + dy)).ToList();
+                replacements.Add((kv.Key, newEl));
+            }
+            var newSelection = new HashSet<SymbolElement>();
+            foreach (var (old, newEl) in replacements)
+            {
+                _vm.ReplaceElement(old, newEl);
+                newSelection.Add(newEl);
+            }
+            _multiSelection.Clear();
+            foreach (var el in newSelection) _multiSelection.Add(el);
+
+            ResetTransformDrag();
+            _multiDragOriginals = null;
+            UpdateMultiSelectionOverlays();
+        }
+
+        private void CancelMultiMove()
+        {
+            foreach (var p in _multiPreviews) DrawingCanvas.Children.Remove(p);
+            _multiPreviews.Clear();
+
+            foreach (var el in _multiDragOriginals?.Keys ?? Enumerable.Empty<SymbolElement>())
+                if (_elementToShape.TryGetValue(el, out var s)) s.Visibility = Visibility.Visible;
+
+            DrawingCanvas.ReleaseMouseCapture();
+            ResetTransformDrag();
+            _multiDragOriginals = null;
+            UpdateMultiSelectionOverlays();
+        }
 
         /// <summary>Switch canvas cursor between Arrow (select) and Cross (drawing tools).</summary>
         private void OnToolChanged(DesignerTool tool)
@@ -162,20 +470,23 @@ namespace Pulse.UI
                 ? Cursors.Arrow
                 : Cursors.Cross;
 
-            // Cancel any in-progress transform or draw when switching tools
-            if (_isDraggingTransform) CancelTransform();
+            // Cancel any in-progress transform, multi-move, or rubber-band when switching tools
+            if (_isDraggingTransform)
+            {
+                if (_multiDragOriginals != null) CancelMultiMove();
+                else CancelTransform();
+            }
+            if (_isRubberBanding) CancelRubberBand();
+            _isDraggingSnapOrigin = false;
             _isDrawing = false;
             _polyPoints.Clear();
             ClearPreview();
             ClearPolylinePreview();
             _pendingMoveElement = null;
 
-            // Leaving select mode clears the selection highlight
+            // Leaving select mode clears all selection
             if (tool != DesignerTool.Select)
-            {
-                _vm.SelectedElement = null;
-                ClearSelectionOverlay();
-            }
+                ClearAllSelection();
         }
 
         // ─── Element rendering ────────────────────────────────────────────────
@@ -223,6 +534,12 @@ namespace Pulse.UI
             // Restore selection overlay + handles if something is still selected
             if (_vm.SelectedElement != null)
                 UpdateSelectionOverlay();
+
+            // Restore multi-selection overlays (filter to elements still present)
+            var stillPresent = _multiSelection.Where(el => _vm.Elements.Contains(el)).ToList();
+            _multiSelection.Clear();
+            foreach (var el in stillPresent) _multiSelection.Add(el);
+            if (_multiSelection.Count > 0) UpdateMultiSelectionOverlays();
         }
 
         private void AddDrawnShape(SymbolElement el)
@@ -707,10 +1024,23 @@ namespace Pulse.UI
             // ── Select tool ─────────────────────────────────────────────────
             if (_vm.ActiveTool == DesignerTool.Select)
             {
-                var selSnap = SnapPoint(e.GetPosition(DrawingCanvas));
+                var raw     = e.GetPosition(DrawingCanvas);
+                var selSnap = SnapPoint(raw);
+                var srcFe   = e.OriginalSource as FrameworkElement;
 
-                // 1. Transform handle hit?
-                var srcFe = e.OriginalSource as FrameworkElement;
+                // 1. Snap-origin dot hit?
+                if (srcFe?.Tag is string dotTag && dotTag == SnapOriginTag)
+                {
+                    _isDraggingSnapOrigin   = true;
+                    _snapOriginDragOffsetMm = new Point(
+                        selSnap.X - _vm.SnapOriginXMm,
+                        selSnap.Y - _vm.SnapOriginYMm);
+                    DrawingCanvas.CaptureMouse();
+                    e.Handled = true;
+                    return;
+                }
+
+                // 2. Transform handle hit? (single-element handles)
                 if (srcFe?.Tag is DragMode dm && dm != DragMode.None && _vm.SelectedElement != null)
                 {
                     StartTransformDrag(dm, selSnap);
@@ -718,22 +1048,52 @@ namespace Pulse.UI
                     return;
                 }
 
-                // 2. Element hit?
+                // 3. Element hit?
                 var hitShape = e.OriginalSource as UIElement;
                 if (hitShape != null && _shapeToElement.TryGetValue(hitShape, out var hitEl))
                 {
-                    _vm.SelectedElement = hitEl;
-                    UpdateSelectionOverlay();
+                    bool ctrl = (Keyboard.Modifiers & ModifierKeys.Control) != 0;
 
-                    // Track pending move; if mouse moves >0.5 mm we'll start the move drag
-                    _pendingMoveElement  = hitEl;
-                    _pendingMoveStartMm  = selSnap;
+                    if (ctrl)
+                    {
+                        // Toggle membership in multi-selection
+                        if (_multiSelection.Contains(hitEl))
+                        {
+                            _multiSelection.Remove(hitEl);
+                        }
+                        else
+                        {
+                            // Absorb any single-select into multi
+                            if (_vm.SelectedElement != null)
+                            {
+                                _multiSelection.Add(_vm.SelectedElement);
+                                _vm.SelectedElement = null;
+                                ClearSelectionOverlay();
+                            }
+                            _multiSelection.Add(hitEl);
+                        }
+                        UpdateMultiSelectionOverlays();
+                    }
+                    else if (_multiSelection.Count > 1 && _multiSelection.Contains(hitEl))
+                    {
+                        // Start multi-move immediately
+                        StartMultiMove(selSnap);
+                    }
+                    else
+                    {
+                        // Normal single select
+                        ClearAllSelection();
+                        _vm.SelectedElement = hitEl;
+                        UpdateSelectionOverlay();
+                        _pendingMoveElement = hitEl;
+                        _pendingMoveStartMm = selSnap;
+                    }
                 }
                 else
                 {
-                    _vm.SelectedElement = null;
-                    ClearSelectionOverlay();
-                    _pendingMoveElement = null;
+                    // 4. Empty canvas → start rubber-band
+                    ClearAllSelection();
+                    StartRubberBand(raw);
                 }
 
                 e.Handled = true;
@@ -794,7 +1154,33 @@ namespace Pulse.UI
             // Update status cursor label
             _vm.CursorPosition = $"{snap.X:F1}, {snap.Y:F1} mm";
 
-            // ── Transform drag ───────────────────────────────────────────────
+            // ── Snap-origin drag ─────────────────────────────────────────────
+            if (_isDraggingSnapOrigin)
+            {
+                double xMm = raw.X / Ppm - _snapOriginDragOffsetMm.X;
+                double yMm = raw.Y / Ppm - _snapOriginDragOffsetMm.Y;
+                xMm = Math.Max(0, Math.Min(_vm.ViewboxWidthMm, xMm));
+                yMm = Math.Max(0, Math.Min(_vm.ViewboxHeightMm, yMm));
+                _vm.SetSnapOrigin(xMm, yMm);   // fires SnapOriginChanged once
+                MoveSnapCrossVisual(xMm, yMm); // fast visual update without rebuild
+                return;
+            }
+
+            // ── Rubber-band ──────────────────────────────────────────────────
+            if (_isRubberBanding)
+            {
+                UpdateRubberBand(raw);
+                return;
+            }
+
+            // ── Multi-element move ───────────────────────────────────────────
+            if (_isDraggingTransform && _multiDragOriginals != null)
+            {
+                UpdateMultiMovePreview(snap);
+                return;
+            }
+
+            // ── Single transform drag ────────────────────────────────────────
             if (_isDraggingTransform)
             {
                 UpdateTransformPreview(snap);
@@ -866,7 +1252,33 @@ namespace Pulse.UI
 
             var snap = SnapPoint(e.GetPosition(DrawingCanvas));
 
-            // ── Commit transform drag ────────────────────────────────────────
+            // ── Snap-origin drag commit ──────────────────────────────────────
+            if (_isDraggingSnapOrigin)
+            {
+                _isDraggingSnapOrigin = false;
+                DrawingCanvas.ReleaseMouseCapture();
+                e.Handled = true;
+                return;
+            }
+
+            // ── Rubber-band commit ───────────────────────────────────────────
+            if (_isRubberBanding)
+            {
+                CommitRubberBand(e.GetPosition(DrawingCanvas));
+                e.Handled = true;
+                return;
+            }
+
+            // ── Multi-element move commit ────────────────────────────────────
+            if (_isDraggingTransform && _multiDragOriginals != null)
+            {
+                DrawingCanvas.ReleaseMouseCapture();
+                CommitMultiMove(snap);
+                e.Handled = true;
+                return;
+            }
+
+            // ── Commit single transform drag ─────────────────────────────────
             if (_isDraggingTransform)
             {
                 CommitTransform(snap);
@@ -1041,13 +1453,16 @@ namespace Pulse.UI
             {
                 if (_isDraggingTransform)
                 {
-                    CancelTransform();
+                    if (_multiDragOriginals != null) CancelMultiMove();
+                    else CancelTransform();
+                }
+                else if (_isRubberBanding)
+                {
+                    CancelRubberBand();
                 }
                 else if (_vm.ActiveTool == DesignerTool.Select)
                 {
-                    // Deselect
-                    _vm.SelectedElement = null;
-                    ClearSelectionOverlay();
+                    ClearAllSelection();
                 }
                 else
                 {
@@ -1060,10 +1475,18 @@ namespace Pulse.UI
                 return;
             }
 
-            // Delete selected element
+            // Delete selected element(s)
             if (e.Key == Key.Delete)
             {
-                _vm.DeleteSelectedCommand.Execute(null);
+                if (_multiSelection.Count > 0)
+                {
+                    _vm.DeleteElements(_multiSelection.ToList());
+                    ClearAllSelection();
+                }
+                else
+                {
+                    _vm.DeleteSelectedCommand.Execute(null);
+                }
                 e.Handled = true;
                 return;
             }
@@ -1104,14 +1527,30 @@ namespace Pulse.UI
 
         private void StrokeSwatch_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Tag is string hex)
+            if (!(sender is Button btn && btn.Tag is string hex)) return;
+            if (_multiSelection.Count > 0)
+            {
+                _vm.ApplyColorToElements(_multiSelection, strokeColor: hex);
+                UpdateMultiSelectionOverlays();
+            }
+            else
+            {
                 _vm.StrokeColor = hex;
+            }
         }
 
         private void FillSwatch_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Tag is string hex)
+            if (!(sender is Button btn && btn.Tag is string hex)) return;
+            if (_multiSelection.Count > 0)
+            {
+                _vm.ApplyColorToElements(_multiSelection, fillColor: hex);
+                UpdateMultiSelectionOverlays();
+            }
+            else
+            {
                 _vm.FillColor = hex;
+            }
         }
 
         // ─── Import DXF / SVG ─────────────────────────────────────────────────

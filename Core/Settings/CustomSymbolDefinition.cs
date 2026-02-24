@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 
 namespace Pulse.Core.Settings
@@ -61,6 +62,18 @@ namespace Pulse.Core.Settings
         /// <summary>For Polyline only: close the last vertex back to the first.</summary>
         [JsonProperty("isClosed")]
         public bool IsClosed { get; set; }
+
+        /// <summary>Returns a deep copy of this element.</summary>
+        public SymbolElement Clone() => new SymbolElement
+        {
+            Type              = Type,
+            Points            = new List<SymbolPoint>(Points.Select(p => new SymbolPoint(p.X, p.Y))),
+            StrokeColor       = StrokeColor,
+            StrokeThicknessMm = StrokeThicknessMm,
+            IsFilled          = IsFilled,
+            FillColor         = FillColor,
+            IsClosed          = IsClosed
+        };
     }
 
     /// <summary>

@@ -153,6 +153,41 @@ namespace Pulse.UI.ViewModels
             }
         }
 
+        // ─── Snap origin ──────────────────────────────────────────────────────
+
+        private double _snapOriginXMm = 0.0;
+        public double SnapOriginXMm
+        {
+            get => _snapOriginXMm;
+            set { if (SetField(ref _snapOriginXMm, value)) SnapOriginChanged?.Invoke(); }
+        }
+
+        private double _snapOriginYMm = 0.0;
+        public double SnapOriginYMm
+        {
+            get => _snapOriginYMm;
+            set { if (SetField(ref _snapOriginYMm, value)) SnapOriginChanged?.Invoke(); }
+        }
+
+        /// <summary>Update both snap-origin coordinates and fire SnapOriginChanged once.</summary>
+        public void SetSnapOrigin(double xMm, double yMm)
+        {
+            bool changed = false;
+            if (_snapOriginXMm != xMm) { _snapOriginXMm = xMm; OnPropertyChanged(nameof(SnapOriginXMm)); changed = true; }
+            if (_snapOriginYMm != yMm) { _snapOriginYMm = yMm; OnPropertyChanged(nameof(SnapOriginYMm)); changed = true; }
+            if (changed) SnapOriginChanged?.Invoke();
+        }
+
+        // ─── Selection info ───────────────────────────────────────────────────
+
+        private string _selectionInfo = "";
+        /// <summary>Human-readable multi-selection count shown in the properties panel.</summary>
+        public string SelectionInfo
+        {
+            get => _selectionInfo;
+            set => SetField(ref _selectionInfo, value);
+        }
+
         // ─── Status label ─────────────────────────────────────────────────────
 
         private string _cursorPosition = "0.0, 0.0 mm";
@@ -204,6 +239,9 @@ namespace Pulse.UI.ViewModels
         /// <summary>Raised when canvas size or grid settings change (triggers grid redraw).</summary>
         public event Action CanvasSizeChanged;
 
+        /// <summary>Raised when the snap origin (SnapOriginXMm / SnapOriginYMm) changes.</summary>
+        public event Action SnapOriginChanged;
+
         // ─── Constructor ──────────────────────────────────────────────────────
 
         public SymbolDesignerViewModel()
@@ -237,12 +275,49 @@ namespace Pulse.UI.ViewModels
             CommandManager.InvalidateRequerySuggested();
         }
 
-        /// <summary>Snaps a millimetre coordinate to the current grid if snapping is on.</summary>
+        /// <summary>Snaps a millimetre coordinate to the current grid, relative to the snap origin.</summary>
         public SymbolPoint Snap(double xMm, double yMm)
         {
             if (!SnapToGrid) return new SymbolPoint(xMm, yMm);
             var s = GridSizeMm;
-            return new SymbolPoint(Math.Round(xMm / s) * s, Math.Round(yMm / s) * s);
+            double ox = SnapOriginXMm, oy = SnapOriginYMm;
+            return new SymbolPoint(
+                Math.Round((xMm - ox) / s) * s + ox,
+                Math.Round((yMm - oy) / s) * s + oy);
+        }
+
+        /// <summary>
+        /// Applies a new stroke and/or fill colour to a set of elements.
+        /// Replaces each element in-place so undo works correctly.
+        /// Pass null for a colour to leave it unchanged.
+        /// </summary>
+        public void ApplyColorToElements(IEnumerable<SymbolElement> elements,
+                                          string strokeColor = null,
+                                          string fillColor   = null)
+        {
+            foreach (var el in elements.ToList())
+            {
+                var newEl = el.Clone();
+                if (strokeColor != null) newEl.StrokeColor = strokeColor;
+                if (fillColor   != null) newEl.FillColor   = fillColor;
+                ReplaceElement(el, newEl);
+            }
+        }
+
+        /// <summary>Removes a set of elements from the canvas and clears the undo/redo stacks for them.</summary>
+        public void DeleteElements(IEnumerable<SymbolElement> toDelete)
+        {
+            var set = new HashSet<SymbolElement>(toDelete);
+            foreach (var el in set.ToList()) Elements.Remove(el);
+
+            var remaining = new List<SymbolElement>(_undoStack.Where(e => !set.Contains(e)));
+            remaining.Reverse();
+            _undoStack.Clear();
+            foreach (var e in remaining) _undoStack.Push(e);
+            _redoStack.Clear();
+
+            SelectedElement = null;
+            CommandManager.InvalidateRequerySuggested();
         }
 
         // ─── Private helpers ──────────────────────────────────────────────────

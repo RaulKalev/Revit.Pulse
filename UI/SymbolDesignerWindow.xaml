@@ -441,6 +441,26 @@
                                       HorizontalScrollBarVisibility="Disabled">
                             <StackPanel Margin="12,10,12,10">
 
+                                <!-- ── Multi-selection banner ──────────── -->
+                                <Border CornerRadius="4" Padding="8,5" Margin="0,0,0,8"
+                                        Background="#2200D4FF" BorderBrush="#5500D4FF"
+                                        BorderThickness="1">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectionInfo}" Value="">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding SelectionInfo}"
+                                               Foreground="#FF00D4FF"
+                                               FontSize="11" FontWeight="SemiBold"
+                                               TextWrapping="Wrap" />
+                                </Border>
+
                                 <!-- ── Stroke ──────────────────────────── -->
                                 <TextBlock Text="STROKE" Style="{StaticResource SectionLabelStyle}"
                                            Margin="0,0,0,4" />
