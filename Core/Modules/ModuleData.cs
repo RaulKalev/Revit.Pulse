@@ -33,6 +33,9 @@ namespace Pulse.Core.Modules
         /// <summary>All devices discovered by the collector.</summary>
         public List<AddressableDevice> Devices { get; } = new List<AddressableDevice>();
 
+        /// <summary>All Revit levels in the project, ordered by elevation ascending.</summary>
+        public List<LevelInfo> Levels { get; } = new List<LevelInfo>();
+
         /// <summary>
         /// All rule validation results. Populated after running IRulePack.
         /// </summary>

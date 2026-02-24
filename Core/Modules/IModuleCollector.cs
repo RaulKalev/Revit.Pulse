@@ -34,6 +34,11 @@ namespace Pulse.Core.Modules
         /// <param name="categoryName">The Revit category name (e.g., "Fire Alarm Devices").</param>
         /// <param name="parameterNames">The Revit parameter names to extract.</param>
         System.Collections.Generic.IReadOnlyList<ElementData> GetElements(string categoryName, System.Collections.Generic.IReadOnlyList<string> parameterNames);
+
+        /// <summary>
+        /// Get all Levels defined in the project, ordered by elevation ascending.
+        /// </summary>
+        System.Collections.Generic.IReadOnlyList<LevelInfo> GetLevels();
     }
 
     /// <summary>

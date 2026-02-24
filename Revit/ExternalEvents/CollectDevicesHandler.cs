@@ -58,6 +58,10 @@ namespace Pulse.Revit.ExternalEvents
                 // Run rules
                 RulePack?.Evaluate(data);
 
+                // Collect project levels for the diagram
+                var levels = context.GetLevels();
+                data.Levels.AddRange(levels);
+
                 // Return results to the UI
                 OnCompleted?.Invoke(data);
             }

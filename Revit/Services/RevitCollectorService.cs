@@ -83,6 +83,23 @@ namespace Pulse.Revit.Services
         }
 
         /// <summary>
+        /// Get all Levels defined in the project, ordered by elevation ascending.
+        /// </summary>
+        public IReadOnlyList<LevelInfo> GetLevels()
+        {
+            return new FilteredElementCollector(_doc)
+                .OfClass(typeof(Level))
+                .Cast<Level>()
+                .OrderBy(l => l.Elevation)
+                .Select(l => new LevelInfo
+                {
+                    Name      = l.Name,
+                    Elevation = l.Elevation
+                })
+                .ToList();
+        }
+
+        /// <summary>
         /// Extract a parameter value from an element as a string.
         /// Checks instance parameters first, then type parameters.
         /// </summary>

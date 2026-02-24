@@ -48,6 +48,7 @@ namespace Pulse.UI.ViewModels
         // Child ViewModels
         public TopologyViewModel Topology { get; }
         public InspectorViewModel Inspector { get; }
+        public DiagramViewModel Diagram { get; }
 
         // Commands
         public ICommand RefreshCommand { get; }
@@ -132,6 +133,7 @@ namespace Pulse.UI.ViewModels
             // Create child ViewModels
             Topology = new TopologyViewModel();
             Inspector = new InspectorViewModel();
+            Diagram = new DiagramViewModel();
 
             // Wire up topology selection events
             Topology.NodeSelected     += OnTopologyNodeSelected;
@@ -229,6 +231,9 @@ namespace Pulse.UI.ViewModels
             // Update topology
             Topology.LoadFromModuleData(data);
             Topology.RestoreExpandState(UiStateService.Load().ExpandedNodeIds);
+
+            // Update diagram levels
+            Diagram.LoadLevels(data.Levels);
 
             // Update status
             int panelCount = data.Panels.Count;

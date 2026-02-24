@@ -78,25 +78,14 @@
                 </TextBlock>
             </Grid>
 
-            <!-- ── Content area (empty — diagram canvas goes here later) ── -->
+            <!-- ── Content area — level diagram drawn in code-behind ── -->
             <Grid x:Name="DiagramContent"
                   Grid.Row="1"
-                  Background="{DynamicResource PrimaryBackgroundBrush}">
+                  Background="{DynamicResource PrimaryBackgroundBrush}"
+                  SizeChanged="DiagramContent_SizeChanged">
 
-                <!-- Placeholder -->
-                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <materialDesign:PackIcon Kind="VectorPolyline"
-                                             Width="40" Height="40"
-                                             HorizontalAlignment="Center"
-                                             Foreground="{DynamicResource IconForegroundBrush}"
-                                             Opacity="0.2"/>
-                    <TextBlock Text="Diagram"
-                               FontSize="11"
-                               HorizontalAlignment="Center"
-                               Foreground="{DynamicResource IconForegroundBrush}"
-                               Opacity="0.3"
-                               Margin="0,8,0,0"/>
-                </StackPanel>
+                <Canvas x:Name="DiagramCanvas"
+                        ClipToBounds="True"/>
 
             </Grid>
 

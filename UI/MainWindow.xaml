@@ -172,7 +172,7 @@
                                   Cursor="SizeWE"/>
 
                     <!-- Diagram Panel -->
-                    <controls:DiagramPanel Grid.Column="4" Margin="4"/>
+                    <controls:DiagramPanel Grid.Column="4" Margin="4" DataContext="{Binding Diagram}"/>
                 </Grid>
 
                 <!-- Row 3: Status Strip -->
