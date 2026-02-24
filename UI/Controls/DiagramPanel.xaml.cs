@@ -266,15 +266,17 @@ namespace Pulse.UI.Controls
                     double zoneBottom = floorEntry.Y;
                     double zoneTop    = ceilEntry != null ? ceilEntry.Y : MarginTop;
 
-                    const double vPad  = 10.0;  // gap from level lines
-                    double rectH = zoneBottom - zoneTop - vPad * 2;
-                    if (rectH < 16) continue;
+                    // Fixed panel size — does not scale with canvas
+                    const double panelFixedW = 200.0;
+                    const double panelFixedH = 120.0;
 
-                    // Narrower rect — 56 % of canvas width, centered
-                    const double hFrac = 0.22;
-                    double rectLeft = w * hFrac;
-                    double rectW    = w * (1.0 - hFrac * 2);
-                    double rectTop  = zoneTop + vPad;
+                    // Skip zone if it is too narrow to contain the panel
+                    if (zoneBottom - zoneTop < panelFixedH + 8) continue;
+
+                    double rectW   = panelFixedW;
+                    double rectH   = panelFixedH;
+                    double rectLeft = (w - rectW) / 2.0;                              // horizontally centered
+                    double rectTop  = zoneTop + (zoneBottom - zoneTop - rectH) / 2.0; // vertically centered in zone
 
                     // ── Outer rectangle ──────────────────────────────────
                     var panelRect = new System.Windows.Shapes.Rectangle
