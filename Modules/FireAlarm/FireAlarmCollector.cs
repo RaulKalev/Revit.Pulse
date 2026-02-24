@@ -95,8 +95,21 @@ namespace Pulse.Modules.FireAlarm
                     }
                 }
 
-                if (matched != null && !matched.RevitElementId.HasValue)
-                    matched.RevitElementId = element.ElementId;
+                if (matched != null)
+                {
+                    if (!matched.RevitElementId.HasValue)
+                        matched.RevitElementId = element.ElementId;
+
+                    if (!matched.Elevation.HasValue
+                        && element.Parameters.TryGetValue("_LevelElevation", out string elevStr)
+                        && double.TryParse(elevStr,
+                               System.Globalization.NumberStyles.Any,
+                               System.Globalization.CultureInfo.InvariantCulture,
+                               out double elev))
+                    {
+                        matched.Elevation = elev;
+                    }
+                }
             }
         }
 

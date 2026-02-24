@@ -244,8 +244,9 @@ namespace Pulse.UI.ViewModels
             Topology.LoadFromModuleData(data);
             Topology.RestoreExpandState(UiStateService.Load().ExpandedNodeIds);
 
-            // Update diagram levels
+            // Update diagram levels and panels
             Diagram.LoadLevels(data.Levels);
+            Diagram.LoadPanels(data.Panels);
 
             // Update status
             int panelCount = data.Panels.Count;

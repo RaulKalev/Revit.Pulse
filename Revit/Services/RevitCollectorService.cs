@@ -48,6 +48,15 @@ namespace Pulse.Revit.Services
                 // matchers can use it without requiring a configured parameter.
                 data.Parameters["_Name"] = element.Name ?? string.Empty;
 
+                // Inject the elevation (feet) of the element's host level when available.
+                if (element is FamilyInstance fi)
+                {
+                    Level lvl = fi.Level;
+                    if (lvl != null)
+                        data.Parameters["_LevelElevation"] =
+                            lvl.Elevation.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+
                 foreach (string paramName in parameterNames)
                 {
                     string value = GetParameterValue(element, paramName);

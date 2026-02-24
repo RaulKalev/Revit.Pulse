@@ -87,12 +87,18 @@ namespace Pulse.UI.Controls
         private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
             if (_currentVm != null)
-                _currentVm.Levels.CollectionChanged -= OnLevelsChanged;
+            {
+                _currentVm.Levels.CollectionChanged  -= OnLevelsChanged;
+                _currentVm.Panels.CollectionChanged  -= OnLevelsChanged;
+            }
 
             _currentVm = DataContext as DiagramViewModel;
 
             if (_currentVm != null)
-                _currentVm.Levels.CollectionChanged += OnLevelsChanged;
+            {
+                _currentVm.Levels.CollectionChanged  += OnLevelsChanged;
+                _currentVm.Panels.CollectionChanged  += OnLevelsChanged;
+            }
 
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
         }
@@ -228,6 +234,78 @@ namespace Pulse.UI.Controls
                         DiagramCanvas.Children.Add(prevLabel);
                         _visualElements[prevName + "|text-below"] = prevLabel;
                     }
+                }
+            }
+
+            // ── Panels ──────────────────────────────────────────────────────────
+            if (_currentVm.Panels.Count > 0)
+            {
+                // Build a quick elevation→Y lookup for the visible levels
+                var yLookup = rangeLevels
+                    .Select(l => new
+                    {
+                        l.Elevation,
+                        Y = MarginTop + (1.0 - (l.Elevation - minElev) / range) * drawH
+                    })
+                    .ToList();
+
+                foreach (var panel in _currentVm.Panels)
+                {
+                    if (!panel.Elevation.HasValue) continue;
+
+                    double panelElev = panel.Elevation.Value;
+
+                    // Floor: highest visible level at-or-below the panel (larger canvas Y)
+                    var floorEntry = yLookup.LastOrDefault(e2 => e2.Elevation <= panelElev + 0.001);
+                    // Ceiling: lowest visible level above the panel (smaller canvas Y)
+                    var ceilEntry  = yLookup.FirstOrDefault(e2 => e2.Elevation > panelElev + 0.001);
+
+                    if (floorEntry == null) continue;
+
+                    double rectBottom = floorEntry.Y;
+                    double rectTop2   = ceilEntry != null ? ceilEntry.Y : MarginTop;
+
+                    const double pad = 6.0;
+                    double rectH = rectBottom - rectTop2 - pad * 2;
+                    if (rectH < 8) continue;
+
+                    const double hPad   = 0.12;         // 12% margin each side
+                    double rectLeft2    = w * hPad;
+                    double rectW        = w * (1.0 - hPad * 2);
+
+                    // Rectangle
+                    var panelRect = new System.Windows.Shapes.Rectangle
+                    {
+                        Width           = rectW,
+                        Height          = rectH,
+                        Stroke          = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                        StrokeThickness = 1,
+                        Fill            = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF)),
+                        RadiusX         = 3,
+                        RadiusY         = 3,
+                        IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(panelRect, rectLeft2);
+                    Canvas.SetTop(panelRect,  rectTop2 + pad);
+                    DiagramCanvas.Children.Add(panelRect);
+
+                    // Label — centered inside the rectangle
+                    var panelLabel = new TextBlock
+                    {
+                        Text            = panel.Name,
+                        FontSize        = 9,
+                        FontWeight      = FontWeights.SemiBold,
+                        Foreground      = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                        TextWrapping    = TextWrapping.Wrap,
+                        TextAlignment   = TextAlignment.Center,
+                        MaxWidth        = rectW - 8,
+                        IsHitTestVisible = false
+                    };
+                    panelLabel.Measure(new System.Windows.Size(rectW - 8, double.PositiveInfinity));
+                    double labelH = panelLabel.DesiredSize.Height;
+                    Canvas.SetLeft(panelLabel, rectLeft2 + 4);
+                    Canvas.SetTop(panelLabel,  rectTop2 + pad + (rectH - labelH) / 2.0);
+                    DiagramCanvas.Children.Add(panelLabel);
                 }
             }
 

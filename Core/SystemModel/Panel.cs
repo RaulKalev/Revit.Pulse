@@ -14,6 +14,12 @@ namespace Pulse.Core.SystemModel
         public string EntityType => "Panel";
         public long? RevitElementId { get; set; }
 
+        /// <summary>
+        /// Elevation in Revit internal units (feet) of the level the panel is placed on.
+        /// Null if not resolved (e.g. panel has no associated Revit level).
+        /// </summary>
+        public double? Elevation { get; set; }
+
         private readonly Dictionary<string, string> _properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public IReadOnlyDictionary<string, string> Properties => _properties;
 

@@ -3,9 +3,18 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Pulse.Core.Modules;
+using Pulse.Core.SystemModel;
 
 namespace Pulse.UI.ViewModels
 {
+    public readonly struct PanelInfo
+    {
+        public string Name      { get; }
+        public double? Elevation { get; }
+        public PanelInfo(string name, double? elevation)
+        { Name = name; Elevation = elevation; }
+    }
+
     public readonly struct NonVisibleItem
     {
         public string LevelName { get; }
@@ -31,6 +40,17 @@ namespace Pulse.UI.ViewModels
             Levels.Clear();
             foreach (var level in levels)
                 Levels.Add(level);
+        }
+
+        // ── Panels ────────────────────────────────────────────────────────
+
+        public ObservableCollection<PanelInfo> Panels { get; } = new ObservableCollection<PanelInfo>();
+
+        public void LoadPanels(IEnumerable<Panel> panels)
+        {
+            Panels.Clear();
+            foreach (var p in panels)
+                Panels.Add(new PanelInfo(p.DisplayName, p.Elevation));
         }
 
         // ── Visibility preferences ────────────────────────────────────────
