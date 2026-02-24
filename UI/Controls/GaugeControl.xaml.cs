@@ -90,15 +90,14 @@ namespace Pulse.UI.Controls
             double ex = Cx - R * Math.Cos(theta);
             double ey = Cy - R * Math.Sin(theta);   // negative screen-Y = up
 
-            bool largeArc = theta > Math.PI / 2;
-
+            // We always sweep <= 180 degrees so largeArc is always false
             var geo = new StreamGeometry();
             using (var ctx = geo.Open())
             {
                 ctx.BeginFigure(new Point(sx, sy), isFilled: false, isClosed: false);
                 ctx.ArcTo(new Point(ex, ey),
                     new Size(R, R), 0,
-                    largeArc, SweepDirection.Clockwise,
+                    false, SweepDirection.Clockwise,
                     isStroked: true, isSmoothJoin: true);
             }
             geo.Freeze();
