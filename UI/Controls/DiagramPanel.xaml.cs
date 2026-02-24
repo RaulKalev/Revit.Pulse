@@ -805,14 +805,17 @@ namespace Pulse.UI.Controls
                                 ? _canvasSettings.DeviceSpacingPx
                                 : (maxPerRow > 0 ? span0 / (maxPerRow + 1) : span0);
 
-                            // If fixed spacing causes overflow, push farEdge outward
+                            // farEdge = exactly one deviceSpacing past the last device column.
+                            // Auto-spacing: requiredReach == span0, so farEdge == baseEdge (unchanged).
+                            // Fixed spacing: farEdge moves to match the actual last device + 1 gap,
+                            //   stretching outward if devices would overflow, shrinking if they fit.
                             double farEdge = baseEdge;
                             if (total > 0)
                             {
                                 double requiredReach = deviceSpacing * (maxPerRow + 1);
                                 farEdge = flipped
-                                    ? Math.Max(baseEdge, laneX + requiredReach)
-                                    : Math.Min(baseEdge, laneX - requiredReach);
+                                    ? laneX + requiredReach
+                                    : laneX - requiredReach;
                             }
 
                             // ── Vertical spine (panel top → first wire) ───────────
