@@ -299,92 +299,85 @@ namespace Pulse.UI.Controls
                         : panel.LoopNames.Count;
                     loopCount = Math.Min(loopCount, 16); // hard cap
 
-                    const double headerH   = 22.0;
-                    const double termSize  = 6.0;
+                    // Header height is driven by the rotated text; 52 px gives room for "Loop 10"
+                    const double headerH = 52.0;
+                    const double lblFont = 7.0;
+                    // Visual width of one rendered text line after rotation (approx line-height)
+                    double approxLineH = lblFont * 1.55;
 
-                    if (loopCount > 0 && rectH > headerH + 8)
+                    if (loopCount > 0 && rectH > headerH + 12)
                     {
-                        // Separator line below the header
+                        double slotW = rectW / loopCount;
+
+                        // Bottom border of the header strip
                         var sep = new Line
                         {
                             X1               = rectLeft + 1,
                             X2               = rectLeft + rectW - 1,
                             Y1               = rectTop + headerH,
                             Y2               = rectTop + headerH,
-                            Stroke           = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
+                            Stroke           = new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF)),
                             StrokeThickness  = 1,
                             IsHitTestVisible = false
                         };
                         DiagramCanvas.Children.Add(sep);
 
-                        // Distribute terminals evenly across header width
-                        double slotW  = (rectW - 8.0) / loopCount;
-                        double termY  = rectTop + (headerH - termSize) / 2.0;
-
                         for (int li = 0; li < loopCount; li++)
                         {
-                            double cx = rectLeft + 4.0 + slotW * (li + 0.5);
+                            double cellLeft  = rectLeft + slotW * li;
+                            double cellRight = cellLeft + slotW;
 
-                            // Small filled square terminal
-                            var term = new System.Windows.Shapes.Rectangle
+                            // Vertical divider on the right of each cell (skip outer edges)
+                            if (li < loopCount - 1)
                             {
-                                Width            = termSize,
-                                Height           = termSize,
-                                Fill             = new SolidColorBrush(Color.FromArgb(0xBB, 0xFF, 0xFF, 0xFF)),
-                                IsHitTestVisible = false
-                            };
-                            Canvas.SetLeft(term, cx - termSize / 2.0);
-                            Canvas.SetTop(term,  termY);
-                            DiagramCanvas.Children.Add(term);
+                                var div = new Line
+                                {
+                                    X1               = cellRight,
+                                    X2               = cellRight,
+                                    Y1               = rectTop + 1,
+                                    Y2               = rectTop + headerH - 1,
+                                    Stroke           = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
+                                    StrokeThickness  = 1,
+                                    IsHitTestVisible = false
+                                };
+                                DiagramCanvas.Children.Add(div);
+                            }
 
-                            // (rotated loop name label drawn separately in the body area below)
-                        }
-                    }
-
-                    // ── Panel name (centered in body below header) ────────
-                    double bodyTop = (loopCount > 0 && rectH > headerH + 8)
-                        ? rectTop + headerH + 2
-                        : rectTop;
-                    double bodyH   = rectTop + rectH - bodyTop;
-
-                    // ── Rotated loop name labels (bottom-to-top, in body) ─
-                    if (loopCount > 0 && bodyH > 8)
-                    {
-                        double slotW2       = (rectW - 8.0) / loopCount;
-                        const double lblFont    = 7.0;
-                        const double rotLblH    = 50.0;  // fixed visual height (px) from separator downward
-                        double approxTextH  = lblFont * 1.35; // ~9.5 px visual width after rotation
-
-                        for (int li = 0; li < loopCount; li++)
-                        {
-                            double cx2 = rectLeft + 4.0 + slotW2 * (li + 0.5);
-
-                            // Always "Loop X" — add prefix when the model name is a bare number/string
+                            // Always "Loop X" — add prefix when the model name is bare
                             string rawName   = li < panel.LoopNames.Count ? panel.LoopNames[li] : $"{li + 1}";
                             string fullLabel = rawName.StartsWith("Loop ", StringComparison.OrdinalIgnoreCase)
                                 ? rawName
                                 : $"Loop {rawName}";
 
-                            double lw = Math.Min(rotLblH, bodyH - 4);
-
+                            // TextBlock width = visual label height (fills cell with 4px padding)
+                            double lw = headerH - 4;
                             var rotLabel = new TextBlock
                             {
                                 Text             = fullLabel,
                                 FontSize         = lblFont,
-                                Foreground       = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
+                                Foreground       = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
                                 IsHitTestVisible = false,
                                 Width            = lw,
                                 TextTrimming     = TextTrimming.CharacterEllipsis
                             };
 
-                            // -90° rotation: visual top = Canvas.Top - Width, visual bottom = Canvas.Top
-                            // Set visual top = bodyTop + 2 (directly below separator)
+                            // After -90° rotation the element's canvas origin is at its bottom-left corner.
+                            // Visual top  = Canvas.Top  - lw
+                            // Visual left = Canvas.Left
+                            // Center horizontally in cell, pin visual top to rectTop + 2
+                            double cx = cellLeft + slotW / 2.0;
                             rotLabel.RenderTransform = new System.Windows.Media.RotateTransform(-90);
-                            Canvas.SetLeft(rotLabel, cx2 - approxTextH / 2.0);
-                            Canvas.SetTop(rotLabel,  bodyTop + 2 + lw);
+                            Canvas.SetLeft(rotLabel, cx - approxLineH / 2.0);
+                            Canvas.SetTop(rotLabel,  rectTop + 2 + lw);
                             DiagramCanvas.Children.Add(rotLabel);
                         }
                     }
+
+                    // ── Panel name (centered in body below header) ────────
+                    double bodyTop = (loopCount > 0 && rectH > headerH + 12)
+                        ? rectTop + headerH + 2
+                        : rectTop;
+                    double bodyH   = rectTop + rectH - bodyTop;
 
                     var panelLabel = new TextBlock
                     {
