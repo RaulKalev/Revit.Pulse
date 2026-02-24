@@ -262,6 +262,46 @@
                                 <TextBlock Text="Import DXF / SVG" FontSize="11" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
+
+                        <!-- Separator -->
+                        <Border Width="1" Height="18" Background="{DynamicResource BorderBrush}"
+                                VerticalAlignment="Center" Margin="12,0,12,0" />
+
+                        <!-- Select All -->
+                        <Button Command="{Binding SelectAllCommand}"
+                                Style="{StaticResource ToolButtonStyle}"
+                                Width="Auto" Height="26" Padding="8,0"
+                                VerticalAlignment="Center" Margin="0,0,8,0"
+                                ToolTip="Select all elements (Ctrl+A)">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="SelectAll" Width="14" Height="14"
+                                                         VerticalAlignment="Center" Margin="0,0,5,0" />
+                                <TextBlock Text="Select All" FontSize="11" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
+                        <!-- Scale All -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Scale:" FontSize="11"
+                                       Foreground="{DynamicResource IconForegroundBrush}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBox Style="{StaticResource ToolbarTextBoxStyle}" Width="42"
+                                     Text="{Binding ScaleAllFactor, UpdateSourceTrigger=LostFocus, StringFormat={}{0:F2}}" />
+                            <TextBlock Text="×" FontSize="11"
+                                       Foreground="{DynamicResource IconForegroundBrush}"
+                                       VerticalAlignment="Center" Margin="4,0,6,0" />
+                            <Button Command="{Binding ScaleAllCommand}"
+                                    Style="{StaticResource ToolButtonStyle}"
+                                    Width="Auto" Height="26" Padding="8,0"
+                                    VerticalAlignment="Center"
+                                    ToolTip="Scale all element points and stroke widths by the given factor, relative to the snap origin">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ArrowExpandAll" Width="14" Height="14"
+                                                             VerticalAlignment="Center" Margin="0,0,5,0" />
+                                    <TextBlock Text="Scale All" FontSize="11" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
                     </WrapPanel>
                 </Border>
 
@@ -427,31 +467,59 @@
                                   HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Auto"
                                   Background="#FF0E0E16"
-                                  Padding="24">
+                                  Padding="20">
                         <Grid HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <!-- Drop shadow behind canvas -->
-                            <Border>
-                                <Border.Effect>
-                                    <DropShadowEffect BlurRadius="16" ShadowDepth="4"
-                                                      Color="Black" Opacity="0.6" />
-                                </Border.Effect>
-                                <Border Width="{Binding CanvasWidthPx}"
-                                        Height="{Binding CanvasHeightPx}"
-                                        Background="#FF1A1A2E"
-                                        CornerRadius="2" />
-                            </Border>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="18" />   <!-- Horizontal ruler -->
+                                <RowDefinition Height="Auto" /> <!-- Canvas row -->
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="18" />   <!-- Vertical ruler -->
+                                <ColumnDefinition Width="Auto" /> <!-- Canvas column -->
+                            </Grid.ColumnDefinitions>
 
-                            <!-- The actual drawing canvas -->
-                            <Canvas x:Name="DrawingCanvas"
-                                    Width="{Binding CanvasWidthPx}"
-                                    Height="{Binding CanvasHeightPx}"
-                                    ClipToBounds="True"
-                                    Background="Transparent"
-                                    Cursor="Cross"
-                                    MouseMove="DrawingCanvas_MouseMove"
-                                    MouseDown="DrawingCanvas_MouseDown"
-                                    MouseUp="DrawingCanvas_MouseUp"
-                                    MouseLeave="DrawingCanvas_MouseLeave" />
+                            <!-- Corner square (top-left junction) -->
+                            <Border Grid.Row="0" Grid.Column="0" Background="#1A1A2E" />
+
+                            <!-- Horizontal ruler -->
+                            <Canvas x:Name="RulerH"
+                                    Grid.Row="0" Grid.Column="1"
+                                    Width="{Binding CanvasWidthPx}" Height="18"
+                                    Background="#1A1A2E" ClipToBounds="True" />
+
+                            <!-- Vertical ruler -->
+                            <Canvas x:Name="RulerV"
+                                    Grid.Row="1" Grid.Column="0"
+                                    Width="18" Height="{Binding CanvasHeightPx}"
+                                    Background="#1A1A2E" ClipToBounds="True" />
+
+                            <!-- Canvas area -->
+                            <Grid Grid.Row="1" Grid.Column="1"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <!-- Drop shadow behind canvas -->
+                                <Border>
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="16" ShadowDepth="4"
+                                                          Color="Black" Opacity="0.6" />
+                                    </Border.Effect>
+                                    <Border Width="{Binding CanvasWidthPx}"
+                                            Height="{Binding CanvasHeightPx}"
+                                            Background="#FF1A1A2E"
+                                            CornerRadius="2" />
+                                </Border>
+
+                                <!-- The actual drawing canvas -->
+                                <Canvas x:Name="DrawingCanvas"
+                                        Width="{Binding CanvasWidthPx}"
+                                        Height="{Binding CanvasHeightPx}"
+                                        ClipToBounds="True"
+                                        Background="Transparent"
+                                        Cursor="Cross"
+                                        MouseMove="DrawingCanvas_MouseMove"
+                                        MouseDown="DrawingCanvas_MouseDown"
+                                        MouseUp="DrawingCanvas_MouseUp"
+                                        MouseLeave="DrawingCanvas_MouseLeave" />
+                            </Grid>
                         </Grid>
                     </ScrollViewer>
 

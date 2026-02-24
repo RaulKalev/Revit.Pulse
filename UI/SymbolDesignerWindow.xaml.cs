@@ -30,6 +30,11 @@ namespace Pulse.UI
         // ─── Canvas layers (all children of DrawingCanvas) ────────────────────
         private readonly List<UIElement> _gridElements  = new List<UIElement>();
 
+        // ─── Ruler canvas layers ──────────────────────────────────────────────
+        private readonly List<UIElement> _rulerHElements = new List<UIElement>();
+        private readonly List<UIElement> _rulerVElements = new List<UIElement>();
+        private const double RulerThickness = 18.0;
+
         // Forward and reverse maps between model elements and their WPF shapes
         private readonly Dictionary<SymbolElement, UIElement> _elementToShape
             = new Dictionary<SymbolElement, UIElement>();
@@ -174,7 +179,112 @@ namespace Pulse.UI
             _gridElements.Add(tb);
         }
 
-        private void OnCanvasSizeChanged() { DrawGrid(); DrawSnapCross(); }
+        private void OnCanvasSizeChanged() { DrawGrid(); DrawRulers(); DrawSnapCross(); }
+
+        // ─── Ruler drawing ────────────────────────────────────────────────────
+
+        private void DrawRulers()
+        {
+            if (RulerH == null || RulerV == null) return;
+            DrawRulerH();
+            DrawRulerV();
+        }
+
+        private void DrawRulerH()
+        {
+            foreach (var el in _rulerHElements) RulerH.Children.Remove(el);
+            _rulerHElements.Clear();
+
+            var tickBrush = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF));
+            tickBrush.Freeze();
+
+            double totalMm = _vm.ViewboxWidthMm;
+            for (double mm = 0; mm <= totalMm + 0.01; mm += 1.0)
+            {
+                double x = mm * Ppm;
+                bool isMajor = (mm % 10) < 0.01;
+                bool isMid   = !isMajor && (mm % 5) < 0.01;
+                double tickH = isMajor ? 12 : isMid ? 7 : 4;
+
+                var line = new Line
+                {
+                    X1 = x, Y1 = RulerThickness, X2 = x, Y2 = RulerThickness - tickH,
+                    Stroke = tickBrush, StrokeThickness = isMajor ? 0.8 : 0.5,
+                    IsHitTestVisible = false
+                };
+                RulerH.Children.Add(line);
+                _rulerHElements.Add(line);
+
+                if (isMajor && mm > 0)
+                {
+                    var tb = new TextBlock
+                    {
+                        Text = ((int)mm).ToString(),
+                        FontSize = 7, Foreground = tickBrush, IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(tb, x + 2);
+                    Canvas.SetTop(tb, 2);
+                    RulerH.Children.Add(tb);
+                    _rulerHElements.Add(tb);
+                }
+            }
+        }
+
+        private void DrawRulerV()
+        {
+            foreach (var el in _rulerVElements) RulerV.Children.Remove(el);
+            _rulerVElements.Clear();
+
+            var tickBrush = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF));
+            tickBrush.Freeze();
+
+            double totalMm = _vm.ViewboxHeightMm;
+            for (double mm = 0; mm <= totalMm + 0.01; mm += 1.0)
+            {
+                double y = mm * Ppm;
+                bool isMajor = (mm % 10) < 0.01;
+                bool isMid   = !isMajor && (mm % 5) < 0.01;
+                double tickW = isMajor ? 12 : isMid ? 7 : 4;
+
+                var line = new Line
+                {
+                    X1 = RulerThickness, Y1 = y, X2 = RulerThickness - tickW, Y2 = y,
+                    Stroke = tickBrush, StrokeThickness = isMajor ? 0.8 : 0.5,
+                    IsHitTestVisible = false
+                };
+                RulerV.Children.Add(line);
+                _rulerVElements.Add(line);
+
+                if (isMajor && mm > 0)
+                {
+                    var tb = new TextBlock
+                    {
+                        Text = ((int)mm).ToString(),
+                        FontSize = 7, Foreground = tickBrush, IsHitTestVisible = false,
+                        RenderTransformOrigin = new Point(0.5, 0.5),
+                        RenderTransform = new RotateTransform(-90)
+                    };
+                    Canvas.SetLeft(tb, 2);
+                    Canvas.SetTop(tb, y - 4);
+                    RulerV.Children.Add(tb);
+                    _rulerVElements.Add(tb);
+                }
+            }
+        }
+
+        // ─── Select All ───────────────────────────────────────────────────────
+
+        private void OnSelectAllRequested()
+        {
+            if (_vm.Elements.Count == 0) return;
+            _vm.ActiveTool = DesignerTool.Select;
+            _multiSelection.Clear();
+            foreach (var el in _vm.Elements)
+                _multiSelection.Add(el);
+            _vm.SelectedElement = null;
+            _vm.SelectionInfo = $"{_multiSelection.Count} element{(_multiSelection.Count == 1 ? "" : "s")} selected";
+            UpdateMultiSelectionOverlays();
+        }
 
         // ─── Snap cross (movable origin) ──────────────────────────────────────
 
@@ -1520,6 +1630,14 @@ namespace Pulse.UI
             if (e.Key == Key.Y && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
             {
                 _vm.RedoCommand.Execute(null);
+                e.Handled = true;
+                return;
+            }
+
+            // Select All (Ctrl+A)
+            if (e.Key == Key.A && (Keyboard.Modifiers & ModifierKeys.Control) != 0)
+            {
+                _vm.SelectAllCommand.Execute(null);
                 e.Handled = true;
                 return;
             }
