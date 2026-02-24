@@ -50,8 +50,9 @@ namespace Pulse.UI.ViewModels
 
         // ── Per-element accessors ─────────────────────────────────────────
 
-        public LevelState GetLineState(string levelName) => _visibility.GetLineState(levelName);
-        public LevelState GetTextState(string levelName) => _visibility.GetTextState(levelName);
+        public LevelState GetLineState(string levelName)      => _visibility.GetLineState(levelName);
+        public LevelState GetTextAboveState(string levelName) => _visibility.GetTextAboveState(levelName);
+        public LevelState GetTextBelowState(string levelName) => _visibility.GetTextBelowState(levelName);
 
         public void SetLineState(string levelName, LevelState state)
         {
@@ -60,9 +61,16 @@ namespace Pulse.UI.ViewModels
             VisibilityChanged?.Invoke();
         }
 
-        public void SetTextState(string levelName, LevelState state)
+        public void SetTextAboveState(string levelName, LevelState state)
         {
-            _visibility.SetTextState(levelName, state);
+            _visibility.SetTextAboveState(levelName, state);
+            OnPropertyChanged(nameof(Visibility));
+            VisibilityChanged?.Invoke();
+        }
+
+        public void SetTextBelowState(string levelName, LevelState state)
+        {
+            _visibility.SetTextBelowState(levelName, state);
             OnPropertyChanged(nameof(Visibility));
             VisibilityChanged?.Invoke();
         }

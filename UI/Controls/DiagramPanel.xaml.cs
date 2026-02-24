@@ -22,7 +22,7 @@ namespace Pulse.UI.Controls
 
         private bool _isExpanded = false;
 
-        // Popup target: level name + "line" or "text"
+        // Popup target: level name + kind ("line" | "text-above" | "text-below")
         private string _popupTargetLevel;
         private string _popupTargetKind;
 
@@ -51,7 +51,6 @@ namespace Pulse.UI.Controls
                 HeaderTitleStack.Visibility = Visibility.Visible;
                 CollapsedLabel.Visibility   = Visibility.Collapsed;
                 ToggleIcon.Kind             = PackIconKind.ChevronRight;
-
                 Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
             }
             else
@@ -115,7 +114,7 @@ namespace Pulse.UI.Controls
 
             var allLevels = _currentVm.Levels.OrderBy(l => l.Elevation).ToList();
 
-            // Levels whose LINE is Deleted are excluded from the Y-range calculation.
+            // Levels with a Deleted line are excluded from the Y-range.
             var rangeLevels = allLevels
                 .Where(l => _currentVm.GetLineState(l.Name) != LevelState.Deleted)
                 .ToList();
@@ -133,7 +132,6 @@ namespace Pulse.UI.Controls
             {
                 var level     = rangeLevels[i];
                 var lineState = _currentVm.GetLineState(level.Name);
-                var textState = _currentVm.GetTextState(level.Name);
 
                 double t = (level.Elevation - minElev) / range;
                 double y = MarginTop + (1.0 - t) * drawH;
@@ -141,7 +139,6 @@ namespace Pulse.UI.Controls
                 // ── Line ──────────────────────────────────────────────────
                 if (lineState == LevelState.Visible)
                 {
-                    // Transparent wide hit area
                     var hitLine = new Line
                     {
                         X1              = 8,
@@ -155,7 +152,6 @@ namespace Pulse.UI.Controls
                     };
                     DiagramCanvas.Children.Add(hitLine);
 
-                    // Visual dashed line — long, gap, short, gap (10:4:4:4)
                     var line = new Line
                     {
                         X1               = 8,
@@ -170,8 +166,8 @@ namespace Pulse.UI.Controls
                     DiagramCanvas.Children.Add(line);
                 }
 
-                // ── Text above (current level name) ───────────────────────
-                if (textState == LevelState.Visible)
+                // ── Text above this line (this level's name) ──────────────
+                if (_currentVm.GetTextAboveState(level.Name) == LevelState.Visible)
                 {
                     var nameLabel = new TextBlock
                     {
@@ -182,7 +178,7 @@ namespace Pulse.UI.Controls
                         Width         = w - 16,
                         TextAlignment = TextAlignment.Right,
                         TextTrimming  = TextTrimming.CharacterEllipsis,
-                        Tag           = level.Name + "|text",
+                        Tag           = level.Name + "|text-above",
                         Cursor        = Cursors.Hand
                     };
                     Canvas.SetLeft(nameLabel, 8);
@@ -190,10 +186,9 @@ namespace Pulse.UI.Controls
                     DiagramCanvas.Children.Add(nameLabel);
                 }
 
-                // ── Text below (previous level name) ─────────────────────
+                // ── Text below this line (previous level's name) ──────────
                 if (i > 0)
                 {
-                    // Find the closest non-Deleted level below
                     string prevName = null;
                     for (int p = i - 1; p >= 0; p--)
                     {
@@ -204,7 +199,7 @@ namespace Pulse.UI.Controls
                         }
                     }
 
-                    if (prevName != null && _currentVm.GetTextState(prevName) == LevelState.Visible)
+                    if (prevName != null && _currentVm.GetTextBelowState(prevName) == LevelState.Visible)
                     {
                         var prevLabel = new TextBlock
                         {
@@ -215,7 +210,7 @@ namespace Pulse.UI.Controls
                             Width         = w - 16,
                             TextAlignment = TextAlignment.Right,
                             TextTrimming  = TextTrimming.CharacterEllipsis,
-                            Tag           = prevName + "|text",
+                            Tag           = prevName + "|text-below",
                             Cursor        = Cursors.Hand
                         };
                         Canvas.SetLeft(prevLabel, 8);
@@ -234,7 +229,6 @@ namespace Pulse.UI.Controls
         {
             if (_currentVm == null) return;
 
-            // Tags are "LevelName|line" or "LevelName|text"
             var tag = (e.OriginalSource as FrameworkElement)?.Tag as string;
             if (string.IsNullOrEmpty(tag)) return;
 
@@ -242,44 +236,81 @@ namespace Pulse.UI.Controls
             if (sep < 0) return;
 
             _popupTargetLevel = tag.Substring(0, sep);
-            _popupTargetKind  = tag.Substring(sep + 1);  // "line" or "text"
+            _popupTargetKind  = tag.Substring(sep + 1); // "line" | "text-above" | "text-below"
 
-            var state = _popupTargetKind == "line"
-                ? _currentVm.GetLineState(_popupTargetLevel)
-                : _currentVm.GetTextState(_popupTargetLevel);
-
+            var state = GetStateForKind(_popupTargetLevel, _popupTargetKind);
             ConfigurePopup(_popupTargetLevel, _popupTargetKind, state);
             LevelPopup.IsOpen = true;
             e.Handled = true;
         }
 
+        private LevelState GetStateForKind(string levelName, string kind)
+        {
+            switch (kind)
+            {
+                case "line":       return _currentVm.GetLineState(levelName);
+                case "text-above": return _currentVm.GetTextAboveState(levelName);
+                default:           return _currentVm.GetTextBelowState(levelName);
+            }
+        }
+
+        private void SetStateForKind(string levelName, string kind, LevelState state)
+        {
+            switch (kind)
+            {
+                case "line":       _currentVm.SetLineState(levelName, state);      break;
+                case "text-above": _currentVm.SetTextAboveState(levelName, state); break;
+                default:           _currentVm.SetTextBelowState(levelName, state); break;
+            }
+        }
+
         private void ConfigurePopup(string levelName, string kind, LevelState state)
         {
             string kindDisplay = kind == "line" ? "Line" : "Text";
-            PopupLevelName.Text = $"{levelName} — {kindDisplay}";
+            PopupLevelName.Text = $"{levelName} \u2014 {kindDisplay}";
 
             switch (state)
             {
                 case LevelState.Visible:
-                    PopupVisibilityButton.Content    = "Hide";
+                    PopupVisibilityButton.Content    = MakeButtonContent(PackIconKind.EyeOff, "Hide");
                     PopupVisibilityButton.Visibility = Visibility.Visible;
-                    PopupDeleteButton.Content        = "Delete";
+                    PopupDeleteButton.Content        = MakeButtonContent(PackIconKind.TrashCanOutline, "Delete");
                     PopupDeleteButton.Visibility     = Visibility.Visible;
                     break;
 
                 case LevelState.Hidden:
-                    PopupVisibilityButton.Content    = "Show";
+                    PopupVisibilityButton.Content    = MakeButtonContent(PackIconKind.Eye, "Show");
                     PopupVisibilityButton.Visibility = Visibility.Visible;
-                    PopupDeleteButton.Content        = "Delete";
+                    PopupDeleteButton.Content        = MakeButtonContent(PackIconKind.TrashCanOutline, "Delete");
                     PopupDeleteButton.Visibility     = Visibility.Visible;
                     break;
 
                 case LevelState.Deleted:
-                    PopupVisibilityButton.Content    = "Restore";
+                    PopupVisibilityButton.Content    = MakeButtonContent(PackIconKind.Restore, "Restore");
                     PopupVisibilityButton.Visibility = Visibility.Visible;
                     PopupDeleteButton.Visibility     = Visibility.Collapsed;
                     break;
             }
+        }
+
+        private static StackPanel MakeButtonContent(PackIconKind iconKind, string label)
+        {
+            var sp = new StackPanel { Orientation = Orientation.Horizontal };
+            sp.Children.Add(new PackIcon
+            {
+                Kind              = iconKind,
+                Width             = 13,
+                Height            = 13,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin            = new Thickness(0, 0, 6, 0)
+            });
+            sp.Children.Add(new TextBlock
+            {
+                Text              = label,
+                VerticalAlignment = VerticalAlignment.Center,
+                FontSize          = 11
+            });
+            return sp;
         }
 
         private void PopupVisibility_Click(object sender, RoutedEventArgs e)
@@ -287,18 +318,9 @@ namespace Pulse.UI.Controls
             LevelPopup.IsOpen = false;
             if (_currentVm == null || _popupTargetLevel == null) return;
 
-            if (_popupTargetKind == "line")
-            {
-                var cur  = _currentVm.GetLineState(_popupTargetLevel);
-                var next = cur == LevelState.Visible ? LevelState.Hidden : LevelState.Visible;
-                _currentVm.SetLineState(_popupTargetLevel, next);
-            }
-            else
-            {
-                var cur  = _currentVm.GetTextState(_popupTargetLevel);
-                var next = cur == LevelState.Visible ? LevelState.Hidden : LevelState.Visible;
-                _currentVm.SetTextState(_popupTargetLevel, next);
-            }
+            var cur  = GetStateForKind(_popupTargetLevel, _popupTargetKind);
+            var next = cur == LevelState.Visible ? LevelState.Hidden : LevelState.Visible;
+            SetStateForKind(_popupTargetLevel, _popupTargetKind, next);
 
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
         }
@@ -308,10 +330,7 @@ namespace Pulse.UI.Controls
             LevelPopup.IsOpen = false;
             if (_currentVm == null || _popupTargetLevel == null) return;
 
-            if (_popupTargetKind == "line")
-                _currentVm.SetLineState(_popupTargetLevel, LevelState.Deleted);
-            else
-                _currentVm.SetTextState(_popupTargetLevel, LevelState.Deleted);
+            SetStateForKind(_popupTargetLevel, _popupTargetKind, LevelState.Deleted);
 
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
         }
@@ -320,14 +339,9 @@ namespace Pulse.UI.Controls
 
         private void UpdateRestoreButton()
         {
-            if (_currentVm == null)
-            {
-                RestoreButton.Visibility = Visibility.Collapsed;
-                return;
-            }
+            if (_currentVm == null) { RestoreButton.Visibility = Visibility.Collapsed; return; }
             RestoreButton.Visibility = _currentVm.GetNonVisibleItems().Count > 0
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+                ? Visibility.Visible : Visibility.Collapsed;
         }
 
         private void RestoreButton_Click(object sender, RoutedEventArgs e)
@@ -341,45 +355,44 @@ namespace Pulse.UI.Controls
             RestoreList.Children.Clear();
             if (_currentVm == null) return;
 
-            var items = _currentVm.GetNonVisibleItems();
-            foreach (var item in items)
+            foreach (var item in _currentVm.GetNonVisibleItems())
             {
-                // Yellow = Hidden, Red = Deleted
                 var color = item.State == LevelState.Hidden
                     ? Color.FromRgb(0xFF, 0xCC, 0x40)
                     : Color.FromRgb(0xFF, 0x55, 0x55);
+
+                string kindDisplay;
+                if (item.Kind == "line")
+                    kindDisplay = "Line";
+                else if (item.Kind == "text-above")
+                    kindDisplay = "Text \u2191";
+                else
+                    kindDisplay = "Text \u2193";
 
                 var row = new DockPanel { Margin = new Thickness(6, 1, 6, 1) };
 
                 var restoreBtn = new Button
                 {
-                    Content  = "Restore",
-                    Style    = (Style)FindResource("PulseActionButtonStyle"),
-                    Padding  = new Thickness(8, 3, 8, 3),
-                    FontSize = 10,
+                    Content           = "Restore",
+                    Style             = (Style)FindResource("PulseActionButtonStyle"),
+                    Padding           = new Thickness(8, 3, 8, 3),
+                    FontSize          = 10,
                     VerticalAlignment = VerticalAlignment.Center
                 };
 
                 var captured = item;
                 restoreBtn.Click += (s, args) =>
                 {
-                    if (captured.Kind == "line")
-                        _currentVm.SetLineState(captured.LevelName, LevelState.Visible);
-                    else
-                        _currentVm.SetTextState(captured.LevelName, LevelState.Visible);
-
-                    // Rebuild the list; close popup if empty
+                    SetStateForKind(captured.LevelName, captured.Kind, LevelState.Visible);
                     BuildRestoreList();
                     if (_currentVm.GetNonVisibleItems().Count == 0)
                         RestorePopup.IsOpen = false;
-
                     Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
                 };
 
                 DockPanel.SetDock(restoreBtn, Dock.Right);
                 row.Children.Add(restoreBtn);
 
-                string kindDisplay = captured.Kind == "line" ? "Line" : "Text";
                 var label = new TextBlock
                 {
                     Text              = $"{captured.LevelName} \u2014 {kindDisplay}",

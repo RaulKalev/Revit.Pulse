@@ -15,7 +15,7 @@ namespace Pulse.Core.Modules
 
     /// <summary>
     /// Persisted diagram display preferences.
-    /// Keys are stored as "LevelName|line" or "LevelName|text".
+    /// Keys are stored as "LevelName|line", "LevelName|text-above", or "LevelName|text-below".
     /// Absence of a key means Visible.
     /// </summary>
     public class LevelVisibilitySettings
@@ -26,14 +26,22 @@ namespace Pulse.Core.Modules
         public LevelState GetLineState(string levelName)
             => States.TryGetValue(levelName + "|line", out var s) ? s : LevelState.Visible;
 
-        public LevelState GetTextState(string levelName)
-            => States.TryGetValue(levelName + "|text", out var s) ? s : LevelState.Visible;
+        /// <summary>Text label that sits above the level's own line.</summary>
+        public LevelState GetTextAboveState(string levelName)
+            => States.TryGetValue(levelName + "|text-above", out var s) ? s : LevelState.Visible;
+
+        /// <summary>Text label that sits below the next higher level's line.</summary>
+        public LevelState GetTextBelowState(string levelName)
+            => States.TryGetValue(levelName + "|text-below", out var s) ? s : LevelState.Visible;
 
         public void SetLineState(string levelName, LevelState state)
             => SetKey(levelName + "|line", state);
 
-        public void SetTextState(string levelName, LevelState state)
-            => SetKey(levelName + "|text", state);
+        public void SetTextAboveState(string levelName, LevelState state)
+            => SetKey(levelName + "|text-above", state);
+
+        public void SetTextBelowState(string levelName, LevelState state)
+            => SetKey(levelName + "|text-below", state);
 
         private void SetKey(string key, LevelState state)
         {
