@@ -79,6 +79,12 @@ namespace Pulse.UI
         private Point     _rubberBandStartRaw;   // canvas px, not snapped
         private Rectangle _rubberBandRect;
 
+        // ─── Scale tool (3-point interactive scale) ────────────────────────────
+        private int   _scaleToolStep;             // 0=awaiting base, 1=awaiting ref, 2=awaiting target
+        private Point _scaleBaseMm;               // base/anchor point (mm)
+        private Point _scaleRefMm;                // reference point (mm)
+        private readonly List<UIElement> _scaleToolOverlays = new List<UIElement>();
+
         // ─── Snap cross (movable snap origin) ───────────────────────────────────
         private const string SnapOriginTag        = "SnapOrigin";
         private readonly List<UIElement> _snapCrossElements = new List<UIElement>();
@@ -530,6 +536,151 @@ namespace Pulse.UI
             _isRubberBanding = false;
         }
 
+        // ─── Scale tool (3-point interactive) ────────────────────────────────
+
+        /// <summary>Returns the elements the scale tool should operate on:
+        /// current multi-selection if any, otherwise all elements.</summary>
+        private IList<SymbolElement> GetScaleToolTargets()
+            => _multiSelection.Count > 0
+                ? (IList<SymbolElement>)_multiSelection.ToList()
+                : _vm.Elements.ToList();
+
+        /// <summary>Remove all transient scale-tool visual overlays from the canvas.</summary>
+        private void ClearScaleToolOverlays()
+        {
+            foreach (var el in _scaleToolOverlays)
+                DrawingCanvas.Children.Remove(el);
+            _scaleToolOverlays.Clear();
+        }
+
+        /// <summary>Cancel/reset the scale tool back to step 0 and clean up visuals.</summary>
+        private void CancelScaleTool()
+        {
+            ClearScaleToolOverlays();
+            _scaleToolStep = 0;
+            _vm.SelectionInfo = _multiSelection.Count > 0
+                ? $"{_multiSelection.Count} elements selected"
+                : "";
+        }
+
+        /// <summary>Add a small filled circle to the canvas as a scale-point indicator.</summary>
+        private UIElement AddScaleDot(double xMm, double yMm, Color color, double radiusPx = 5)
+        {
+            var dot = new Ellipse
+            {
+                Width  = radiusPx * 2,
+                Height = radiusPx * 2,
+                Fill   = new SolidColorBrush(color),
+                IsHitTestVisible = false
+            };
+            Panel.SetZIndex(dot, 300);
+            Canvas.SetLeft(dot, xMm * Ppm - radiusPx);
+            Canvas.SetTop( dot, yMm * Ppm - radiusPx);
+            DrawingCanvas.Children.Add(dot);
+            _scaleToolOverlays.Add(dot);
+            return dot;
+        }
+
+        /// <summary>Add a (optionally dashed) line between two mm-space points as a scale indicator.</summary>
+        private UIElement AddScaleLine(Point aMm, Point bMm, Color color, bool dashed = true)
+        {
+            var line = new Line
+            {
+                X1 = aMm.X * Ppm, Y1 = aMm.Y * Ppm,
+                X2 = bMm.X * Ppm, Y2 = bMm.Y * Ppm,
+                Stroke          = new SolidColorBrush(color),
+                StrokeThickness = 1.0,
+                IsHitTestVisible = false
+            };
+            if (dashed)
+                line.StrokeDashArray = new DoubleCollection { 6, 3 };
+            Panel.SetZIndex(line, 298);
+            DrawingCanvas.Children.Add(line);
+            _scaleToolOverlays.Add(line);
+            return line;
+        }
+
+        /// <summary>
+        /// Rebuild all transient scale-tool overlays (indicator dots, lines, ghost preview).
+        /// Called on every MouseMove while the scale tool is active.
+        /// </summary>
+        private void UpdateScaleToolPreview(Point currentMm)
+        {
+            ClearScaleToolOverlays();
+
+            // Always show the orange base dot
+            AddScaleDot(_scaleBaseMm.X, _scaleBaseMm.Y, Colors.OrangeRed);
+
+            if (_scaleToolStep == 1)
+            {
+                // Dashed line from base to cursor; shows the reference distance as the user picks
+                AddScaleLine(_scaleBaseMm, currentMm, Colors.OrangeRed);
+                double refDist = Distance(_scaleBaseMm, currentMm);
+                _vm.SelectionInfo = $"Reference: {refDist:F2} mm — click to confirm";
+            }
+            else if (_scaleToolStep == 2)
+            {
+                // Fixed line + dot for the reference point
+                AddScaleLine(_scaleBaseMm, _scaleRefMm, Color.FromRgb(0xFF, 0xCC, 0x00));
+                AddScaleDot(_scaleRefMm.X, _scaleRefMm.Y, Color.FromRgb(0xFF, 0xCC, 0x00));
+
+                // Live line from base to cursor (target)
+                AddScaleLine(_scaleBaseMm, currentMm, Colors.White);
+
+                double refDist    = Distance(_scaleBaseMm, _scaleRefMm);
+                double targetDist = Distance(_scaleBaseMm, currentMm);
+                if (refDist < 0.001) return;
+                double factor = targetDist / refDist;
+
+                // Ghost preview of all target elements at the current scale
+                foreach (var el in GetScaleToolTargets())
+                {
+                    var ghost = el.Clone();
+                    ghost.Points = el.Points
+                        .Select(p => new SymbolPoint(
+                            _scaleBaseMm.X + (p.X - _scaleBaseMm.X) * factor,
+                            _scaleBaseMm.Y + (p.Y - _scaleBaseMm.Y) * factor))
+                        .ToList();
+                    var shape = CreateShape(ghost, opacityMultiplier: 0.45);
+                    if (shape == null) continue;
+                    Panel.SetZIndex(shape, 150);
+                    DrawingCanvas.Children.Add(shape);
+                    _scaleToolOverlays.Add(shape);
+                }
+
+                _vm.SelectionInfo = $"Scale ×{factor:F2} — click to confirm  |  Esc to cancel";
+            }
+        }
+
+        /// <summary>Commit the scale operation using <paramref name="targetMm"/> as the third point.</summary>
+        private void CommitScaleTool(Point targetMm)
+        {
+            double refDist    = Distance(_scaleBaseMm, _scaleRefMm);
+            double targetDist = Distance(_scaleBaseMm, targetMm);
+            if (refDist < 0.001 || targetDist < 0.001)
+            {
+                CancelScaleTool();
+                return;
+            }
+
+            double factor = targetDist / refDist;
+            ClearScaleToolOverlays();
+
+            var targets      = GetScaleToolTargets();
+            var replacements = _vm.ScaleElementsFrom(targets, factor, _scaleBaseMm.X, _scaleBaseMm.Y);
+
+            // Re-select replacements if we had a multi-selection
+            if (_multiSelection.Count > 0 && replacements.Count > 0)
+            {
+                _multiSelection.Clear();
+                foreach (var r in replacements) _multiSelection.Add(r);
+                UpdateMultiSelectionOverlays();
+            }
+
+            _vm.SelectionInfo = $"{replacements.Count} element(s) scaled ×{factor:F2}";
+            _scaleToolStep = 0;
+        }
+
         // ─── Multi-element move ───────────────────────────────────────────────
 
         private void StartMultiMove(Point startMm)
@@ -632,13 +783,14 @@ namespace Pulse.UI
                 ? Cursors.Arrow
                 : Cursors.Cross;
 
-            // Cancel any in-progress transform, multi-move, or rubber-band when switching tools
+            // Cancel any in-progress transform, multi-move, rubber-band, or scale-tool op
             if (_isDraggingTransform)
             {
                 if (_multiDragOriginals != null) CancelMultiMove();
                 else CancelTransform();
             }
             if (_isRubberBanding) CancelRubberBand();
+            if (_scaleToolStep > 0) CancelScaleTool();
             _isDraggingSnapOrigin = false;
             _isDrawing = false;
             _polyPoints.Clear();
@@ -1197,6 +1349,36 @@ namespace Pulse.UI
                 return;
             }
 
+            // ── Scale tool (3-point click-based scale) ─────────────────────
+            if (_vm.ActiveTool == DesignerTool.ScaleTool)
+            {
+                var stSnap = SnapPoint(e.GetPosition(DrawingCanvas));
+                switch (_scaleToolStep)
+                {
+                    case 0: // pick base point
+                        _scaleBaseMm   = stSnap;
+                        _scaleToolStep = 1;
+                        UpdateScaleToolPreview(stSnap); // show base dot immediately
+                        _vm.SelectionInfo = "Click reference point to set reference distance";
+                        break;
+
+                    case 1: // pick reference point
+                        if (Distance(stSnap, _scaleBaseMm) > 0.1)
+                        {
+                            _scaleRefMm    = stSnap;
+                            _scaleToolStep = 2;
+                            UpdateScaleToolPreview(stSnap);
+                        }
+                        break;
+
+                    case 2: // pick target — commit
+                        CommitScaleTool(stSnap);
+                        break;
+                }
+                e.Handled = true;
+                return;
+            }
+
             // ── Paint bucket ─────────────────────────────────────────────────
             if (_vm.ActiveTool == DesignerTool.PaintBucket)
             {
@@ -1432,6 +1614,9 @@ namespace Pulse.UI
 
             var snap = SnapPoint(e.GetPosition(DrawingCanvas));
 
+            // ── Scale tool — ignore MouseUp (steps handled entirely in MouseDown)
+            if (_vm.ActiveTool == DesignerTool.ScaleTool) { e.Handled = true; return; }
+
             // ── Snap-origin drag commit ──────────────────────────────────────
             if (_isDraggingSnapOrigin)
             {
@@ -1467,6 +1652,13 @@ namespace Pulse.UI
             }
 
             _pendingMoveElement = null;
+
+            // ── Scale tool — MouseMove preview ──────────────────────────────
+            if (_vm.ActiveTool == DesignerTool.ScaleTool && _scaleToolStep > 0)
+            {
+                UpdateScaleToolPreview(snap);
+                return;
+            }
 
             if (!_isDrawing) return;
 
@@ -1640,6 +1832,10 @@ namespace Pulse.UI
                 {
                     CancelRubberBand();
                 }
+                else if (_vm.ActiveTool == DesignerTool.ScaleTool && _scaleToolStep > 0)
+                {
+                    CancelScaleTool();
+                }
                 else if (_vm.ActiveTool == DesignerTool.Select)
                 {
                     ClearAllSelection();
@@ -1697,12 +1893,13 @@ namespace Pulse.UI
             if (Keyboard.FocusedElement is TextBox) return;
             switch (e.Key)
             {
-                case Key.V: _vm.ActiveTool = DesignerTool.Select;      break;
-                case Key.L: _vm.ActiveTool = DesignerTool.Line;        break;
-                case Key.P: _vm.ActiveTool = DesignerTool.Polyline;    break;
-                case Key.C: _vm.ActiveTool = DesignerTool.Circle;      break;
-                case Key.R: _vm.ActiveTool = DesignerTool.Rectangle;   break;
+                case Key.V: _vm.ActiveTool = DesignerTool.Select;     break;
+                case Key.L: _vm.ActiveTool = DesignerTool.Line;       break;
+                case Key.P: _vm.ActiveTool = DesignerTool.Polyline;   break;
+                case Key.C: _vm.ActiveTool = DesignerTool.Circle;     break;
+                case Key.R: _vm.ActiveTool = DesignerTool.Rectangle;  break;
                 case Key.B: _vm.ActiveTool = DesignerTool.PaintBucket; break;
+                case Key.S: _vm.ActiveTool = DesignerTool.ScaleTool;  break;
             }
 
             // When tool changes, cancel any in-progress draw

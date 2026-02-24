@@ -17,7 +17,9 @@ namespace Pulse.UI.ViewModels
         Polyline,
         Circle,
         Rectangle,
-        PaintBucket
+        PaintBucket,
+        /// <summary>3-point interactive scale: click base → reference → target.</summary>
+        ScaleTool
     }
 
     /// <summary>
@@ -233,6 +235,7 @@ namespace Pulse.UI.ViewModels
         public ICommand SaveCommand            { get; }
         public ICommand CancelCommand          { get; }
         /// <summary>Fires <see cref="SelectAllRequested"/> so the code-behind can select every element.</summary>
+        public ICommand ScaleToolCommand { get; }
         public ICommand SelectAllCommand { get; }
 
         // ─── Events ───────────────────────────────────────────────────────────
@@ -265,6 +268,7 @@ namespace Pulse.UI.ViewModels
             CircleToolCommand      = new RelayCommand(_ => ActiveTool = DesignerTool.Circle);
             RectangleToolCommand   = new RelayCommand(_ => ActiveTool = DesignerTool.Rectangle);
             PaintBucketToolCommand = new RelayCommand(_ => ActiveTool = DesignerTool.PaintBucket);
+            ScaleToolCommand      = new RelayCommand(_ => ActiveTool = DesignerTool.ScaleTool);
 
             UndoCommand           = new RelayCommand(_ => ExecuteUndo(),    _ => _undoStack.Count > 0);
             RedoCommand           = new RelayCommand(_ => ExecuteRedo(),    _ => _redoStack.Count > 0);
@@ -409,6 +413,32 @@ namespace Pulse.UI.ViewModels
             Elements.Clear();
             _redoStack.Clear();
             CommandManager.InvalidateRequerySuggested();
+        }
+
+        /// <summary>
+        /// Scales the given elements' points and stroke widths by <paramref name="factor"/>,
+        /// relative to an explicit <paramref name="basePtX"/>/<paramref name="basePtY"/> anchor.
+        /// Uses ReplaceElement so the operation is undoable.
+        /// Returns the list of replacement elements in input order so the caller can re-select them.
+        /// </summary>
+        public IList<SymbolElement> ScaleElementsFrom(IEnumerable<SymbolElement> elements,
+            double factor, double basePtX, double basePtY)
+        {
+            var replacements = new List<SymbolElement>();
+            if (elements == null || Math.Abs(factor - 1.0) < 0.00001) return replacements;
+            foreach (var el in elements.ToList())
+            {
+                var scaled = el.Clone();
+                scaled.StrokeThicknessMm = el.StrokeThicknessMm * factor;
+                scaled.Points = el.Points
+                    .Select(p => new SymbolPoint(
+                        basePtX + (p.X - basePtX) * factor,
+                        basePtY + (p.Y - basePtY) * factor))
+                    .ToList();
+                ReplaceElement(el, scaled);
+                replacements.Add(scaled);
+            }
+            return replacements;
         }
 
         /// <summary>
