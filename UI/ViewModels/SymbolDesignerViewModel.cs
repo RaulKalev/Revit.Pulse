@@ -414,10 +414,13 @@ namespace Pulse.UI.ViewModels
         /// <summary>
         /// Scales the given elements' points and stroke widths by <paramref name="factor"/>,
         /// relative to the snap origin.  Uses ReplaceElement so the operation is undoable.
+        /// Returns the list of replacement elements in input order so the caller can
+        /// re-select them after the rebuild.
         /// </summary>
-        public void ScaleElements(IEnumerable<SymbolElement> elements, double factor)
+        public IList<SymbolElement> ScaleElements(IEnumerable<SymbolElement> elements, double factor)
         {
-            if (elements == null || Math.Abs(factor - 1.0) < 0.00001) return;
+            var replacements = new List<SymbolElement>();
+            if (elements == null || Math.Abs(factor - 1.0) < 0.00001) return replacements;
             double ox = SnapOriginXMm;
             double oy = SnapOriginYMm;
             foreach (var el in elements.ToList())
@@ -430,7 +433,9 @@ namespace Pulse.UI.ViewModels
                         oy + (p.Y - oy) * factor))
                     .ToList();
                 ReplaceElement(el, scaled);
+                replacements.Add(scaled);
             }
+            return replacements;
         }
 
         private void ExecuteSave()

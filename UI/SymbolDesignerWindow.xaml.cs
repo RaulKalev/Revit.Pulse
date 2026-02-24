@@ -315,12 +315,26 @@ namespace Pulse.UI
                 || factor <= 0)
                 return;
 
-            // Scale the multi-selection if anything is selected, otherwise scale everything
-            var targets = _multiSelection.Count > 0
-                ? (IEnumerable<Pulse.Core.Settings.SymbolElement>)_multiSelection
-                : _vm.Elements;
+            // Determine what to scale — multi-selection if active, otherwise everything
+            bool hadMultiSelection = _multiSelection.Count > 0;
+            var targets = hadMultiSelection
+                ? _multiSelection.ToList()
+                : _vm.Elements.ToList();
 
-            _vm.ScaleElements(targets, factor);
+            // Scale and get back the replacement elements (ReplaceElement rebuilds the canvas,
+            // which clears _multiSelection and _vm.SelectedElement)
+            var replacements = _vm.ScaleElements(targets, factor);
+
+            // Restore the selection on the new (scaled) elements
+            if (replacements.Count > 0)
+            {
+                _multiSelection.Clear();
+                foreach (var r in replacements)
+                    _multiSelection.Add(r);
+                _vm.SelectedElement = null;
+                _vm.SelectionInfo = $"{_multiSelection.Count} element{(_multiSelection.Count == 1 ? "" : "s")} selected";
+                UpdateMultiSelectionOverlays();
+            }
         }
 
         // ─── Snap cross (movable origin) ──────────────────────────────────────
