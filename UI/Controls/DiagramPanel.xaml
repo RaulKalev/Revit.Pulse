@@ -121,7 +121,7 @@
             <!-- ── Content area — level diagram drawn in code-behind ── -->
             <Grid x:Name="DiagramContent"
                   Grid.Row="1"
-                  ClipToBounds="False"
+                  ClipToBounds="True"
                   Focusable="True"
                   Background="{DynamicResource PrimaryBackgroundBrush}"
                   SizeChanged="DiagramContent_SizeChanged"
@@ -132,9 +132,18 @@
                   MouseLeftButtonUp="DiagramContent_MouseLeftButtonUp"
                   MouseDown="DiagramContent_MouseDown">
 
-                <Canvas x:Name="DiagramCanvas"
-                        ClipToBounds="False"
-                        MouseLeftButtonUp="DiagramCanvas_MouseLeftButtonUp"/>
+                <!-- Horizontal-only scroll to reveal overflowing loops -->
+                <ScrollViewer x:Name="DiagramScrollViewer"
+                              HorizontalScrollBarVisibility="Auto"
+                              VerticalScrollBarVisibility="Disabled"
+                              CanContentScroll="False"
+                              Background="Transparent"
+                              Padding="0"
+                              BorderThickness="0">
+                    <Canvas x:Name="DiagramCanvas"
+                            ClipToBounds="False"
+                            MouseLeftButtonUp="DiagramCanvas_MouseLeftButtonUp"/>
+                </ScrollViewer>
 
                 <!-- Loop context popup — appears when clicking a loop wire -->
                 <Popup x:Name="LoopPopup"

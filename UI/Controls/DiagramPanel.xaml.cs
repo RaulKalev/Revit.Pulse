@@ -168,6 +168,8 @@ namespace Pulse.UI.Controls
 
         private void DiagramContent_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
         {
+            // Always mark handled so the inner ScrollViewer never consumes wheel events.
+            e.Handled = true;
             if (!Keyboard.IsKeyDown(Key.LeftCtrl) && !Keyboard.IsKeyDown(Key.RightCtrl)) return;
 
             // Mouse position relative to DiagramContent (the viewport)
