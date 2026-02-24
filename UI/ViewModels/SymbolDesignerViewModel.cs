@@ -160,14 +160,6 @@ namespace Pulse.UI.ViewModels
             }
         }
 
-        private double _scaleAllFactor = 1.0;
-        /// <summary>Uniform scale factor used by <see cref="ScaleAllCommand"/>.</summary>
-        public double ScaleAllFactor
-        {
-            get => _scaleAllFactor;
-            set => SetField(ref _scaleAllFactor, Math.Max(0.01, Math.Min(100.0, value)));
-        }
-
         // ─── Snap origin ──────────────────────────────────────────────────────
 
         private double _snapOriginXMm = 0.0;
@@ -242,8 +234,6 @@ namespace Pulse.UI.ViewModels
         public ICommand CancelCommand          { get; }
         /// <summary>Fires <see cref="SelectAllRequested"/> so the code-behind can select every element.</summary>
         public ICommand SelectAllCommand { get; }
-        /// <summary>Scales all element points and stroke widths by <see cref="ScaleAllFactor"/> relative to the snap origin.</summary>
-        public ICommand ScaleAllCommand  { get; }
 
         // ─── Events ───────────────────────────────────────────────────────────
 
@@ -283,7 +273,6 @@ namespace Pulse.UI.ViewModels
             SaveCommand           = new RelayCommand(_ => ExecuteSave(),    _ => !string.IsNullOrWhiteSpace(SymbolName));
             CancelCommand         = new RelayCommand(_ => Cancelled?.Invoke());
             SelectAllCommand      = new RelayCommand(_ => SelectAllRequested?.Invoke(), _ => Elements.Count > 0);
-            ScaleAllCommand       = new RelayCommand(_ => ExecuteScaleAll(),             _ => Elements.Count > 0);
         }
 
         // ─── Public API used by code-behind ───────────────────────────────────
@@ -422,15 +411,16 @@ namespace Pulse.UI.ViewModels
             CommandManager.InvalidateRequerySuggested();
         }
 
-        private void ExecuteScaleAll()
+        /// <summary>
+        /// Scales the given elements' points and stroke widths by <paramref name="factor"/>,
+        /// relative to the snap origin.  Uses ReplaceElement so the operation is undoable.
+        /// </summary>
+        public void ScaleElements(IEnumerable<SymbolElement> elements, double factor)
         {
-            double factor = ScaleAllFactor;
-            if (Math.Abs(factor - 1.0) < 0.00001 || Elements.Count == 0) return;
-
+            if (elements == null || Math.Abs(factor - 1.0) < 0.00001) return;
             double ox = SnapOriginXMm;
             double oy = SnapOriginYMm;
-
-            foreach (var el in Elements.ToList())
+            foreach (var el in elements.ToList())
             {
                 var scaled = el.Clone();
                 scaled.StrokeThicknessMm = el.StrokeThicknessMm * factor;

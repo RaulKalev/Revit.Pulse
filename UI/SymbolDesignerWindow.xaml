@@ -285,20 +285,23 @@
                             <TextBlock Text="Scale:" FontSize="11"
                                        Foreground="{DynamicResource IconForegroundBrush}"
                                        VerticalAlignment="Center" Margin="0,0,6,0" />
-                            <TextBox Style="{StaticResource ToolbarTextBoxStyle}" Width="42"
-                                     Text="{Binding ScaleAllFactor, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}" />
+                            <TextBox x:Name="TbScaleFactor"
+                                     Style="{StaticResource ToolbarTextBoxStyle}" Width="42"
+                                     Text="1.0"
+                                     KeyDown="TbScaleFactor_KeyDown" />
                             <TextBlock Text="×" FontSize="11"
                                        Foreground="{DynamicResource IconForegroundBrush}"
                                        VerticalAlignment="Center" Margin="4,0,6,0" />
-                            <Button Command="{Binding ScaleAllCommand}"
+                            <Button x:Name="BtnScaleApply"
+                                    Click="BtnScaleApply_Click"
                                     Style="{StaticResource ToolButtonStyle}"
                                     Width="Auto" Height="26" Padding="8,0"
                                     VerticalAlignment="Center"
-                                    ToolTip="Scale all element points and stroke widths by the given factor, relative to the snap origin">
+                                    ToolTip="Scale selected elements (or all, if none selected) relative to the snap origin. Press Enter in the textbox or click here.">
                                 <StackPanel Orientation="Horizontal">
                                     <materialDesign:PackIcon Kind="ArrowExpandAll" Width="14" Height="14"
                                                              VerticalAlignment="Center" Margin="0,0,5,0" />
-                                    <TextBlock Text="Scale All" FontSize="11" VerticalAlignment="Center" />
+                                    <TextBlock Text="Scale" FontSize="11" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </StackPanel>

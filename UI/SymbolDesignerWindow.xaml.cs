@@ -100,12 +100,15 @@ namespace Pulse.UI
             _vm.CanvasSizeChanged          += OnCanvasSizeChanged;
             _vm.ToolChanged                += OnToolChanged;
             _vm.SnapOriginChanged          += DrawSnapCross;
-            _vm.Saved     += _ => Close();
-            _vm.Cancelled += Close;
+            _vm.Saved                      += _ => Close();
+            _vm.Cancelled                  += Close;
+            _vm.SelectAllRequested         += OnSelectAllRequested;
 
-            // Draw grid, snap cross, and any elements already loaded (e.g. when editing
-            // an existing symbol — LoadFrom is called before the window is shown).
+            // Draw grid, snap cross, and any pre-loaded elements once the canvas is laid out
             DrawingCanvas.Loaded += (_, __) => { DrawGrid(); DrawSnapCross(); RebuildAllDrawnShapes(); };
+
+            // Rulers need the full window laid out before drawing (different visual-tree branch)
+            Loaded += (_, __) => DrawRulers();
 
             // Keyboard shortcuts
             KeyDown += OnKeyDown;
@@ -195,8 +198,10 @@ namespace Pulse.UI
             foreach (var el in _rulerHElements) RulerH.Children.Remove(el);
             _rulerHElements.Clear();
 
-            var tickBrush = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF));
+            var tickBrush  = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
+            var labelBrush = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD));
             tickBrush.Freeze();
+            labelBrush.Freeze();
 
             double totalMm = _vm.ViewboxWidthMm;
             for (double mm = 0; mm <= totalMm + 0.01; mm += 1.0)
@@ -204,27 +209,27 @@ namespace Pulse.UI
                 double x = mm * Ppm;
                 bool isMajor = (mm % 10) < 0.01;
                 bool isMid   = !isMajor && (mm % 5) < 0.01;
-                double tickH = isMajor ? 12 : isMid ? 7 : 4;
+                double tickH = isMajor ? 10 : isMid ? 6 : 3;
 
                 var line = new Line
                 {
                     X1 = x, Y1 = RulerThickness, X2 = x, Y2 = RulerThickness - tickH,
-                    Stroke = tickBrush, StrokeThickness = isMajor ? 0.8 : 0.5,
+                    Stroke = tickBrush, StrokeThickness = isMajor ? 1.0 : 0.5,
                     IsHitTestVisible = false
                 };
                 RulerH.Children.Add(line);
                 _rulerHElements.Add(line);
 
-                if (isMajor && mm > 0)
+                if (isMajor && mm >= 0)
                 {
                     var tb = new TextBlock
                     {
                         Text = ((int)mm).ToString(),
-                        FontSize = 7, Foreground = tickBrush, IsHitTestVisible = false
+                        FontSize = 9, Foreground = labelBrush, IsHitTestVisible = false
                     };
-                    // Place the label to the LEFT of the tick so it stays inside the ruler canvas
-                    Canvas.SetLeft(tb, x - 11);
-                    Canvas.SetTop(tb, 2);
+                    // Centre label on the tick; small left offset to avoid the edge at x=0
+                    Canvas.SetLeft(tb, mm < 0.01 ? 2 : x - 7);
+                    Canvas.SetTop(tb, 1);
                     RulerH.Children.Add(tb);
                     _rulerHElements.Add(tb);
                 }
@@ -236,8 +241,10 @@ namespace Pulse.UI
             foreach (var el in _rulerVElements) RulerV.Children.Remove(el);
             _rulerVElements.Clear();
 
-            var tickBrush = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF));
+            var tickBrush  = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA));
+            var labelBrush = new SolidColorBrush(Color.FromRgb(0xDD, 0xDD, 0xDD));
             tickBrush.Freeze();
+            labelBrush.Freeze();
 
             double totalMm = _vm.ViewboxHeightMm;
             for (double mm = 0; mm <= totalMm + 0.01; mm += 1.0)
@@ -245,27 +252,26 @@ namespace Pulse.UI
                 double y = mm * Ppm;
                 bool isMajor = (mm % 10) < 0.01;
                 bool isMid   = !isMajor && (mm % 5) < 0.01;
-                double tickW = isMajor ? 12 : isMid ? 7 : 4;
+                double tickW = isMajor ? 10 : isMid ? 6 : 3;
 
                 var line = new Line
                 {
                     X1 = RulerThickness, Y1 = y, X2 = RulerThickness - tickW, Y2 = y,
-                    Stroke = tickBrush, StrokeThickness = isMajor ? 0.8 : 0.5,
+                    Stroke = tickBrush, StrokeThickness = isMajor ? 1.0 : 0.5,
                     IsHitTestVisible = false
                 };
                 RulerV.Children.Add(line);
                 _rulerVElements.Add(line);
 
-                if (isMajor && mm > 0)
+                if (isMajor && mm >= 0)
                 {
                     var tb = new TextBlock
                     {
                         Text = ((int)mm).ToString(),
-                        FontSize = 7, Foreground = tickBrush, IsHitTestVisible = false
+                        FontSize = 9, Foreground = labelBrush, IsHitTestVisible = false
                     };
-                    // Place label above the tick, horizontally, within the 18px ruler width
                     Canvas.SetLeft(tb, 1);
-                    Canvas.SetTop(tb, y - 9);
+                    Canvas.SetTop(tb, mm < 0.01 ? 2 : y - 9);
                     RulerV.Children.Add(tb);
                     _rulerVElements.Add(tb);
                 }
@@ -284,6 +290,37 @@ namespace Pulse.UI
             _vm.SelectedElement = null;
             _vm.SelectionInfo = $"{_multiSelection.Count} element{(_multiSelection.Count == 1 ? "" : "s")} selected";
             UpdateMultiSelectionOverlays();
+        }
+
+        // ─── Scale ───────────────────────────────────────────────────────────
+
+        private void TbScaleFactor_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter || e.Key == Key.Return)
+            {
+                ApplyScale();
+                e.Handled = true;
+            }
+        }
+
+        private void BtnScaleApply_Click(object sender, RoutedEventArgs e)
+        {
+            ApplyScale();
+        }
+
+        private void ApplyScale()
+        {
+            if (!double.TryParse(TbScaleFactor.Text, System.Globalization.NumberStyles.Any,
+                                 System.Globalization.CultureInfo.InvariantCulture, out double factor)
+                || factor <= 0)
+                return;
+
+            // Scale the multi-selection if anything is selected, otherwise scale everything
+            var targets = _multiSelection.Count > 0
+                ? (IEnumerable<Pulse.Core.Settings.SymbolElement>)_multiSelection
+                : _vm.Elements;
+
+            _vm.ScaleElements(targets, factor);
         }
 
         // ─── Snap cross (movable origin) ──────────────────────────────────────
