@@ -59,6 +59,10 @@ namespace Pulse.UI.ViewModels
         private readonly List<SymbolMappingEntryViewModel> _allEntries
             = new List<SymbolMappingEntryViewModel>();
 
+        /// <summary>Full definitions from the custom symbol library (not just names).</summary>
+        private readonly List<CustomSymbolDefinition> _symbolLibrary
+            = new List<CustomSymbolDefinition>();
+
         /// <summary>Filtered rows shown in the grid.</summary>
         public ObservableCollection<SymbolMappingEntryViewModel> FilteredEntries { get; }
             = new ObservableCollection<SymbolMappingEntryViewModel>();
@@ -105,11 +109,19 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public event Action NewSymbolRequested;
 
+        /// <summary>
+        /// Raised when the user clicks the edit (pencil) button on a symbol row.
+        /// Carries the full definition so the caller can open the designer pre-populated.
+        /// </summary>
+        public event Action<CustomSymbolDefinition> EditSymbolRequested;
+
         // ─── Commands ────────────────────────────────────────────────────────
         public ICommand SaveCommand            { get; }
         public ICommand CancelCommand          { get; }
         public ICommand ClearAllCommand        { get; }
         public ICommand CreateNewSymbolCommand { get; }
+        /// <summary>Parameterised by symbol name (string). Fires <see cref="EditSymbolRequested"/> with the matching definition.</summary>
+        public ICommand EditSymbolCommand      { get; }
 
         // ─── Constructor ─────────────────────────────────────────────────────
 
@@ -144,7 +156,10 @@ namespace Pulse.UI.ViewModels
             if (symbolLibrary != null)
             {
                 foreach (var sym in symbolLibrary.OrderBy(s => s.Name))
+                {
+                    _symbolLibrary.Add(sym);
                     AvailableSymbols.Add(sym.Name);
+                }
             }
 
             ApplyFilter();
@@ -159,6 +174,16 @@ namespace Pulse.UI.ViewModels
                 RefreshMappedCount();
             });
             CreateNewSymbolCommand = new RelayCommand(_ => NewSymbolRequested?.Invoke());
+            EditSymbolCommand = new RelayCommand(
+                p =>
+                {
+                    var name = p as string;
+                    if (string.IsNullOrEmpty(name)) return;
+                    var def = _symbolLibrary.FirstOrDefault(s =>
+                        string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
+                    if (def != null) EditSymbolRequested?.Invoke(def);
+                },
+                p => p is string s && !string.IsNullOrEmpty(s));
         }
 
         /// <summary>
@@ -168,8 +193,46 @@ namespace Pulse.UI.ViewModels
         public void AddSymbolToLibrary(CustomSymbolDefinition definition)
         {
             if (definition == null || string.IsNullOrWhiteSpace(definition.Name)) return;
+            _symbolLibrary.RemoveAll(s => s.Id == definition.Id);
+            _symbolLibrary.Add(definition);
             if (!AvailableSymbols.Contains(definition.Name))
                 AvailableSymbols.Add(definition.Name);
+        }
+
+        /// <summary>
+        /// Replaces an existing symbol definition in the library (used after editing).
+        /// Updates the dropdown and any row that was assigned the old name.
+        /// </summary>
+        public void ReplaceSymbolInLibrary(CustomSymbolDefinition oldDef, CustomSymbolDefinition newDef)
+        {
+            if (oldDef == null || newDef == null) return;
+
+            // Update backing library list
+            var idx = _symbolLibrary.FindIndex(s => s.Id == oldDef.Id);
+            if (idx >= 0) _symbolLibrary[idx] = newDef;
+            else          _symbolLibrary.Add(newDef);
+
+            // Sync the dropdown: replace the old name with the new one
+            bool nameChanged = !string.Equals(oldDef.Name, newDef.Name, StringComparison.OrdinalIgnoreCase);
+            int nameIdx = AvailableSymbols.IndexOf(oldDef.Name);
+            if (nameIdx >= 0)
+            {
+                if (nameChanged) AvailableSymbols[nameIdx] = newDef.Name;
+            }
+            else if (!AvailableSymbols.Contains(newDef.Name))
+            {
+                AvailableSymbols.Add(newDef.Name);
+            }
+
+            // Re-point any row that had the old name
+            if (nameChanged)
+            {
+                foreach (var e in _allEntries)
+                {
+                    if (string.Equals(e.SymbolName, oldDef.Name, StringComparison.OrdinalIgnoreCase))
+                        e.SymbolName = newDef.Name;
+                }
+            }
         }
 
         // ─── Helpers ─────────────────────────────────────────────────────────

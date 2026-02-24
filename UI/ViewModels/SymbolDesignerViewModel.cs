@@ -40,6 +40,12 @@ namespace Pulse.UI.ViewModels
 
         // ─── Symbol metadata ─────────────────────────────────────────────────
 
+        /// <summary>
+        /// When non-null this designer is editing an existing symbol;
+        /// <see cref="ExecuteSave"/> will reuse this Id instead of generating a new one.
+        /// </summary>
+        private string _existingId;
+
         private string _symbolName = "New Symbol";
         public string SymbolName
         {
@@ -278,6 +284,29 @@ namespace Pulse.UI.ViewModels
             CommandManager.InvalidateRequerySuggested();
         }
 
+        /// <summary>
+        /// Pre-populates this designer with an existing symbol definition so the user can edit it.
+        /// Call before showing the designer window.
+        /// </summary>
+        public void LoadFrom(CustomSymbolDefinition def)
+        {
+            if (def == null) return;
+
+            _existingId     = def.Id;
+            SymbolName      = def.Name;
+            ViewboxWidthMm  = def.ViewboxWidthMm;
+            ViewboxHeightMm = def.ViewboxHeightMm;
+            SetSnapOrigin(def.SnapOriginXMm, def.SnapOriginYMm);
+
+            Elements.Clear();
+            _undoStack.Clear();
+            _redoStack.Clear();
+            foreach (var el in def.Elements)
+                Elements.Add(el.Clone());
+
+            CommandManager.InvalidateRequerySuggested();
+        }
+
         /// <summary>Snaps a millimetre coordinate to the current grid, relative to the snap origin.</summary>
         public SymbolPoint Snap(double xMm, double yMm)
         {
@@ -380,10 +409,12 @@ namespace Pulse.UI.ViewModels
         {
             var def = new CustomSymbolDefinition
             {
-                Id               = Guid.NewGuid().ToString(),
+                Id               = _existingId ?? Guid.NewGuid().ToString(),
                 Name             = SymbolName.Trim(),
                 ViewboxWidthMm   = ViewboxWidthMm,
                 ViewboxHeightMm  = ViewboxHeightMm,
+                SnapOriginXMm    = SnapOriginXMm,
+                SnapOriginYMm    = SnapOriginYMm,
                 Elements         = new List<SymbolElement>(Elements)
             };
             Saved?.Invoke(def);

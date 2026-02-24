@@ -98,6 +98,20 @@ namespace Pulse.Core.Settings
         [JsonProperty("viewboxHeight")]
         public double ViewboxHeightMm { get; set; } = 20.0;
 
+        /// <summary>
+        /// X coordinate of the snap / attach-point origin in mm, relative to the viewbox top-left.
+        /// When a symbol is placed on the diagram canvas this point is aligned to the device centre.
+        /// </summary>
+        [JsonProperty("snapOriginX")]
+        public double SnapOriginXMm { get; set; } = 0.0;
+
+        /// <summary>
+        /// Y coordinate of the snap / attach-point origin in mm, relative to the viewbox top-left.
+        /// When a symbol is placed on the diagram canvas this point is aligned to the device centre.
+        /// </summary>
+        [JsonProperty("snapOriginY")]
+        public double SnapOriginYMm { get; set; } = 0.0;
+
         /// <summary>All drawn primitives that make up the symbol.</summary>
         [JsonProperty("elements")]
         public List<SymbolElement> Elements { get; set; } = new List<SymbolElement>();

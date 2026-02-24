@@ -284,6 +284,7 @@
                             <ColumnDefinition Width="*" />    <!-- Device Type -->
                             <ColumnDefinition Width="52" />   <!-- Count -->
                             <ColumnDefinition Width="180" />  <!-- Symbol -->
+                            <ColumnDefinition Width="28" />   <!-- Edit -->
                             <ColumnDefinition Width="28" />   <!-- Clear -->
                         </Grid.ColumnDefinitions>
 
@@ -313,6 +314,7 @@
                                             <ColumnDefinition Width="52" />
                                             <ColumnDefinition Width="180" />
                                             <ColumnDefinition Width="28" />
+                                            <ColumnDefinition Width="28" />
                                         </Grid.ColumnDefinitions>
 
                                         <!-- Device Type -->
@@ -341,8 +343,21 @@
                                                   Margin="8,1,4,1"
                                                   VerticalAlignment="Center" />
 
-                                        <!-- Clear button -->
+                                        <!-- Edit button (visible only when a symbol is assigned) -->
                                         <Button Grid.Column="3"
+                                                Command="{Binding DataContext.EditSymbolCommand,
+                                                          RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                CommandParameter="{Binding SymbolName}"
+                                                Visibility="{Binding HasSymbol, Converter={StaticResource BoolToVis}}"
+                                                Style="{StaticResource PulseActionButtonStyle}"
+                                                Padding="2"
+                                                VerticalAlignment="Center"
+                                                ToolTip="Edit this symbol in the designer">
+                                            <materialDesign:PackIcon Kind="Pencil" Width="11" Height="11" />
+                                        </Button>
+
+                                        <!-- Clear button -->
+                                        <Button Grid.Column="4"
                                                 Command="{Binding ClearSymbolCommand}"
                                                 Visibility="{Binding HasSymbol, Converter={StaticResource BoolToVis}}"
                                                 Style="{StaticResource PulseActionButtonStyle}"

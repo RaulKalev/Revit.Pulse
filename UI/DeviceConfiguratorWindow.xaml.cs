@@ -24,24 +24,25 @@ namespace Pulse.UI
             var vm = DataContext as DeviceConfigViewModel;
             if (vm?.SelectedWire == null) return;
 
-            using var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true, AnyColor = true };
-
-            var current = vm.SelectedWire.Color;
-            if (!string.IsNullOrWhiteSpace(current))
+            using (var dialog = new System.Windows.Forms.ColorDialog { FullOpen = true, AnyColor = true })
             {
-                try
+                var current = vm.SelectedWire.Color;
+                if (!string.IsNullOrWhiteSpace(current))
                 {
-                    var wpf = (System.Windows.Media.Color)
-                        System.Windows.Media.ColorConverter.ConvertFromString(current);
-                    dialog.Color = System.Drawing.Color.FromArgb(wpf.R, wpf.G, wpf.B);
+                    try
+                    {
+                        var wpf = (System.Windows.Media.Color)
+                            System.Windows.Media.ColorConverter.ConvertFromString(current);
+                        dialog.Color = System.Drawing.Color.FromArgb(wpf.R, wpf.G, wpf.B);
+                    }
+                    catch { /* ignore invalid hex */ }
                 }
-                catch { /* ignore invalid hex */ }
-            }
 
-            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
-            {
-                var c = dialog.Color;
-                vm.SelectedWire.Color = $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+                if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                {
+                    var c = dialog.Color;
+                    vm.SelectedWire.Color = $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+                }
             }
         }
     }

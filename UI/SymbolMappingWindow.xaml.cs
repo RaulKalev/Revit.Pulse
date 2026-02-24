@@ -30,18 +30,36 @@ namespace Pulse.UI
             viewModel.Saved                += _ => Close();
             viewModel.Cancelled            += Close;
             viewModel.NewSymbolRequested   += OpenSymbolDesigner;
+            viewModel.EditSymbolRequested  += OpenSymbolDesigner;
         }
 
         private void OpenSymbolDesigner()
         {
+            OpenSymbolDesigner(null);
+        }
+
+        private void OpenSymbolDesigner(CustomSymbolDefinition existing)
+        {
             var designerVm = new SymbolDesignerViewModel();
+
+            // Pre-load when editing an existing symbol
+            if (existing != null)
+                designerVm.LoadFrom(existing);
 
             designerVm.Saved += definition =>
             {
-                // Add to mapping dropdown immediately
-                _vm.AddSymbolToLibrary(definition);
+                if (existing != null)
+                {
+                    // Replace the old definition in-place so name/snap-origin changes propagate
+                    _vm.ReplaceSymbolInLibrary(existing, definition);
+                }
+                else
+                {
+                    // Brand-new symbol: just add to dropdown
+                    _vm.AddSymbolToLibrary(definition);
+                }
 
-                // Notify owner so it can persist the library
+                // Notify the owner (MainViewModel) so it can persist the library
                 SymbolCreated?.Invoke(definition);
             };
 

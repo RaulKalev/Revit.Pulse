@@ -1276,8 +1276,9 @@ namespace Pulse.UI.Controls
         // ── Custom symbol rendering ───────────────────────────────────────
 
         /// <summary>
-        /// Renders a <see cref="CustomSymbolDefinition"/> centred at (cx, cy) within
-        /// the diagram canvas, scaled so the symbol fits inside a square of <paramref name="sizePx"/>.
+        /// Renders a <see cref="CustomSymbolDefinition"/> on the diagram canvas so that the
+        /// symbol's snap origin is aligned to (cx, cy).  The symbol is scaled so the larger
+        /// of its two viewbox dimensions equals <paramref name="sizePx"/>.
         /// Falls back silently if the symbol has no elements.
         /// </summary>
         private void AddSymbolToCanvas(double cx, double cy, double sizePx,
@@ -1288,8 +1289,10 @@ namespace Pulse.UI.Controls
             double vw = symbol.ViewboxWidthMm  > 0 ? symbol.ViewboxWidthMm  : 10.0;
             double vh = symbol.ViewboxHeightMm > 0 ? symbol.ViewboxHeightMm : 10.0;
             double scale = sizePx / Math.Max(vw, vh);   // px per mm
-            double ox = cx - vw * scale / 2;
-            double oy = cy - vh * scale / 2;
+
+            // Align the snap origin to the device centre position
+            double ox = cx - symbol.SnapOriginXMm * scale;
+            double oy = cy - symbol.SnapOriginYMm * scale;
 
             foreach (var el in symbol.Elements)
             {
