@@ -10,44 +10,41 @@
         Speedometer-style semicircular gauge.
         All geometry is computed in code-behind from Value / Maximum DPs.
         Uses a Viewbox so the control scales to any size.
+        Layout: label at top, thin arc ring, combined "V / M unit" text centered inside arc, percentage below.
     -->
     <Viewbox Stretch="Uniform">
-        <Canvas Width="120" Height="76">
+        <Canvas Width="140" Height="108">
 
-            <!-- Static background track: full 180° ring above the flat line -->
-            <!-- M 12,52  outer arc CCW to 108,52  →  inner line  →  inner arc CW back -->
+            <!-- Gauge label (e.g. "Controller Load") — top of gauge -->
+            <TextBlock x:Name="LabelText"
+                       Canvas.Left="0" Canvas.Top="4"
+                       Width="140" TextAlignment="Center"
+                       FontSize="9" Opacity="0.45"
+                       Foreground="White"
+                       TextOptions.TextFormattingMode="Display"/>
+
+            <!-- Static background track: full 180° thin ring, Cx=70 Cy=78 OuterR=58 InnerR=48 -->
+            <!-- M 12,78 A 58,58 0 0 0 128,78 L 118,78 A 48,48 0 0 1 22,78 Z -->
             <Path x:Name="BackTrackPath"
-                  Data="M 12,52 A 48,48 0 0 0 108,52 L 92,52 A 32,32 0 0 1 28,52 Z"
+                  Data="M 12,78 A 58,58 0 0 0 128,78 L 118,78 A 48,48 0 0 1 22,78 Z"
                   Fill="#22FFFFFF"/>
 
             <!-- Value arc: geometry replaced in code-behind -->
             <Path x:Name="ValueArcPath"/>
 
-            <!-- End-cap dots so the arc has round tips -->
-            <Ellipse x:Name="StartCapOuter" Width="8" Height="8" Fill="Transparent"/>
-            <Ellipse x:Name="EndCapOuter"   Width="8" Height="8" Fill="Transparent"/>
-
-            <!-- Large value number -->
+            <!-- Combined "value / max unit" — large bold, centered inside the arc -->
             <TextBlock x:Name="ValueText"
-                       Canvas.Left="0" Canvas.Top="28"
-                       Width="120" TextAlignment="Center"
-                       FontSize="16" FontWeight="Bold"
+                       Canvas.Left="0" Canvas.Top="52"
+                       Width="140" TextAlignment="Center"
+                       FontSize="13" FontWeight="Bold"
                        Foreground="White"/>
 
-            <!-- "/max unit" sub-label -->
-            <TextBlock x:Name="MaxText"
-                       Canvas.Left="0" Canvas.Top="47"
-                       Width="120" TextAlignment="Center"
-                       FontSize="9" Opacity="0.55"
+            <!-- Percentage below the value text -->
+            <TextBlock x:Name="PercentText"
+                       Canvas.Left="0" Canvas.Top="68"
+                       Width="140" TextAlignment="Center"
+                       FontSize="9" Opacity="0.50"
                        Foreground="White"/>
-
-            <!-- Gauge label (ADDRESSES / CURRENT) -->
-            <TextBlock x:Name="LabelText"
-                       Canvas.Left="0" Canvas.Top="60"
-                       Width="120" TextAlignment="Center"
-                       FontSize="8" FontWeight="SemiBold" Opacity="0.45"
-                       Foreground="White"
-                       TextOptions.TextFormattingMode="Display"/>
 
         </Canvas>
     </Viewbox>

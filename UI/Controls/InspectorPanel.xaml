@@ -192,22 +192,22 @@
                     BorderThickness="0,1,0,0"
                     BorderBrush="{DynamicResource BorderBrush}"
                     Background="{DynamicResource SecondaryBackgroundBrush}"
-                    Padding="4,8,4,8">
+                    Padding="4,4,4,4">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     <controls:GaugeControl Grid.Column="0"
+                                           Value="{Binding MaUsed}"
+                                           Maximum="{Binding MaMax}"
+                                           Label="Controller Load"
+                                           Unit="mA"/>
+                    <controls:GaugeControl Grid.Column="1"
                                            Value="{Binding AddressesUsed}"
                                            Maximum="{Binding AddressesMax}"
                                            Label="Addresses"
                                            Unit="addr"/>
-                    <controls:GaugeControl Grid.Column="1"
-                                           Value="{Binding MaUsed}"
-                                           Maximum="{Binding MaMax}"
-                                           Label="Current"
-                                           Unit="mA"/>
                 </Grid>
             </Border>
 
