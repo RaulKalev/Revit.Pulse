@@ -109,6 +109,7 @@
                   PreviewMouseWheel="DiagramContent_PreviewMouseWheel"
                   PreviewKeyDown="DiagramContent_PreviewKeyDown"
                   MouseMove="DiagramContent_MouseMove"
+                  MouseLeftButtonUp="DiagramContent_MouseLeftButtonUp"
                   MouseDown="DiagramContent_MouseDown">
 
                 <Canvas x:Name="DiagramCanvas"

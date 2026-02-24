@@ -831,6 +831,15 @@ namespace Pulse.UI.Controls
 
         // ── Level context popup ───────────────────────────────────────────
 
+        private void DiagramContent_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            if (_inMoveMode)
+            {
+                ExitMoveMode(commit: true);
+                e.Handled = true;
+            }
+        }
+
         private void DiagramCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             // Commit move mode on any left-click
