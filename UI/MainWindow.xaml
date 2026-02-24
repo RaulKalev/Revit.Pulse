@@ -141,38 +141,42 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Row 2: Main Content (Topology + Inspector + Diagram) -->
+                <!-- Row 2: Main Content (Topology + Inspector | Diagram) -->
                 <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="250" />     <!-- Topology -->
-                        <ColumnDefinition Width="1" />                     <!-- Splitter -->
-                        <ColumnDefinition Width="280" MinWidth="200" />   <!-- Inspector -->
-                        <ColumnDefinition Width="1" />                     <!-- Splitter -->
-                        <ColumnDefinition Width="Auto" />                  <!-- Diagram (self-sizing) -->
+                        <ColumnDefinition Width="*" MinWidth="450" />   <!-- Left block: Topology + Inspector -->
+                        <ColumnDefinition Width="1" />                   <!-- Splitter -->
+                        <ColumnDefinition Width="300" MinWidth="32" />  <!-- Diagram -->
                     </Grid.ColumnDefinitions>
 
-                    <!-- Topology Panel -->
-                    <controls:TopologyView Grid.Column="0" DataContext="{Binding Topology}" Margin="4"/>
+                    <!-- Left block: Topology + Inspector side by side -->
+                    <Grid Grid.Column="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="250" />    <!-- Topology -->
+                            <ColumnDefinition Width="1" />                    <!-- Splitter -->
+                            <ColumnDefinition Width="280" MinWidth="180" />  <!-- Inspector -->
+                        </Grid.ColumnDefinitions>
 
-                    <!-- GridSplitter (Topology | Inspector) -->
+                        <controls:TopologyView Grid.Column="0" DataContext="{Binding Topology}" Margin="4"/>
+
+                        <GridSplitter Grid.Column="1"
+                                      Width="1"
+                                      HorizontalAlignment="Stretch"
+                                      Background="{DynamicResource BorderBrush}"
+                                      Cursor="SizeWE"/>
+
+                        <controls:InspectorPanel Grid.Column="2" DataContext="{Binding Inspector}" Margin="4"/>
+                    </Grid>
+
+                    <!-- GridSplitter (Left block | Diagram) -->
                     <GridSplitter Grid.Column="1"
                                   Width="1"
                                   HorizontalAlignment="Stretch"
                                   Background="{DynamicResource BorderBrush}"
                                   Cursor="SizeWE"/>
 
-                    <!-- Inspector Panel -->
-                    <controls:InspectorPanel Grid.Column="2" DataContext="{Binding Inspector}" Margin="4"/>
-
-                    <!-- GridSplitter (Inspector | Diagram) -->
-                    <GridSplitter Grid.Column="3"
-                                  Width="1"
-                                  HorizontalAlignment="Stretch"
-                                  Background="{DynamicResource BorderBrush}"
-                                  Cursor="SizeWE"/>
-
                     <!-- Diagram Panel -->
-                    <controls:DiagramPanel Grid.Column="4" Margin="4" DataContext="{Binding Diagram}"/>
+                    <controls:DiagramPanel Grid.Column="2" DataContext="{Binding Diagram}"/>
                 </Grid>
 
                 <!-- Row 3: Status Strip -->
