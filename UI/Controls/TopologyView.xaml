@@ -155,8 +155,9 @@
                                                             <Grid>
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="*"/>
-                                                                    <ColumnDefinition Width="141"/>
-                                                                    <ColumnDefinition Width="28"/>
+                                                                    <ColumnDefinition Width="Auto"/>  <!-- wire combobox -->
+                                                                    <ColumnDefinition Width="141"/>   <!-- module combobox -->
+                                                                    <ColumnDefinition Width="28"/>    <!-- expand toggle -->
                                                                 </Grid.ColumnDefinitions>
                                                                 <Button Grid.Column="0"
                                                                         Command="{Binding SelectCommand}"
@@ -188,15 +189,25 @@
                                                                         </Border>
                                                                     </StackPanel>
                                                                 </Button>
-                                                                <!-- Loop config combobox (col 1) -->
+                                                                <!-- Wire type combobox (col 1) -->
                                                                 <ComboBox Grid.Column="1"
+                                                                          ItemsSource="{Binding AvailableWires}"
+                                                                          SelectedItem="{Binding AssignedWire, Mode=TwoWay}"
+                                                                          Style="{StaticResource DarkComboBoxStyle}"
+                                                                          VerticalAlignment="Center"
+                                                                          MinWidth="110"
+                                                                          Margin="0,0,4,0"
+                                                                          Visibility="{Binding AvailableWires.Count,
+                                                                                       Converter={StaticResource CountToVisibility}}"/>
+                                                                <!-- Loop module config combobox (col 2) -->
+                                                                <ComboBox Grid.Column="2"
                                                                           ItemsSource="{Binding AvailableConfigs}"
                                                                           SelectedItem="{Binding AssignedConfig, Mode=TwoWay}"
                                                                           Style="{StaticResource DarkComboBoxStyle}"
                                                                           VerticalAlignment="Center" Margin="0,0,4,0"
                                                                           Visibility="{Binding AvailableConfigs.Count,
                                                                                        Converter={StaticResource CountToVisibility}}"/>
-                                                                <ToggleButton Grid.Column="2"
+                                                                <ToggleButton Grid.Column="3"
                                                                               IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                                               OverridesDefaultStyle="True"
                                                                               Cursor="Hand" Focusable="False"

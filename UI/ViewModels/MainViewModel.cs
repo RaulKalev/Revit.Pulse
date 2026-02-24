@@ -140,6 +140,7 @@ namespace Pulse.UI.ViewModels
             // Wire up topology selection events
             Topology.NodeSelected     += OnTopologyNodeSelected;
             Topology.ConfigAssigned   += OnTopologyConfigAssigned;
+            Topology.WireAssigned     += OnTopologyWireAssigned;
 
             // Create ExternalEvent handlers
             _collectHandler = new CollectDevicesHandler();
@@ -499,6 +500,42 @@ namespace Pulse.UI.ViewModels
             _writeParamHandler.OnError = ex =>
                 Application.Current?.Dispatcher?.Invoke(() =>
                     StatusText = $"Could not write config: {ex.Message}");
+
+            _writeParamEvent.Raise();
+        }
+
+        /// <summary>
+        /// Called when the user assigns a wire type to a loop in the topology tree.
+        /// Writes the wire name to the configured Revit parameter on all descendant devices.
+        /// </summary>
+        private void OnTopologyWireAssigned(TopologyNodeViewModel vm)
+        {
+            if (vm == null) return;
+
+            string paramName = _activeSettings?.GetRevitParameterName(FireAlarmParameterKeys.Wire);
+            if (string.IsNullOrEmpty(paramName)) return;
+
+            var wireName = vm.AssignedWire ?? string.Empty;
+
+            if (vm.DescendantDeviceElementIds.Count == 0)
+            {
+                StatusText = $"Wire '{wireName}' not written — no device elements resolved for '{vm.Label}'.";
+                return;
+            }
+
+            _writeParamHandler.Writes = vm.DescendantDeviceElementIds
+                .Select(id => (id, paramName, wireName))
+                .ToList();
+
+            _writeParamHandler.OnCompleted = count =>
+                Application.Current?.Dispatcher?.Invoke(() =>
+                    StatusText = count > 0
+                        ? $"Wire '{wireName}' written to {count} device(s) ({paramName})."
+                        : $"Write succeeded but 0 elements updated — check that '{paramName}' exists as a writable string parameter on devices.");
+
+            _writeParamHandler.OnError = ex =>
+                Application.Current?.Dispatcher?.Invoke(() =>
+                    StatusText = $"Could not write wire: {ex.Message}");
 
             _writeParamEvent.Raise();
         }

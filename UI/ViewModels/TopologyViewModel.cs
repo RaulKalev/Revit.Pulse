@@ -39,6 +39,12 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public event Action<TopologyNodeViewModel> ConfigAssigned;
 
+        /// <summary>
+        /// Fired when the user picks a wire type in a loop wire combobox.
+        /// MainViewModel handles the ExternalEvent write.
+        /// </summary>
+        public event Action<TopologyNodeViewModel> WireAssigned;
+
         private TopologyNodeViewModel _selectedNode;
         public TopologyNodeViewModel SelectedNode
         {
@@ -100,6 +106,7 @@ namespace Pulse.UI.ViewModels
             _deviceStore = DeviceConfigService.Load();
             var panelOptions = _deviceStore.ControlPanels.Select(p => p.Name).ToList();
             var loopOptions  = _deviceStore.LoopModules.Select(m => m.Name).ToList();
+            var wireOptions  = _deviceStore.Wires.Select(w => w.Name).ToList();
 
             Action<TopologyNodeViewModel> onAssignConfig = vm =>
             {
@@ -114,13 +121,28 @@ namespace Pulse.UI.ViewModels
                 ConfigAssigned?.Invoke(vm);
             };
 
+            Action<TopologyNodeViewModel> onAssignWire = vm =>
+            {
+                // vm.ParentLabel + "::" + vm.Label is the key used by DiagramViewModel
+                string key = (vm.ParentLabel ?? string.Empty) + "::" + vm.Label;
+                if (string.IsNullOrEmpty(vm.AssignedWire))
+                    _deviceStore.LoopWireAssignments.Remove(key);
+                else
+                    _deviceStore.LoopWireAssignments[key] = vm.AssignedWire;
+                DeviceConfigService.Save(_deviceStore);
+
+                WireAssigned?.Invoke(vm);
+            };
+
             // Build the tree recursively
             foreach (string rootId in rootIds)
             {
                 if (nodeMap.TryGetValue(rootId, out var rootNode))
                 {
                     var vm = BuildNodeTree(rootNode, nodeMap, children, data, onSelect,
-                                          onAssignConfig, panelOptions, loopOptions);
+                                          onAssignConfig, onAssignWire,
+                                          panelOptions, loopOptions, wireOptions,
+                                          parentLabel: null);
                     RootNodes.Add(vm);
                 }
             }
@@ -136,12 +158,17 @@ namespace Pulse.UI.ViewModels
             ModuleData data,
             Action<TopologyNodeViewModel> onSelect,
             Action<TopologyNodeViewModel> onAssignConfig,
+            Action<TopologyNodeViewModel> onAssignWire,
             IReadOnlyList<string> panelOptions,
-            IReadOnlyList<string> loopOptions)
+            IReadOnlyList<string> loopOptions,
+            IReadOnlyList<string> wireOptions,
+            string parentLabel)
         {
             // Determine available config options and current assignment for this node type
             IReadOnlyList<string> availableConfigs = null;
             string initialAssignment = null;
+            IReadOnlyList<string> availableWires = null;
+            string initialWire = null;
 
             if (node.NodeType == "Panel")
             {
@@ -152,9 +179,15 @@ namespace Pulse.UI.ViewModels
             {
                 availableConfigs = loopOptions;
                 _deviceStore.LoopAssignments.TryGetValue(node.Label, out initialAssignment);
+
+                availableWires = wireOptions;
+                // Wire key uses "panelName::loopName" to match DiagramViewModel convention
+                string wireKey = (parentLabel ?? string.Empty) + "::" + node.Label;
+                _deviceStore.LoopWireAssignments.TryGetValue(wireKey, out initialWire);
             }
 
-            var vm = new TopologyNodeViewModel(node, onSelect, onAssignConfig, availableConfigs, initialAssignment);
+            var vm = new TopologyNodeViewModel(node, onSelect, onAssignConfig, availableConfigs, initialAssignment,
+                                               onAssignWire, availableWires, initialWire, parentLabel);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -187,7 +220,9 @@ namespace Pulse.UI.ViewModels
                 foreach (var (_, childNode, _) in childNodes)
                 {
                     var childVm = BuildNodeTree(childNode, nodeMap, children, data, onSelect,
-                                               onAssignConfig, panelOptions, loopOptions);
+                                               onAssignConfig, onAssignWire,
+                                               panelOptions, loopOptions, wireOptions,
+                                               parentLabel: node.Label);
                     vm.Children.Add(childVm);
                 }
             }
@@ -362,10 +397,17 @@ namespace Pulse.UI.ViewModels
         /// <summary>Config names available for this node type (Panel → panel configs, Loop → loop modules).</summary>
         public ObservableCollection<string> AvailableConfigs { get; } = new ObservableCollection<string>();
 
+        /// <summary>Wire type names available (Loop nodes only).</summary>
+        public ObservableCollection<string> AvailableWires { get; } = new ObservableCollection<string>();
+
         /// <summary>RevitElementIds of all leaf Device descendants — used for Revit parameter writes.</summary>
         public List<long> DescendantDeviceElementIds { get; } = new List<long>();
 
+        /// <summary>Label of the direct parent node (e.g. panel name for a loop node).</summary>
+        public string ParentLabel { get; }
+
         private readonly Action<TopologyNodeViewModel> _onAssignConfig;
+        private readonly Action<TopologyNodeViewModel> _onAssignWire;
 
         private string _assignedConfig;
         /// <summary>The currently assigned config name. Setting this triggers a save + Revit write.</summary>
@@ -377,7 +419,19 @@ namespace Pulse.UI.ViewModels
                 if (SetField(ref _assignedConfig, value))
                     _onAssignConfig?.Invoke(this);
             }
-}
+        }
+
+        private string _assignedWire;
+        /// <summary>The currently assigned wire type name. Setting this triggers save + Revit write.</summary>
+        public string AssignedWire
+        {
+            get => _assignedWire;
+            set
+            {
+                if (SetField(ref _assignedWire, value))
+                    _onAssignWire?.Invoke(this);
+            }
+        }
 
         public ObservableCollection<TopologyNodeViewModel> Children { get; } = new ObservableCollection<TopologyNodeViewModel>();
 
@@ -386,13 +440,19 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onSelect = null,
             Action<TopologyNodeViewModel> onAssignConfig = null,
             IReadOnlyList<string> availableConfigs = null,
-            string initialAssignment = null)
+            string initialAssignment = null,
+            Action<TopologyNodeViewModel> onAssignWire = null,
+            IReadOnlyList<string> availableWires = null,
+            string initialWire = null,
+            string parentLabel = null)
         {
             GraphNode = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
             _onAssignConfig = onAssignConfig;
+            _onAssignWire   = onAssignWire;
+            ParentLabel     = parentLabel;
 
-            // Populate combobox options: blank entry first (= no assignment)
+            // Populate config combobox options: blank entry first (= no assignment)
             if (availableConfigs != null && availableConfigs.Count > 0)
             {
                 AvailableConfigs.Add(string.Empty);
@@ -400,8 +460,17 @@ namespace Pulse.UI.ViewModels
                     AvailableConfigs.Add(c);
             }
 
-            // Seed the assignment without firing the callback
+            // Populate wire combobox options: blank entry first
+            if (availableWires != null && availableWires.Count > 0)
+            {
+                AvailableWires.Add(string.Empty);
+                foreach (var w in availableWires)
+                    AvailableWires.Add(w);
+            }
+
+            // Seed assignments without firing callbacks
             _assignedConfig = initialAssignment ?? string.Empty;
+            _assignedWire   = initialWire ?? string.Empty;
         }
 
         /// <summary>Returns a display icon path or character based on node type.</summary>
