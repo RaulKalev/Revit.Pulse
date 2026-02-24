@@ -302,5 +302,27 @@ namespace Pulse.UI.ViewModels
             };
             Saved?.Invoke(def);
         }
+
+        /// <summary>
+        /// Replaces an existing element in the list with a new (transformed) version.
+        /// Patches the undo stack so the replacement is undoable.
+        /// </summary>
+        public void ReplaceElement(SymbolElement old, SymbolElement replacement)
+        {
+            var idx = Elements.IndexOf(old);
+            if (idx < 0) return;
+
+            Elements[idx] = replacement;
+
+            // Swap old for replacement in the undo stack
+            var items = new List<SymbolElement>(_undoStack);
+            items.Reverse();
+            _undoStack.Clear();
+            foreach (var e in items)
+                _undoStack.Push(ReferenceEquals(e, old) ? replacement : e);
+
+            _redoStack.Clear();
+            CommandManager.InvalidateRequerySuggested();
+        }
     }
 }

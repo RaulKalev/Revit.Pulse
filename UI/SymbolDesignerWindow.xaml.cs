@@ -46,6 +46,21 @@ namespace Pulse.UI
         private UIElement _previewShape;  // current preview element on the canvas
         private UIElement _polyPreviewLine; // last-segment rubberband for polyline
 
+        // ─── Transform drag state ─────────────────────────────────────────────
+        private enum DragMode { None, Move, ScaleNW, ScaleNE, ScaleSE, ScaleSW, Rotate }
+        private DragMode _dragMode = DragMode.None;
+        private bool _isDraggingTransform;
+        private Point _dragStartMm;
+        private List<SymbolPoint> _dragOriginalPoints;
+        private SymbolElement _dragOriginalElement;
+        private UIElement _transformPreviewShape;
+        // Pending: mouse-down on a shape — wait to see if it's a click or drag
+        private SymbolElement _pendingMoveElement;
+        private Point _pendingMoveStartMm;
+
+        // ─── Selection handles ────────────────────────────────────────────────
+        private readonly List<UIElement> _handleElements = new List<UIElement>();
+
         // ─── Constructor ──────────────────────────────────────────────────────
 
         public SymbolDesignerWindow(SymbolDesignerViewModel viewModel)
@@ -146,6 +161,14 @@ namespace Pulse.UI
                 ? Cursors.Arrow
                 : Cursors.Cross;
 
+            // Cancel any in-progress transform or draw when switching tools
+            if (_isDraggingTransform) CancelTransform();
+            _isDrawing = false;
+            _polyPoints.Clear();
+            ClearPreview();
+            ClearPolylinePreview();
+            _pendingMoveElement = null;
+
             // Leaving select mode clears the selection highlight
             if (tool != DesignerTool.Select)
             {
@@ -166,7 +189,7 @@ namespace Pulse.UI
                     break;
 
                 case NotifyCollectionChangedAction.Remove:
-                    // For undo, simply rebuild all (simpler than tracking individual shapes)
+                case NotifyCollectionChangedAction.Replace:
                     RebuildAllDrawnShapes();
                     break;
 
@@ -185,13 +208,20 @@ namespace Pulse.UI
                 DrawingCanvas.Children.Remove(s);
             _elementToShape.Clear();
             _shapeToElement.Clear();
+            ClearHandles();
 
-            // Selection is now stale — clear it
-            _vm.SelectedElement = null;
+            // Keep selection only if the element is still in Elements
+            if (_vm.SelectedElement != null && !_vm.Elements.Contains(_vm.SelectedElement))
+                _vm.SelectedElement = null;
+
             ClearSelectionOverlay();
 
             foreach (var el in _vm.Elements)
                 AddDrawnShape(el);
+
+            // Restore selection overlay + handles if something is still selected
+            if (_vm.SelectedElement != null)
+                UpdateSelectionOverlay();
         }
 
         private void AddDrawnShape(SymbolElement el)
@@ -322,6 +352,9 @@ namespace Pulse.UI
             Panel.SetZIndex(overlay, 200);
             DrawingCanvas.Children.Add(overlay);
             _selectionOverlay = overlay;
+
+            // Draw transform handles
+            AddHandles(_vm.SelectedElement);
         }
 
         private void ClearSelectionOverlay()
@@ -331,6 +364,7 @@ namespace Pulse.UI
                 DrawingCanvas.Children.Remove(_selectionOverlay);
                 _selectionOverlay = null;
             }
+            ClearHandles();
         }
 
         /// <summary>Creates a dashed cyan outline shape over the given element.</summary>
@@ -352,6 +386,317 @@ namespace Pulse.UI
             return s;
         }
 
+        // ─── Transform handles ────────────────────────────────────────────────
+
+        private void ClearHandles()
+        {
+            foreach (var h in _handleElements)
+                DrawingCanvas.Children.Remove(h);
+            _handleElements.Clear();
+        }
+
+        private void AddHandles(SymbolElement el)
+        {
+            var bbox = GetBoundingBoxMm(el);
+            if (bbox.IsEmpty || bbox.Width < 0.01 && bbox.Height < 0.01) return;
+
+            double l = bbox.Left   * Ppm;
+            double t = bbox.Top    * Ppm;
+            double r = bbox.Right  * Ppm;
+            double b = bbox.Bottom * Ppm;
+            double mx = (l + r) / 2;
+            double my = (t + b) / 2;
+
+            // Corner scale handles
+            AddHandle(DragMode.ScaleNW, l, t, Cursors.SizeNWSE);
+            AddHandle(DragMode.ScaleNE, r, t, Cursors.SizeNESW);
+            AddHandle(DragMode.ScaleSE, r, b, Cursors.SizeNWSE);
+            AddHandle(DragMode.ScaleSW, l, b, Cursors.SizeNESW);
+
+            // Rotation handle circle (15 px above top centre)
+            double rotCy = t - 18;
+            var rotLine = new Line
+            {
+                X1 = mx, Y1 = t, X2 = mx, Y2 = rotCy + 5,
+                Stroke = new SolidColorBrush(Color.FromArgb(0xAA, 0x00, 0xD4, 0xFF)),
+                StrokeThickness = 1,
+                IsHitTestVisible = false
+            };
+            Panel.SetZIndex(rotLine, 299);
+            DrawingCanvas.Children.Add(rotLine);
+            _handleElements.Add(rotLine);
+
+            double rd = 10;
+            var rotHandle = new Ellipse
+            {
+                Width  = rd, Height = rd,
+                Fill   = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0xD4, 0xFF)),
+                Stroke = new SolidColorBrush(Colors.White),
+                StrokeThickness = 1,
+                Cursor = Cursors.Hand,
+                IsHitTestVisible = true,
+                Tag = DragMode.Rotate,
+                ToolTip = "Rotate"
+            };
+            Canvas.SetLeft(rotHandle, mx - rd / 2);
+            Canvas.SetTop(rotHandle,  rotCy - rd / 2);
+            Panel.SetZIndex(rotHandle, 300);
+            DrawingCanvas.Children.Add(rotHandle);
+            _handleElements.Add(rotHandle);
+        }
+
+        private void AddHandle(DragMode mode, double cxPx, double cyPx, Cursor cursor)
+        {
+            const double sz = 8;
+            string tip = mode == DragMode.ScaleNW ? "Scale NW"
+                       : mode == DragMode.ScaleNE ? "Scale NE"
+                       : mode == DragMode.ScaleSE ? "Scale SE"
+                       : "Scale SW";
+            var h = new Rectangle
+            {
+                Width  = sz, Height = sz,
+                Fill   = Brushes.White,
+                Stroke = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0x60, 0xA0)),
+                StrokeThickness = 1,
+                Cursor = cursor,
+                IsHitTestVisible = true,
+                Tag = mode,
+                ToolTip = tip
+            };
+            Canvas.SetLeft(h, cxPx - sz / 2);
+            Canvas.SetTop(h,  cyPx - sz / 2);
+            Panel.SetZIndex(h, 300);
+            DrawingCanvas.Children.Add(h);
+            _handleElements.Add(h);
+        }
+
+        // ─── Bounding box helpers ─────────────────────────────────────────────
+
+        private static Rect GetBoundingBoxMm(SymbolElement el)
+        {
+            if (el == null || el.Points == null || el.Points.Count == 0) return Rect.Empty;
+
+            if (el.Type == SymbolElementType.Circle && el.Points.Count >= 2)
+            {
+                double cx = el.Points[0].X, cy = el.Points[0].Y;
+                double ex = el.Points[1].X, ey = el.Points[1].Y;
+                double r  = Math.Sqrt((ex - cx) * (ex - cx) + (ey - cy) * (ey - cy));
+                return new Rect(cx - r, cy - r, r * 2, r * 2);
+            }
+
+            double minX = double.MaxValue, minY = double.MaxValue;
+            double maxX = double.MinValue, maxY = double.MinValue;
+            foreach (var p in el.Points)
+            {
+                if (p.X < minX) minX = p.X;
+                if (p.Y < minY) minY = p.Y;
+                if (p.X > maxX) maxX = p.X;
+                if (p.Y > maxY) maxY = p.Y;
+            }
+            return new Rect(minX, minY, maxX - minX, maxY - minY);
+        }
+
+        // ─── Transform math helpers ───────────────────────────────────────────
+
+        private static List<SymbolPoint> TranslatePoints(IList<SymbolPoint> pts, double dx, double dy)
+            => pts.Select(p => new SymbolPoint(p.X + dx, p.Y + dy)).ToList();
+
+        private static List<SymbolPoint> ScalePoints(IList<SymbolPoint> pts,
+                                                      double sx, double sy,
+                                                      double anchorX, double anchorY)
+            => pts.Select(p => new SymbolPoint(
+                anchorX + (p.X - anchorX) * sx,
+                anchorY + (p.Y - anchorY) * sy)).ToList();
+
+        private static List<SymbolPoint> RotatePoints(IList<SymbolPoint> pts,
+                                                       double angleDeg,
+                                                       double cx, double cy)
+        {
+            double rad = angleDeg * Math.PI / 180.0;
+            double cos = Math.Cos(rad), sin = Math.Sin(rad);
+            return pts.Select(p =>
+            {
+                double dx = p.X - cx, dy = p.Y - cy;
+                return new SymbolPoint(cx + dx * cos - dy * sin, cy + dx * sin + dy * cos);
+            }).ToList();
+        }
+
+        // ─── Transform drag ───────────────────────────────────────────────────
+
+        private void StartTransformDrag(DragMode mode, Point startMm)
+        {
+            _dragMode            = mode;
+            _dragStartMm         = startMm;
+            _dragOriginalPoints  = _vm.SelectedElement.Points.ToList();
+            _dragOriginalElement = _vm.SelectedElement;
+            _isDraggingTransform = true;
+
+            // Hide original shape while dragging so only preview is visible
+            if (_elementToShape.TryGetValue(_dragOriginalElement, out var origShape))
+                origShape.Visibility = Visibility.Hidden;
+            if (_selectionOverlay != null)
+                _selectionOverlay.Visibility = Visibility.Hidden;
+
+            DrawingCanvas.CaptureMouse();
+        }
+
+        private List<SymbolPoint> ComputeTransformedPoints(Point currentMm)
+        {
+            var bbox = GetBoundingBoxMm(new SymbolElement
+            {
+                Type   = _dragOriginalElement.Type,
+                Points = _dragOriginalPoints
+            });
+
+            double dx = currentMm.X - _dragStartMm.X;
+            double dy = currentMm.Y - _dragStartMm.Y;
+
+            switch (_dragMode)
+            {
+                case DragMode.Move:
+                    return TranslatePoints(_dragOriginalPoints, dx, dy);
+
+                case DragMode.Rotate:
+                {
+                    double cx = bbox.IsEmpty ? 0 : bbox.X + bbox.Width  / 2;
+                    double cy = bbox.IsEmpty ? 0 : bbox.Y + bbox.Height / 2;
+                    double a0 = Math.Atan2(_dragStartMm.Y - cy, _dragStartMm.X - cx);
+                    double a1 = Math.Atan2(currentMm.Y    - cy, currentMm.X    - cx);
+                    double angleDeg = (a1 - a0) * 180.0 / Math.PI;
+                    return RotatePoints(_dragOriginalPoints, angleDeg, cx, cy);
+                }
+
+                case DragMode.ScaleNW:
+                {
+                    if (bbox.IsEmpty) return _dragOriginalPoints.ToList();
+                    double ax = bbox.Right, ay = bbox.Bottom;
+                    double sx = bbox.Width  > 0.01 ? (ax - currentMm.X) / bbox.Width  : 1;
+                    double sy = bbox.Height > 0.01 ? (ay - currentMm.Y) / bbox.Height : 1;
+                    sx = Math.Max(0.05, sx); sy = Math.Max(0.05, sy);
+                    return ScalePoints(_dragOriginalPoints, sx, sy, ax, ay);
+                }
+
+                case DragMode.ScaleNE:
+                {
+                    if (bbox.IsEmpty) return _dragOriginalPoints.ToList();
+                    double ax = bbox.Left, ay = bbox.Bottom;
+                    double sx = bbox.Width  > 0.01 ? (currentMm.X - ax) / bbox.Width  : 1;
+                    double sy = bbox.Height > 0.01 ? (ay - currentMm.Y) / bbox.Height : 1;
+                    sx = Math.Max(0.05, sx); sy = Math.Max(0.05, sy);
+                    return ScalePoints(_dragOriginalPoints, sx, sy, ax, ay);
+                }
+
+                case DragMode.ScaleSE:
+                {
+                    if (bbox.IsEmpty) return _dragOriginalPoints.ToList();
+                    double ax = bbox.Left, ay = bbox.Top;
+                    double sx = bbox.Width  > 0.01 ? (currentMm.X - ax) / bbox.Width  : 1;
+                    double sy = bbox.Height > 0.01 ? (currentMm.Y - ay) / bbox.Height : 1;
+                    sx = Math.Max(0.05, sx); sy = Math.Max(0.05, sy);
+                    return ScalePoints(_dragOriginalPoints, sx, sy, ax, ay);
+                }
+
+                case DragMode.ScaleSW:
+                {
+                    if (bbox.IsEmpty) return _dragOriginalPoints.ToList();
+                    double ax = bbox.Right, ay = bbox.Top;
+                    double sx = bbox.Width  > 0.01 ? (ax - currentMm.X) / bbox.Width  : 1;
+                    double sy = bbox.Height > 0.01 ? (currentMm.Y - ay) / bbox.Height : 1;
+                    sx = Math.Max(0.05, sx); sy = Math.Max(0.05, sy);
+                    return ScalePoints(_dragOriginalPoints, sx, sy, ax, ay);
+                }
+
+                default:
+                    return _dragOriginalPoints.ToList();
+            }
+        }
+
+        private void UpdateTransformPreview(Point currentMm)
+        {
+            ClearTransformPreview();
+
+            var newPoints = ComputeTransformedPoints(currentMm);
+            var previewEl = new SymbolElement
+            {
+                Type              = _dragOriginalElement.Type,
+                Points            = newPoints,
+                StrokeColor       = _dragOriginalElement.StrokeColor,
+                StrokeThicknessMm = _dragOriginalElement.StrokeThicknessMm,
+                IsFilled          = _dragOriginalElement.IsFilled,
+                FillColor         = _dragOriginalElement.FillColor,
+                IsClosed          = _dragOriginalElement.IsClosed
+            };
+
+            var shape = CreateShape(previewEl, opacityMultiplier: 0.75);
+            if (shape == null) return;
+            Panel.SetZIndex(shape, 150);
+            DrawingCanvas.Children.Add(shape);
+            _transformPreviewShape = shape;
+        }
+
+        private void CommitTransform(Point currentMm)
+        {
+            var newPoints = ComputeTransformedPoints(currentMm);
+
+            // Restore original visibility before rebuild
+            if (_dragOriginalElement != null && _elementToShape.TryGetValue(_dragOriginalElement, out var orig))
+                orig.Visibility = Visibility.Visible;
+            if (_selectionOverlay != null)
+                _selectionOverlay.Visibility = Visibility.Visible;
+
+            ClearTransformPreview();
+
+            var newEl = new SymbolElement
+            {
+                Type              = _dragOriginalElement.Type,
+                Points            = newPoints,
+                StrokeColor       = _dragOriginalElement.StrokeColor,
+                StrokeThicknessMm = _dragOriginalElement.StrokeThicknessMm,
+                IsFilled          = _dragOriginalElement.IsFilled,
+                FillColor         = _dragOriginalElement.FillColor,
+                IsClosed          = _dragOriginalElement.IsClosed
+            };
+
+            _vm.ReplaceElement(_dragOriginalElement, newEl);
+            // RebuildAllDrawnShapes has run; now re-select the new element
+            _vm.SelectedElement = newEl;
+            UpdateSelectionOverlay();
+
+            ResetTransformDrag();
+        }
+
+        private void CancelTransform()
+        {
+            if (!_isDraggingTransform) return;
+
+            if (_dragOriginalElement != null && _elementToShape.TryGetValue(_dragOriginalElement, out var orig))
+                orig.Visibility = Visibility.Visible;
+            if (_selectionOverlay != null)
+                _selectionOverlay.Visibility = Visibility.Visible;
+
+            ClearTransformPreview();
+            DrawingCanvas.ReleaseMouseCapture();
+            ResetTransformDrag();
+            UpdateSelectionOverlay();
+        }
+
+        private void ClearTransformPreview()
+        {
+            if (_transformPreviewShape != null)
+            {
+                DrawingCanvas.Children.Remove(_transformPreviewShape);
+                _transformPreviewShape = null;
+            }
+        }
+
+        private void ResetTransformDrag()
+        {
+            _isDraggingTransform = false;
+            _dragMode            = DragMode.None;
+            _dragOriginalPoints  = null;
+            _dragOriginalElement = null;
+        }
+
         // ─── Mouse events ─────────────────────────────────────────────────────
 
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
@@ -361,14 +706,35 @@ namespace Pulse.UI
             // ── Select tool ─────────────────────────────────────────────────
             if (_vm.ActiveTool == DesignerTool.Select)
             {
-                // e.OriginalSource is the topmost WPF element hit (one of our drawn shapes)
+                var selSnap = SnapPoint(e.GetPosition(DrawingCanvas));
+
+                // 1. Transform handle hit?
+                var srcFe = e.OriginalSource as FrameworkElement;
+                if (srcFe?.Tag is DragMode dm && dm != DragMode.None && _vm.SelectedElement != null)
+                {
+                    StartTransformDrag(dm, selSnap);
+                    e.Handled = true;
+                    return;
+                }
+
+                // 2. Element hit?
                 var hitShape = e.OriginalSource as UIElement;
                 if (hitShape != null && _shapeToElement.TryGetValue(hitShape, out var hitEl))
+                {
                     _vm.SelectedElement = hitEl;
-                else
-                    _vm.SelectedElement = null;  // clicked empty canvas → deselect
+                    UpdateSelectionOverlay();
 
-                UpdateSelectionOverlay();
+                    // Track pending move; if mouse moves >0.5 mm we'll start the move drag
+                    _pendingMoveElement  = hitEl;
+                    _pendingMoveStartMm  = selSnap;
+                }
+                else
+                {
+                    _vm.SelectedElement = null;
+                    ClearSelectionOverlay();
+                    _pendingMoveElement = null;
+                }
+
                 e.Handled = true;
                 return;
             }
@@ -427,6 +793,26 @@ namespace Pulse.UI
             // Update status cursor label
             _vm.CursorPosition = $"{snap.X:F1}, {snap.Y:F1} mm";
 
+            // ── Transform drag ───────────────────────────────────────────────
+            if (_isDraggingTransform)
+            {
+                UpdateTransformPreview(snap);
+                return;
+            }
+
+            // ── Pending move: promote to drag once threshold is reached ───────
+            if (_pendingMoveElement != null && e.LeftButton == MouseButtonState.Pressed)
+            {
+                if (Distance(snap, _pendingMoveStartMm) > 0.5)
+                {
+                    _vm.SelectedElement = _pendingMoveElement;
+                    _pendingMoveElement = null;
+                    StartTransformDrag(DragMode.Move, _pendingMoveStartMm);
+                    UpdateTransformPreview(snap);
+                }
+                return;
+            }
+
             if (!_isDrawing) return;
 
             switch (_vm.ActiveTool)
@@ -477,8 +863,19 @@ namespace Pulse.UI
             if (e.ChangedButton != MouseButton.Left) return;
             DrawingCanvas.ReleaseMouseCapture();
 
-            if (!_isDrawing) return;
             var snap = SnapPoint(e.GetPosition(DrawingCanvas));
+
+            // ── Commit transform drag ────────────────────────────────────────
+            if (_isDraggingTransform)
+            {
+                CommitTransform(snap);
+                e.Handled = true;
+                return;
+            }
+
+            _pendingMoveElement = null;
+
+            if (!_isDrawing) return;
 
             switch (_vm.ActiveTool)
             {
@@ -638,10 +1035,14 @@ namespace Pulse.UI
 
         private void OnKeyDown(object sender, KeyEventArgs e)
         {
-            // Cancel/abort current drawing operation on Escape
+            // Cancel/abort current drawing or transform operation on Escape
             if (e.Key == Key.Escape)
             {
-                if (_vm.ActiveTool == DesignerTool.Select)
+                if (_isDraggingTransform)
+                {
+                    CancelTransform();
+                }
+                else if (_vm.ActiveTool == DesignerTool.Select)
                 {
                     // Deselect
                     _vm.SelectedElement = null;
