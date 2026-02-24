@@ -98,8 +98,9 @@ namespace Pulse.UI
             _vm.Saved     += _ => Close();
             _vm.Cancelled += Close;
 
-            // Draw grid and snap cross once the canvas is laid out
-            DrawingCanvas.Loaded += (_, __) => { DrawGrid(); DrawSnapCross(); };
+            // Draw grid, snap cross, and any elements already loaded (e.g. when editing
+            // an existing symbol — LoadFrom is called before the window is shown).
+            DrawingCanvas.Loaded += (_, __) => { DrawGrid(); DrawSnapCross(); RebuildAllDrawnShapes(); };
 
             // Keyboard shortcuts
             KeyDown += OnKeyDown;
