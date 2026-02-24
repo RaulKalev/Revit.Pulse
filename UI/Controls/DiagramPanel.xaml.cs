@@ -812,10 +812,16 @@ namespace Pulse.UI.Controls
                                 .DefaultIfEmpty(MarginTop)
                                 .Max();
 
+                            // Number of horizontal wires — must be known before Y placement
+                            // so that multi-row loops are centered correctly.
+                            int    wireCount      = _currentVm.GetLoopWireCount(panel.Name, loopInfo.Name);
+                            double wireSpacing    = _canvasSettings.WireSpacingPx;
+                            double effectiveLoopH = wireSpacing * (wireCount - 1);
+
                             // Loops must stay above the panel rect when on its floor level
-                            double effectiveLevelY = Math.Min(levelY, rectTop - loopH - 2);
+                            double effectiveLevelY = Math.Min(levelY, rectTop - effectiveLoopH - 2);
                             double zoneAvail       = effectiveLevelY - zoneTopY;
-                            if (zoneAvail < loopH + 4) continue; // zone too tight
+                            if (zoneAvail < effectiveLoopH + 4) continue; // zone too tight
 
                             var sideList = sideLevelMap.TryGetValue(sideKey, out var sl2)
                                 ? sl2 : new List<int>();
@@ -823,15 +829,13 @@ namespace Pulse.UI.Controls
                             int rank = sideList.IndexOf(li);
                             if (rank < 0) rank = 0;
 
-                            // Even spacing: distribute loops from effectiveLevelY upward
-                            double pitch = zoneAvail / (n + 1);
-                            double topY  = effectiveLevelY - pitch * (rank + 1);
-
-                            // Number of horizontal wires (default 2 = top + bottom)
-                            int    wireCount      = _currentVm.GetLoopWireCount(panel.Name, loopInfo.Name);
-                            double wireSpacing    = _canvasSettings.WireSpacingPx;
-                            double effectiveLoopH = wireSpacing * (wireCount - 1);
-                            double botY = topY + effectiveLoopH;
+                            // Center-based even spacing: distribute loop centers evenly in the zone.
+                            // Each center is at zoneTopY + pitch*(rank+1), then topY = center - loopH/2.
+                            // This ensures multi-row loops are visually balanced just like single-row ones.
+                            double pitch   = zoneAvail / (n + 1);
+                            double centerY = zoneTopY + pitch * (rank + 1);
+                            double topY    = centerY - effectiveLoopH / 2.0;
+                            double botY    = topY + effectiveLoopH;
 
                             // ── Compute farEdge — stretch outward if devices overflow ──────────
                             int    total     = maj.TotalDevices;
