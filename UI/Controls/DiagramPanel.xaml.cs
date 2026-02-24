@@ -12,11 +12,10 @@ namespace Pulse.UI.Controls
 {
     public partial class DiagramPanel : UserControl
     {
-        private const double ExpandedWidth    = 300;
-        private const double CollapsedWidth   = 32;
-        private const double LabelColumnWidth = 70;
-        private const double MarginTop        = 16;
-        private const double MarginBottom     = 16;
+        private const double ExpandedWidth  = 300;
+        private const double CollapsedWidth = 32;
+        private const double MarginTop      = 16;
+        private const double MarginBottom   = 16;
 
         private bool _isExpanded = false; // starts collapsed
 
@@ -118,53 +117,54 @@ namespace Pulse.UI.Controls
 
             double drawH = h - MarginTop - MarginBottom;
 
-            foreach (var level in levels)
+            for (int i = 0; i < levels.Count; i++)
             {
-                double t = range > 0.001 ? (level.Elevation - minElev) / range : 0.5;
+                double t = range > 0.001 ? (levels[i].Elevation - minElev) / range : 0.5;
                 double y = MarginTop + (1.0 - t) * drawH;
 
-                // Dashed line
+                // Dashed line — long-dash pattern matching reference
                 var line = new Line
                 {
-                    X1              = LabelColumnWidth,
+                    X1              = 8,
                     X2              = w - 4,
                     Y1              = y,
                     Y2              = y,
                     Stroke          = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
                     StrokeThickness = 1,
-                    StrokeDashArray = new DoubleCollection { 4, 4 }
+                    StrokeDashArray = new DoubleCollection { 12, 4 }
                 };
                 DiagramCanvas.Children.Add(line);
 
-                // Elevation label
-                double elevM   = level.Elevation * 0.3048;
-                string elevStr = elevM >= 0 ? $"+{elevM:0.00} m" : $"{elevM:0.00} m";
-
-                var elevLabel = new TextBlock
-                {
-                    Text          = elevStr,
-                    FontSize      = 8,
-                    Foreground    = new SolidColorBrush(Color.FromArgb(0x80, 0xFF, 0xFF, 0xFF)),
-                    Width         = LabelColumnWidth - 4,
-                    TextAlignment = TextAlignment.Right
-                };
-                Canvas.SetLeft(elevLabel, 0);
-                Canvas.SetTop(elevLabel, y - 9);
-                DiagramCanvas.Children.Add(elevLabel);
-
-                // Level name
+                // Current level name — above the line
                 var nameLabel = new TextBlock
                 {
-                    Text         = level.Name,
+                    Text         = levels[i].Name,
                     FontSize     = 9,
                     FontWeight   = FontWeights.SemiBold,
                     Foreground   = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
-                    MaxWidth     = LabelColumnWidth - 4,
+                    MaxWidth     = w - 12,
                     TextTrimming = TextTrimming.CharacterEllipsis
                 };
-                Canvas.SetLeft(nameLabel, 0);
-                Canvas.SetTop(nameLabel, y + 2);
+                Canvas.SetLeft(nameLabel, 8);
+                Canvas.SetTop(nameLabel, y - 13);
                 DiagramCanvas.Children.Add(nameLabel);
+
+                // Previous (lower) level name — below this line
+                if (i > 0)
+                {
+                    var prevLabel = new TextBlock
+                    {
+                        Text         = levels[i - 1].Name,
+                        FontSize     = 9,
+                        FontWeight   = FontWeights.SemiBold,
+                        Foreground   = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
+                        MaxWidth     = w - 12,
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    };
+                    Canvas.SetLeft(prevLabel, 8);
+                    Canvas.SetTop(prevLabel, y + 3);
+                    DiagramCanvas.Children.Add(prevLabel);
+                }
             }
         }
     }
