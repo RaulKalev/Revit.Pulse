@@ -288,12 +288,29 @@ namespace Pulse.UI.Controls
                     double rectLeft = (w - rectW) / 2.0;          // horizontally centered
                     double rectTop  = zoneBottom - 10.0 - rectH;  // 10 px above floor level line
 
+                    // Left section (loops + body) and right section (power/battery)
+                    const double rightSecW = 52.0;
+                    double leftSecW        = rectW - rightSecW;
+
+                    // Common brushes
+                    var panelStroke = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
+                    var panelDim    = new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
+                    var panelDimmer = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF));
+
+                    // Panel-local line helper (separate name from the loop-wire helper defined later)
+                    void PLine(Brush br, double x1, double y1, double x2, double y2, double thick = 1.0) =>
+                        DiagramCanvas.Children.Add(new Line
+                        {
+                            X1 = x1, Y1 = y1, X2 = x2, Y2 = y2,
+                            Stroke = br, StrokeThickness = thick, IsHitTestVisible = false
+                        });
+
                     // ── Outer rectangle ──────────────────────────────────
                     var panelRect = new System.Windows.Shapes.Rectangle
                     {
                         Width            = rectW,
                         Height           = rectH,
-                        Stroke           = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                        Stroke           = panelStroke,
                         StrokeThickness  = 1,
                         Fill             = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF)),
                         RadiusX          = 3,
@@ -304,79 +321,47 @@ namespace Pulse.UI.Controls
                     Canvas.SetTop(panelRect,  rectTop);
                     DiagramCanvas.Children.Add(panelRect);
 
-                    // ── Loop output header ────────────────────────────────
-                    // Total outputs to show: prefer config count, fall back to actual loops
+                    // ── Loop output header (left section only) ───────────
                     int loopCount = panel.ConfigLoopCount > 0
                         ? panel.ConfigLoopCount
                         : panel.LoopInfos.Count;
-                    loopCount = Math.Min(loopCount, 16); // hard cap
+                    loopCount = Math.Min(loopCount, 16);
 
-                    // Header height is driven by the rotated text; 52 px gives room for "Loop 10"
-                    const double headerH = 52.0;
-                    const double lblFont = 7.0;
-                    // Visual width of one rendered text line after rotation (approx line-height)
-                    double approxLineH = lblFont * 1.55;
+                    const double headerH   = 52.0;
+                    const double lblFont   = 7.0;
+                    double approxLineH     = lblFont * 1.55;
 
                     if (loopCount > 0 && rectH > headerH + 12)
                     {
-                        double slotW = rectW / loopCount;
+                        double slotW = leftSecW / loopCount;
 
-                        // Bottom border of the header strip
-                        var sep = new Line
-                        {
-                            X1               = rectLeft + 1,
-                            X2               = rectLeft + rectW - 1,
-                            Y1               = rectTop + headerH,
-                            Y2               = rectTop + headerH,
-                            Stroke           = new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF)),
-                            StrokeThickness  = 1,
-                            IsHitTestVisible = false
-                        };
-                        DiagramCanvas.Children.Add(sep);
+                        // Bottom border of header (left section only)
+                        PLine(panelDim,
+                              rectLeft + 1,        rectTop + headerH,
+                              rectLeft + leftSecW,  rectTop + headerH);
 
                         for (int li = 0; li < loopCount; li++)
                         {
                             double cellLeft  = rectLeft + slotW * li;
                             double cellRight = cellLeft + slotW;
 
-                            // Vertical divider on the right of each cell (skip outer edges)
                             if (li < loopCount - 1)
-                            {
-                                var div = new Line
-                                {
-                                    X1               = cellRight,
-                                    X2               = cellRight,
-                                    Y1               = rectTop + 1,
-                                    Y2               = rectTop + headerH - 1,
-                                    Stroke           = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
-                                    StrokeThickness  = 1,
-                                    IsHitTestVisible = false
-                                };
-                                DiagramCanvas.Children.Add(div);
-                            }
+                                PLine(panelDimmer, cellRight, rectTop + 1, cellRight, rectTop + headerH - 1);
 
-                            // Always "Loop X" — add prefix when the model name is bare
                             string rawName   = li < panel.LoopInfos.Count ? panel.LoopInfos[li].Name : $"{li + 1}";
                             string fullLabel = rawName.StartsWith("Loop ", StringComparison.OrdinalIgnoreCase)
-                                ? rawName
-                                : $"Loop {rawName}";
+                                ? rawName : $"Loop {rawName}";
 
-                            // TextBlock width = visual label height (fills cell with 4px padding)
                             double lw = headerH - 4;
                             var rotLabel = new TextBlock
                             {
                                 Text             = fullLabel,
                                 FontSize         = lblFont,
-                                Foreground       = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                                Foreground       = panelStroke,
                                 IsHitTestVisible = false,
                                 Width            = lw,
                                 TextTrimming     = TextTrimming.CharacterEllipsis
                             };
-
-                            // After -90° rotation the element's canvas origin is at its bottom-left corner.
-                            // Visual top  = Canvas.Top  - lw
-                            // Visual left = Canvas.Left
-                            // Center horizontally in cell, pin visual top to rectTop + 2
                             double cx = cellLeft + slotW / 2.0;
                             rotLabel.RenderTransform = new System.Windows.Media.RotateTransform(-90);
                             Canvas.SetLeft(rotLabel, cx - approxLineH / 2.0);
@@ -385,33 +370,187 @@ namespace Pulse.UI.Controls
                         }
                     }
 
-                    // ── Panel name (centered in body below header) ────────
+                    // ── Right section (power / battery) ──────────────────
+                    double rsLeft = rectLeft + leftSecW;
+                    double rsCX   = rsLeft + rightSecW / 2.0;
+
+                    // Vertical divider between sections
+                    PLine(panelDim, rsLeft, rectTop + 1, rsLeft, rectTop + rectH - 1);
+
+                    // ---- Battery symbol (aligns with header area) ----
+                    double vl_x  = rsCX - 6;
+                    double vr_x  = rsCX + 6;
+                    double batY  = rectTop + 8;
+
+                    // Top cross-bar
+                    PLine(panelDim, vl_x, batY, vr_x, batY);
+                    // Conductor: top → cell 1
+                    PLine(panelDim, vl_x, batY,      vl_x, batY + 9);
+                    PLine(panelDim, vr_x, batY,      vr_x, batY + 9);
+                    // Cell 1 — thick plate (short, 2px) + thin plate (wider, 1px)
+                    PLine(panelStroke, vl_x - 1, batY + 9,  vr_x + 1, batY + 9,  2.0);
+                    PLine(panelDim,    vl_x - 4, batY + 13, vr_x + 4, batY + 13, 1.0);
+                    // Conductor between cells
+                    PLine(panelDim, vl_x, batY + 13, vl_x, batY + 21);
+                    PLine(panelDim, vr_x, batY + 13, vr_x, batY + 21);
+                    // Cell 2
+                    PLine(panelStroke, vl_x - 1, batY + 21, vr_x + 1, batY + 21, 2.0);
+                    PLine(panelDim,    vl_x - 4, batY + 25, vr_x + 4, batY + 25, 1.0);
+                    // Conductor: cell 2 → bottom cross-bar
+                    PLine(panelDim, vl_x, batY + 25, vl_x, batY + 34);
+                    PLine(panelDim, vr_x, batY + 25, vr_x, batY + 34);
+                    // Bottom cross-bar
+                    PLine(panelDim, vl_x, batY + 34, vr_x, batY + 34);
+
+                    // ---- Diagonal power supply section (aligns with body area) ----
+                    double diagTop    = rectTop + headerH + 2;
+                    double diagBottom = rectTop + rectH - 3;
+                    double diagBoxH   = diagBottom - diagTop;
+
+                    var diagRect = new System.Windows.Shapes.Rectangle
+                    {
+                        Width = rightSecW - 4, Height = diagBoxH,
+                        Stroke = panelDim, StrokeThickness = 1,
+                        Fill = Brushes.Transparent, IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(diagRect, rsLeft + 2);
+                    Canvas.SetTop(diagRect,  diagTop);
+                    DiagramCanvas.Children.Add(diagRect);
+
+                    // Diagonal lines (X pattern = transformer/PSU symbol)
+                    PLine(panelDimmer, rsLeft + 2,              diagBottom, rsLeft + rightSecW - 2, diagTop);
+                    PLine(panelDimmer, rsLeft + 2,              diagTop,    rsLeft + rightSecW - 2, diagBottom);
+
+                    // Plug/socket symbol (small circle + stem) in lower-left quadrant
+                    double plugCX = rsLeft + rightSecW * 0.32;
+                    double plugCY = diagTop + diagBoxH * 0.62;
+                    double plugR  = 5.0;
+                    var plugCirc = new Ellipse
+                    {
+                        Width = plugR * 2, Height = plugR * 2,
+                        Stroke = panelDim, StrokeThickness = 1,
+                        Fill = Brushes.Transparent, IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(plugCirc, plugCX - plugR);
+                    Canvas.SetTop(plugCirc,  plugCY - plugR);
+                    DiagramCanvas.Children.Add(plugCirc);
+                    PLine(panelDim, plugCX, plugCY + plugR, plugCX, plugCY + plugR + 5);
+
+                    // ── Power connection: horizontal run + ground + label (outside panel) ──
+                    double pwrY  = diagTop + diagBoxH * 0.5;
+                    double gndX  = rectLeft + rectW + 22;
+                    PLine(panelDim, rectLeft + rectW, pwrY, gndX, pwrY); // horizontal run
+                    // Ground symbol (3 decreasing bars)
+                    PLine(panelStroke, gndX,     pwrY,     gndX + 10, pwrY);
+                    PLine(panelStroke, gndX + 2,  pwrY + 4, gndX + 8,  pwrY + 4);
+                    PLine(panelStroke, gndX + 4,  pwrY + 8, gndX + 6,  pwrY + 8);
+                    // Label
+                    var pwrLabel = new TextBlock
+                    {
+                        Text = "Toide 230V", FontSize = 6,
+                        Foreground = panelDim, IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(pwrLabel, gndX + 12);
+                    Canvas.SetTop(pwrLabel,  pwrY - 5);
+                    DiagramCanvas.Children.Add(pwrLabel);
+
+                    // ── Body: subtitle lines + panel name (left section, below header) ──
                     double bodyTop = (loopCount > 0 && rectH > headerH + 12)
                         ? rectTop + headerH + 2
                         : rectTop;
-                    double bodyH   = rectTop + rectH - bodyTop;
+                    double bodyH = (rectTop + rectH) - bodyTop;
 
+                    // Sub-title 1
+                    var sub1 = new TextBlock
+                    {
+                        Text = "Tulekahjusignalisatsiooni keskseade",
+                        FontSize = 5.5, FontWeight = FontWeights.SemiBold,
+                        Foreground = panelDim,
+                        TextAlignment = TextAlignment.Center,
+                        MaxWidth = leftSecW - 4, IsHitTestVisible = false,
+                        TextWrapping = TextWrapping.NoWrap,
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    };
+                    sub1.Measure(new System.Windows.Size(leftSecW - 4, double.PositiveInfinity));
+                    Canvas.SetLeft(sub1, rectLeft + 2);
+                    Canvas.SetTop(sub1,  bodyTop + 3);
+                    DiagramCanvas.Children.Add(sub1);
+
+                    // Sub-title 2
+                    var sub2 = new TextBlock
+                    {
+                        Text = "Analoogadresseeritav",
+                        FontSize = 5.5,
+                        Foreground = panelDim,
+                        TextAlignment = TextAlignment.Center,
+                        MaxWidth = leftSecW - 4, IsHitTestVisible = false,
+                        TextWrapping = TextWrapping.NoWrap,
+                        TextTrimming = TextTrimming.CharacterEllipsis
+                    };
+                    sub2.Measure(new System.Windows.Size(leftSecW - 4, double.PositiveInfinity));
+                    Canvas.SetLeft(sub2, rectLeft + 2);
+                    Canvas.SetTop(sub2,  bodyTop + 11);
+                    DiagramCanvas.Children.Add(sub2);
+
+                    // Main panel name (larger, bold)
+                    double nameAreaTop = bodyTop + 22;
+                    double nameAreaH   = bodyH - 22;
                     var panelLabel = new TextBlock
                     {
-                        Text             = panel.Name,
-                        FontSize         = 9,
-                        FontWeight       = FontWeights.SemiBold,
-                        Foreground       = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
-                        TextWrapping     = TextWrapping.Wrap,
-                        TextAlignment    = TextAlignment.Center,
-                        MaxWidth         = rectW - 8,
+                        Text          = panel.Name,
+                        FontSize      = 11,
+                        FontWeight    = FontWeights.Bold,
+                        Foreground    = panelStroke,
+                        TextWrapping  = TextWrapping.Wrap,
+                        TextAlignment = TextAlignment.Center,
+                        MaxWidth      = leftSecW - 8,
                         IsHitTestVisible = false
                     };
-                    panelLabel.Measure(new System.Windows.Size(rectW - 8, double.PositiveInfinity));
+                    panelLabel.Measure(new System.Windows.Size(leftSecW - 8, double.PositiveInfinity));
                     double labelH = panelLabel.DesiredSize.Height;
                     Canvas.SetLeft(panelLabel, rectLeft + 4);
-                    Canvas.SetTop(panelLabel,  bodyTop + Math.Max(0, (bodyH - labelH) / 2.0));
+                    Canvas.SetTop(panelLabel,  nameAreaTop + Math.Max(0, (nameAreaH - labelH) / 2.0));
                     DiagramCanvas.Children.Add(panelLabel);
+
+                    // ── Output cells below bottom-left of panel ───────────
+                    const int    outCount  = 5;
+                    const double outCellW  = 11.0;
+                    const double outCellH  = 14.0;
+                    double outStartX       = rectLeft + 4;
+                    double outY            = rectTop + rectH;  // flush with panel bottom
+
+                    for (int oi = 0; oi < outCount; oi++)
+                    {
+                        double ocx = outStartX + oi * outCellW;
+                        var outRect = new System.Windows.Shapes.Rectangle
+                        {
+                            Width = outCellW, Height = outCellH,
+                            Stroke = panelDim, StrokeThickness = 1,
+                            Fill = new SolidColorBrush(Color.FromArgb(0x10, 0xFF, 0xFF, 0xFF)),
+                            IsHitTestVisible = false
+                        };
+                        Canvas.SetLeft(outRect, ocx);
+                        Canvas.SetTop(outRect,  outY);
+                        DiagramCanvas.Children.Add(outRect);
+
+                        var outLbl = new TextBlock
+                        {
+                            Text = $"Out{oi + 1}",
+                            FontSize = 4.5, Foreground = panelDim,
+                            IsHitTestVisible = false,
+                            Width = outCellH - 2,
+                            TextTrimming = TextTrimming.CharacterEllipsis
+                        };
+                        outLbl.RenderTransform = new System.Windows.Media.RotateTransform(-90);
+                        Canvas.SetLeft(outLbl, ocx + outCellW / 2.0 - 3.5);
+                        Canvas.SetTop(outLbl,  outY + outCellH - 1);
+                        DiagramCanvas.Children.Add(outLbl);
+                    }
 
                     // ── Loop wires (closed rectangular loops) ────────────────────
                     if (loopCount > 0 && panel.LoopInfos.Count > 0)
                     {
-                        double slotWire        = rectW / loopCount;
+                        double slotWire        = leftSecW / loopCount;
                         const double circR     = 3.5;
                         const double loopH     = 16.0;  // height of each closed-loop rectangle
                         const double wireLeft  = 10.0;  // left margin for loop wires
