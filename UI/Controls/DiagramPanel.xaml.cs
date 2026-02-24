@@ -410,82 +410,72 @@ namespace Pulse.UI.Controls
                         var circleFill  = new SolidColorBrush(Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF));
                         var circleStroke= new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
 
-                        // Pre-pass: for each level elevation, list which loops visit it (in loop order)
-                        var levelLoopMap = new Dictionary<double, List<int>>();
+                        // Pass 1: find the majority level (most devices) for each loop
+                        var loopMajority = new Dictionary<int, (double Elevation, int TotalDevices)>();
                         for (int li2 = 0; li2 < panel.LoopInfos.Count; li2++)
                         {
-                            foreach (var ld in panel.LoopInfos[li2].Levels)
-                            {
-                                double key = Math.Round(ld.Elevation, 3);
-                                if (!levelLoopMap.TryGetValue(key, out var lst))
-                                    levelLoopMap[key] = lst = new List<int>();
-                                lst.Add(li2);
-                            }
+                            var inf = panel.LoopInfos[li2];
+                            if (inf.Levels == null || inf.Levels.Count == 0) continue;
+                            var majority    = inf.Levels.OrderByDescending(ld => ld.DeviceCount).First();
+                            int totalDevs   = inf.Levels.Sum(ld => ld.DeviceCount);
+                            loopMajority[li2] = (majority.Elevation, totalDevs);
                         }
 
+                        // Pass 2: stagger map — which loops share the same majority level
+                        var levelLoopMap = new Dictionary<double, List<int>>();
+                        foreach (var kvp in loopMajority)
+                        {
+                            double key = Math.Round(kvp.Value.Elevation, 3);
+                            if (!levelLoopMap.TryGetValue(key, out var lst))
+                                levelLoopMap[key] = lst = new List<int>();
+                            lst.Add(kvp.Key);
+                        }
+
+                        // Pass 3: draw one closed rectangle per loop at its majority level
                         for (int li = 0; li < panel.LoopInfos.Count; li++)
                         {
-                            var loopInfo = panel.LoopInfos[li];
-                            if (loopInfo.Levels == null || loopInfo.Levels.Count == 0) continue;
+                            if (!loopMajority.TryGetValue(li, out var maj)) continue;
 
                             double laneX = rectLeft + slotWire * (li + 0.5);
+                            double key   = Math.Round(maj.Elevation, 3);
 
-                            // Build wire segments for this loop, all forced above the panel
-                            var wireSegments = new List<(double topY, int devCount)>();
-                            foreach (var ld in loopInfo.Levels)
+                            var closest  = yLookup
+                                .OrderBy(e2 => Math.Abs(e2.Elevation - maj.Elevation)).First();
+                            double levelY = closest.Y;
+
+                            var loopsHere = levelLoopMap[key];
+                            int rank      = loopsHere.IndexOf(li);
+                            double topY   = levelY - loopH - rank * (loopH + loopGap);
+                            topY          = Math.Min(topY, rectTop - loopH - 2); // clamp above panel
+
+                            double botY = topY + loopH;
+
+                            // ── Vertical spine: panel top → rect top ──────────────
+                            Line(strokeBrush, laneX, rectTop, laneX, topY);
+                            // ── Top wire ──────────────────────────────────────────
+                            Line(strokeBrush, wireLeft, topY, laneX, topY);
+                            // ── Left vertical ─────────────────────────────────────
+                            Line(strokeBrush, wireLeft, topY, wireLeft, botY);
+                            // ── Bottom wire ───────────────────────────────────────
+                            Line(strokeBrush, wireLeft, botY, laneX, botY);
+
+                            if (maj.TotalDevices <= 0) continue;
+
+                            // ── Device circles evenly along the top wire ──────────
+                            double span  = laneX - wireLeft;
+                            double pitch = span / (maj.TotalDevices + 1);
+                            for (int di = 0; di < maj.TotalDevices; di++)
                             {
-                                double key    = Math.Round(ld.Elevation, 3);
-                                var closest   = yLookup
-                                    .OrderBy(e2 => Math.Abs(e2.Elevation - ld.Elevation)).First();
-                                double levelY = closest.Y; // canvas Y of the level line
-
-                                // Stagger loops that share this level: rank 0 = closest to level line
-                                var loopsHere = levelLoopMap[key];
-                                int rank      = loopsHere.IndexOf(li);
-                                // topY is above the level line; higher rank = further above
-                                double topY   = levelY - loopH - rank * (loopH + loopGap);
-
-                                // Clamp strictly above the panel top
-                                topY = Math.Min(topY, rectTop - loopH - 2);
-
-                                wireSegments.Add((topY, ld.DeviceCount));
-                            }
-                            if (wireSegments.Count == 0) continue;
-
-                            double spineTop = wireSegments.Min(s => s.topY);
-
-                            // ── Vertical spine: panel top → topmost loop top ──────
-                            Line(strokeBrush, laneX, rectTop, laneX, spineTop);
-
-                            foreach (var (topY, devCount) in wireSegments)
-                            {
-                                double botY = topY + loopH;
-
-                                // ── Top wire (with devices) ────────────────────────
-                                Line(strokeBrush, wireLeft, topY, laneX, topY);
-                                // ── Left vertical ─────────────────────────────────
-                                Line(strokeBrush, wireLeft, topY, wireLeft, botY);
-                                // ── Bottom wire ───────────────────────────────────
-                                Line(strokeBrush, wireLeft, botY, laneX, botY);
-
-                                if (devCount <= 0) continue;
-
-                                // ── Device circles on the top wire ────────────────
-                                double span  = laneX - wireLeft;
-                                double pitch = span / (devCount + 1);
-                                for (int di = 0; di < devCount; di++)
+                                double devX = wireLeft + pitch * (di + 1);
+                                var circle  = new Ellipse
                                 {
-                                    double devX = wireLeft + pitch * (di + 1);
-                                    var circle  = new Ellipse
-                                    {
-                                        Width = circR * 2, Height = circR * 2,
-                                        Stroke = circleStroke, StrokeThickness = 1,
-                                        Fill = circleFill, IsHitTestVisible = false
-                                    };
-                                    Canvas.SetLeft(circle, devX - circR);
-                                    Canvas.SetTop(circle,  topY - circR);
-                                    DiagramCanvas.Children.Add(circle);
-                                }
+                                    Width = circR * 2, Height = circR * 2,
+                                    Stroke = circleStroke, StrokeThickness = 1,
+                                    Fill = circleFill, IsHitTestVisible = false
+                                };
+                                Canvas.SetLeft(circle, devX - circR);
+                                Canvas.SetTop(circle,  topY - circR);
+                                DiagramCanvas.Children.Add(circle);
                             }
                         }
 
