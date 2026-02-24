@@ -145,7 +145,7 @@
                 <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="450" />   <!-- Left block: Topology + Inspector -->
-                        <ColumnDefinition Width="1" />                   <!-- Splitter -->
+                        <ColumnDefinition Width="5" />                   <!-- Splitter -->
                         <ColumnDefinition Width="300" MinWidth="32" />  <!-- Diagram -->
                     </Grid.ColumnDefinitions>
 
@@ -170,9 +170,10 @@
 
                     <!-- GridSplitter (Left block | Diagram) -->
                     <GridSplitter Grid.Column="1"
-                                  Width="1"
+                                  Width="5"
                                   HorizontalAlignment="Stretch"
                                   VerticalAlignment="Stretch"
+                                  ResizeDirection="Columns"
                                   Background="{DynamicResource BorderBrush}"
                                   Cursor="SizeWE"/>
 
