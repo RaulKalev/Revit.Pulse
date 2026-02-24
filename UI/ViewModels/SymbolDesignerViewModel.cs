@@ -16,7 +16,8 @@ namespace Pulse.UI.ViewModels
         Line,
         Polyline,
         Circle,
-        Rectangle
+        Rectangle,
+        PaintBucket
     }
 
     /// <summary>
@@ -218,6 +219,7 @@ namespace Pulse.UI.ViewModels
         public ICommand PolylineToolCommand    { get; }
         public ICommand CircleToolCommand      { get; }
         public ICommand RectangleToolCommand   { get; }
+        public ICommand PaintBucketToolCommand { get; }
         public ICommand UndoCommand            { get; }
         public ICommand RedoCommand            { get; }
         public ICommand ClearCommand           { get; }
@@ -246,11 +248,12 @@ namespace Pulse.UI.ViewModels
 
         public SymbolDesignerViewModel()
         {
-            SelectToolCommand    = new RelayCommand(_ => ActiveTool = DesignerTool.Select);
-            LineToolCommand      = new RelayCommand(_ => ActiveTool = DesignerTool.Line);
-            PolylineToolCommand  = new RelayCommand(_ => ActiveTool = DesignerTool.Polyline);
-            CircleToolCommand    = new RelayCommand(_ => ActiveTool = DesignerTool.Circle);
-            RectangleToolCommand = new RelayCommand(_ => ActiveTool = DesignerTool.Rectangle);
+            SelectToolCommand      = new RelayCommand(_ => ActiveTool = DesignerTool.Select);
+            LineToolCommand        = new RelayCommand(_ => ActiveTool = DesignerTool.Line);
+            PolylineToolCommand    = new RelayCommand(_ => ActiveTool = DesignerTool.Polyline);
+            CircleToolCommand      = new RelayCommand(_ => ActiveTool = DesignerTool.Circle);
+            RectangleToolCommand   = new RelayCommand(_ => ActiveTool = DesignerTool.Rectangle);
+            PaintBucketToolCommand = new RelayCommand(_ => ActiveTool = DesignerTool.PaintBucket);
 
             UndoCommand           = new RelayCommand(_ => ExecuteUndo(),    _ => _undoStack.Count > 0);
             RedoCommand           = new RelayCommand(_ => ExecuteRedo(),    _ => _redoStack.Count > 0);
@@ -284,6 +287,14 @@ namespace Pulse.UI.ViewModels
             return new SymbolPoint(
                 Math.Round((xMm - ox) / s) * s + ox,
                 Math.Round((yMm - oy) / s) * s + oy);
+        }
+
+        /// <summary>Snap to absolute grid (origin always 0,0) — used when dragging the snap-origin cross itself.</summary>
+        public SymbolPoint SnapAbsolute(double xMm, double yMm)
+        {
+            if (!SnapToGrid) return new SymbolPoint(xMm, yMm);
+            var s = GridSizeMm;
+            return new SymbolPoint(Math.Round(xMm / s) * s, Math.Round(yMm / s) * s);
         }
 
         /// <summary>

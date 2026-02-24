@@ -463,10 +463,10 @@ namespace Pulse.UI
             UpdateMultiSelectionOverlays();
         }
 
-        /// <summary>Switch canvas cursor between Arrow (select) and Cross (drawing tools).</summary>
+        /// <summary>Switch canvas cursor between Arrow (select/bucket) and Cross (drawing tools).</summary>
         private void OnToolChanged(DesignerTool tool)
         {
-            DrawingCanvas.Cursor = tool == DesignerTool.Select
+            DrawingCanvas.Cursor = (tool == DesignerTool.Select || tool == DesignerTool.PaintBucket)
                 ? Cursors.Arrow
                 : Cursors.Cross;
 
@@ -1021,6 +1021,35 @@ namespace Pulse.UI
         {
             if (e.ChangedButton != MouseButton.Left) return;
 
+            // ── Snap-origin dot — draggable from any tool mode ─────────────────
+            var srcFeGlobal = e.OriginalSource as FrameworkElement;
+            if (srcFeGlobal?.Tag is string globalTag && globalTag == SnapOriginTag)
+            {
+                var rawG = e.GetPosition(DrawingCanvas);
+                _isDraggingSnapOrigin   = true;
+                _snapOriginDragOffsetMm = new Point(
+                    rawG.X / Ppm - _vm.SnapOriginXMm,
+                    rawG.Y / Ppm - _vm.SnapOriginYMm);
+                DrawingCanvas.CaptureMouse();
+                e.Handled = true;
+                return;
+            }
+
+            // ── Paint bucket ─────────────────────────────────────────────────
+            if (_vm.ActiveTool == DesignerTool.PaintBucket)
+            {
+                var hitShape = e.OriginalSource as UIElement;
+                if (hitShape != null && _shapeToElement.TryGetValue(hitShape, out var hitEl))
+                {
+                    var filled = hitEl.Clone();
+                    filled.IsFilled  = true;
+                    filled.FillColor = _vm.FillColor;
+                    _vm.ReplaceElement(hitEl, filled);
+                }
+                e.Handled = true;
+                return;
+            }
+
             // ── Select tool ─────────────────────────────────────────────────
             if (_vm.ActiveTool == DesignerTool.Select)
             {
@@ -1028,19 +1057,7 @@ namespace Pulse.UI
                 var selSnap = SnapPoint(raw);
                 var srcFe   = e.OriginalSource as FrameworkElement;
 
-                // 1. Snap-origin dot hit?
-                if (srcFe?.Tag is string dotTag && dotTag == SnapOriginTag)
-                {
-                    _isDraggingSnapOrigin   = true;
-                    _snapOriginDragOffsetMm = new Point(
-                        selSnap.X - _vm.SnapOriginXMm,
-                        selSnap.Y - _vm.SnapOriginYMm);
-                    DrawingCanvas.CaptureMouse();
-                    e.Handled = true;
-                    return;
-                }
-
-                // 2. Transform handle hit? (single-element handles)
+                // 1. Transform handle hit? (single-element handles)
                 if (srcFe?.Tag is DragMode dm && dm != DragMode.None && _vm.SelectedElement != null)
                 {
                     StartTransformDrag(dm, selSnap);
@@ -1161,8 +1178,9 @@ namespace Pulse.UI
                 double yMm = raw.Y / Ppm - _snapOriginDragOffsetMm.Y;
                 xMm = Math.Max(0, Math.Min(_vm.ViewboxWidthMm, xMm));
                 yMm = Math.Max(0, Math.Min(_vm.ViewboxHeightMm, yMm));
-                _vm.SetSnapOrigin(xMm, yMm);   // fires SnapOriginChanged once
-                MoveSnapCrossVisual(xMm, yMm); // fast visual update without rebuild
+                var sn = _vm.SnapAbsolute(xMm, yMm); // snap cross to absolute grid
+                _vm.SetSnapOrigin(sn.X, sn.Y);
+                MoveSnapCrossVisual(sn.X, sn.Y);
                 return;
             }
 
@@ -1509,11 +1527,12 @@ namespace Pulse.UI
             if (Keyboard.FocusedElement is TextBox) return;
             switch (e.Key)
             {
-                case Key.V: _vm.ActiveTool = DesignerTool.Select;    break;
-                case Key.L: _vm.ActiveTool = DesignerTool.Line;      break;
-                case Key.P: _vm.ActiveTool = DesignerTool.Polyline;  break;
-                case Key.C: _vm.ActiveTool = DesignerTool.Circle;    break;
-                case Key.R: _vm.ActiveTool = DesignerTool.Rectangle; break;
+                case Key.V: _vm.ActiveTool = DesignerTool.Select;      break;
+                case Key.L: _vm.ActiveTool = DesignerTool.Line;        break;
+                case Key.P: _vm.ActiveTool = DesignerTool.Polyline;    break;
+                case Key.C: _vm.ActiveTool = DesignerTool.Circle;      break;
+                case Key.R: _vm.ActiveTool = DesignerTool.Rectangle;   break;
+                case Key.B: _vm.ActiveTool = DesignerTool.PaintBucket; break;
             }
 
             // When tool changes, cancel any in-progress draw
@@ -1607,7 +1626,7 @@ namespace Pulse.UI
 
         // ─── Utility ──────────────────────────────────────────────────────────
 
-        /// <summary>Convert canvas pixel position to mm and apply snap.</summary>
+        /// <summary>Convert canvas pixel position to mm, apply midpoint and grid snap.</summary>
         private Point SnapPoint(Point canvasPx)
         {
             double xMm = canvasPx.X / Ppm;
@@ -1615,9 +1634,75 @@ namespace Pulse.UI
             // Clamp to canvas bounds
             xMm = Math.Max(0, Math.Min(_vm.ViewboxWidthMm, xMm));
             yMm = Math.Max(0, Math.Min(_vm.ViewboxHeightMm, yMm));
+
+            // 1. Midpoint snap — wins if within 8 px (0.4 mm at 20 px/mm)
+            const double midRadiusMm = 8.0 / Ppm;
+            var mid = FindNearestMidpoint(xMm, yMm, midRadiusMm);
+            if (mid != null) return new Point(mid.X, mid.Y);
+
+            // 2. Grid snap
             var sp = _vm.Snap(xMm, yMm);
             return new Point(sp.X, sp.Y);
         }
+
+        /// <summary>Find the nearest segment midpoint (or circle centre) within radiusMm, or null.</summary>
+        private SymbolPoint FindNearestMidpoint(double xMm, double yMm, double radiusMm)
+        {
+            SymbolPoint best = null;
+            double bestDist  = radiusMm;
+
+            foreach (var el in _vm.Elements)
+            {
+                foreach (var mid in GetSegmentMidpoints(el))
+                {
+                    double dx = mid.X - xMm, dy = mid.Y - yMm;
+                    double d = Math.Sqrt(dx * dx + dy * dy);
+                    if (d < bestDist) { bestDist = d; best = mid; }
+                }
+            }
+            return best;
+        }
+
+        private static IEnumerable<SymbolPoint> GetSegmentMidpoints(SymbolElement el)
+        {
+            if (el?.Points == null) yield break;
+            switch (el.Type)
+            {
+                case SymbolElementType.Line:
+                    if (el.Points.Count >= 2)
+                        yield return MidSP(el.Points[0], el.Points[1]);
+                    break;
+
+                case SymbolElementType.Polyline:
+                    for (int i = 0; i < el.Points.Count - 1; i++)
+                        yield return MidSP(el.Points[i], el.Points[i + 1]);
+                    if (el.IsClosed && el.Points.Count > 2)
+                        yield return MidSP(el.Points[el.Points.Count - 1], el.Points[0]);
+                    break;
+
+                case SymbolElementType.Rectangle:
+                    if (el.Points.Count >= 2)
+                    {
+                        double x1 = el.Points[0].X, y1 = el.Points[0].Y;
+                        double x2 = el.Points[1].X, y2 = el.Points[1].Y;
+                        // four side midpoints + centre
+                        yield return new SymbolPoint((x1 + x2) / 2, y1);
+                        yield return new SymbolPoint((x1 + x2) / 2, y2);
+                        yield return new SymbolPoint(x1, (y1 + y2) / 2);
+                        yield return new SymbolPoint(x2, (y1 + y2) / 2);
+                        yield return new SymbolPoint((x1 + x2) / 2, (y1 + y2) / 2);
+                    }
+                    break;
+
+                case SymbolElementType.Circle:
+                    if (el.Points.Count >= 1)
+                        yield return el.Points[0]; // circle centre
+                    break;
+            }
+        }
+
+        private static SymbolPoint MidSP(SymbolPoint a, SymbolPoint b)
+            => new SymbolPoint((a.X + b.X) / 2, (a.Y + b.Y) / 2);
 
         private static SymbolPoint ToSP(Point p) => new SymbolPoint(p.X, p.Y);
 
