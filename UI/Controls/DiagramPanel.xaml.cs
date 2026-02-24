@@ -171,17 +171,16 @@ namespace Pulse.UI.Controls
                 {
                     var nameLabel = new TextBlock
                     {
-                        Text          = level.Name,
-                        FontSize      = 9,
-                        FontWeight    = FontWeights.SemiBold,
-                        Foreground    = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
-                        Width         = w - 16,
-                        TextAlignment = TextAlignment.Right,
-                        TextTrimming  = TextTrimming.CharacterEllipsis,
-                        Tag           = level.Name + "|text-above",
-                        Cursor        = Cursors.Hand
+                        Text         = level.Name,
+                        FontSize     = 9,
+                        FontWeight   = FontWeights.SemiBold,
+                        Foreground   = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
+                        MaxWidth     = w - 16,
+                        TextTrimming = TextTrimming.CharacterEllipsis,
+                        Tag          = level.Name + "|text-above",
+                        Cursor       = Cursors.Hand
                     };
-                    Canvas.SetLeft(nameLabel, 8);
+                    Canvas.SetRight(nameLabel, 8);
                     Canvas.SetTop(nameLabel, y - 13);
                     DiagramCanvas.Children.Add(nameLabel);
                 }
@@ -203,17 +202,16 @@ namespace Pulse.UI.Controls
                     {
                         var prevLabel = new TextBlock
                         {
-                            Text          = prevName,
-                            FontSize      = 9,
-                            FontWeight    = FontWeights.SemiBold,
-                            Foreground    = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
-                            Width         = w - 16,
-                            TextAlignment = TextAlignment.Right,
-                            TextTrimming  = TextTrimming.CharacterEllipsis,
-                            Tag           = prevName + "|text-below",
-                            Cursor        = Cursors.Hand
+                            Text         = prevName,
+                            FontSize     = 9,
+                            FontWeight   = FontWeights.SemiBold,
+                            Foreground   = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
+                            MaxWidth     = w - 16,
+                            TextTrimming = TextTrimming.CharacterEllipsis,
+                            Tag          = prevName + "|text-below",
+                            Cursor       = Cursors.Hand
                         };
-                        Canvas.SetLeft(prevLabel, 8);
+                        Canvas.SetRight(prevLabel, 8);
                         Canvas.SetTop(prevLabel, y + 2);
                         DiagramCanvas.Children.Add(prevLabel);
                     }

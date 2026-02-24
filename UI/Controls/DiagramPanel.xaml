@@ -47,12 +47,20 @@
                     <Button x:Name="RestoreButton"
                             DockPanel.Dock="Right"
                             Style="{StaticResource PulseActionButtonStyle}"
-                            Width="24" Height="24"
+                            Height="24"
                             Visibility="Collapsed"
+                            Padding="6,0"
                             ToolTip="Show hidden / deleted items"
                             Click="RestoreButton_Click">
-                        <materialDesign:PackIcon Kind="EyeOff"
-                                                 Width="13" Height="13"/>
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="EyeOff"
+                                                     Width="13" Height="13"
+                                                     VerticalAlignment="Center"
+                                                     Margin="0,0,4,0"/>
+                            <TextBlock Text="Layers"
+                                       FontSize="10"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
                     </Button>
 
                     <!-- Diagram icon + title — hidden when collapsed -->
