@@ -195,6 +195,9 @@
                 <Setter Property="SmallChange"           Value="1" />
                 <Setter Property="LargeChange"           Value="16" />
                 <Setter Property="Height"                Value="16" />
+                <!-- Focusable=False prevents the Popup's HwndSource from consuming
+                     the first mouse-down for focus, which caused double-click-to-drag -->
+                <Setter Property="Focusable"             Value="False" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="{x:Type Slider}">

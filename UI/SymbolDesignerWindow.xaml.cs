@@ -44,6 +44,9 @@ namespace Pulse.UI
         // Dashed cyan overlay drawn on top of the selected shape
         private UIElement _selectionOverlay;
 
+        // ─── Color sync flag (prevents PropertyChanged feedback loop) ─────────
+        private bool _syncingColorFromElement;
+
         // ─── In-progress draw state ───────────────────────────────────────────
         private bool   _isDrawing;
         private Point  _startMm;          // snap-adjusted start point (mm)
@@ -103,6 +106,7 @@ namespace Pulse.UI
 
             // Wire up ViewModel events
             _vm.Elements.CollectionChanged += Elements_CollectionChanged;
+            _vm.PropertyChanged            += Vm_PropertyChanged;
             _vm.CanvasSizeChanged          += OnCanvasSizeChanged;
             _vm.ToolChanged                += OnToolChanged;
             _vm.SnapOriginChanged          += DrawSnapCross;
@@ -515,8 +519,10 @@ namespace Pulse.UI
             // Single hit → promote to single selection (enables transforms)
             if (_multiSelection.Count == 1)
             {
-                _vm.SelectedElement = _multiSelection.First();
+                var single = _multiSelection.First();
+                _vm.SelectedElement = single;
                 _multiSelection.Clear();
+                SyncColorsFromElement(single);
                 UpdateSelectionOverlay();
             }
             else if (_multiSelection.Count > 1)
@@ -1290,8 +1296,10 @@ namespace Pulse.UI
             };
 
             _vm.ReplaceElement(_dragOriginalElement, newEl);
-            // RebuildAllDrawnShapes has run; now re-select the new element
-            _vm.SelectedElement = newEl;
+            // RebuildAllDrawnShapes has run; find the replacement at the same index
+            var dragIdx = _vm.Elements.IndexOf(newEl);
+            _vm.SelectedElement = dragIdx >= 0 ? _vm.Elements[dragIdx] : newEl;
+            SyncColorsFromElement(_vm.SelectedElement);
             UpdateSelectionOverlay();
 
             ResetTransformDrag();
@@ -1445,6 +1453,7 @@ namespace Pulse.UI
                         // Normal single select
                         ClearAllSelection();
                         _vm.SelectedElement = hitEl;
+                        SyncColorsFromElement(hitEl);
                         UpdateSelectionOverlay();
                         _pendingMoveElement = hitEl;
                         _pendingMoveStartMm = selSnap;
@@ -1921,6 +1930,57 @@ namespace Pulse.UI
         {
             FillPickerPopup.IsOpen = !FillPickerPopup.IsOpen;
             if (FillPickerPopup.IsOpen) StrokePickerPopup.IsOpen = false;
+        }
+
+        // ─── Color sync helpers ───────────────────────────────────────────────
+
+        /// <summary>
+        /// Reads colour properties from <paramref name="el"/> into the VM so
+        /// the properties panel and colour picker reflect the selected element.
+        /// Sets <see cref="_syncingColorFromElement"/> to suppress the
+        /// re-application loop triggered by <see cref="Vm_PropertyChanged"/>.
+        /// </summary>
+        private void SyncColorsFromElement(SymbolElement el)
+        {
+            if (el == null) return;
+            _syncingColorFromElement = true;
+            _vm.StrokeColor = el.StrokeColor ?? "#000000";
+            _vm.FillColor   = el.FillColor   ?? "#000000";
+            _syncingColorFromElement = false;
+        }
+
+        /// <summary>
+        /// Listens for VM colour changes (from swatch, hex box, or RGB sliders)
+        /// and applies them live to the currently selected single element.
+        /// </summary>
+        private void Vm_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (_syncingColorFromElement) return;
+            if (_vm.SelectedElement == null || _vm.ActiveTool != DesignerTool.Select) return;
+
+            bool isStroke = e.PropertyName == nameof(SymbolDesignerViewModel.StrokeColor)
+                            && _vm.SelectedElement.StrokeColor != _vm.StrokeColor;
+            bool isFill   = e.PropertyName == nameof(SymbolDesignerViewModel.FillColor)
+                            && _vm.SelectedElement.FillColor != _vm.FillColor;
+
+            if (!isStroke && !isFill) return;
+
+            // Remember where the element is before ReplaceElement nulls SelectedElement
+            var oldEl = _vm.SelectedElement;
+            var idx   = _vm.Elements.IndexOf(oldEl);
+
+            _vm.ApplyColorToElements(
+                new[] { oldEl },
+                strokeColor: isStroke ? _vm.StrokeColor : null,
+                fillColor:   isFill   ? _vm.FillColor   : null);
+
+            // ApplyColorToElements → ReplaceElement → CollectionChanged → RebuildAllDrawnShapes
+            // which nulled SelectedElement. Restore it to the new clone at the same index.
+            if (idx >= 0 && idx < _vm.Elements.Count)
+            {
+                _vm.SelectedElement = _vm.Elements[idx];
+                UpdateSelectionOverlay();
+            }
         }
 
         private void StrokeSwatch_Click(object sender, RoutedEventArgs e)
