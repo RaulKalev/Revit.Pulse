@@ -286,7 +286,7 @@
                                        Foreground="{DynamicResource IconForegroundBrush}"
                                        VerticalAlignment="Center" Margin="0,0,6,0" />
                             <TextBox Style="{StaticResource ToolbarTextBoxStyle}" Width="42"
-                                     Text="{Binding ScaleAllFactor, UpdateSourceTrigger=LostFocus, StringFormat={}{0:F2}}" />
+                                     Text="{Binding ScaleAllFactor, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:F2}}" />
                             <TextBlock Text="×" FontSize="11"
                                        Foreground="{DynamicResource IconForegroundBrush}"
                                        VerticalAlignment="Center" Margin="4,0,6,0" />
@@ -485,13 +485,13 @@
                             <Canvas x:Name="RulerH"
                                     Grid.Row="0" Grid.Column="1"
                                     Width="{Binding CanvasWidthPx}" Height="18"
-                                    Background="#1A1A2E" ClipToBounds="True" />
+                                    Background="#1A1A2E" />
 
                             <!-- Vertical ruler -->
                             <Canvas x:Name="RulerV"
                                     Grid.Row="1" Grid.Column="0"
                                     Width="18" Height="{Binding CanvasHeightPx}"
-                                    Background="#1A1A2E" ClipToBounds="True" />
+                                    Background="#1A1A2E" />
 
                             <!-- Canvas area -->
                             <Grid Grid.Row="1" Grid.Column="1"

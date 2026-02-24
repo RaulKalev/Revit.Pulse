@@ -222,7 +222,8 @@ namespace Pulse.UI
                         Text = ((int)mm).ToString(),
                         FontSize = 7, Foreground = tickBrush, IsHitTestVisible = false
                     };
-                    Canvas.SetLeft(tb, x + 2);
+                    // Place the label to the LEFT of the tick so it stays inside the ruler canvas
+                    Canvas.SetLeft(tb, x - 11);
                     Canvas.SetTop(tb, 2);
                     RulerH.Children.Add(tb);
                     _rulerHElements.Add(tb);
@@ -260,12 +261,11 @@ namespace Pulse.UI
                     var tb = new TextBlock
                     {
                         Text = ((int)mm).ToString(),
-                        FontSize = 7, Foreground = tickBrush, IsHitTestVisible = false,
-                        RenderTransformOrigin = new Point(0.5, 0.5),
-                        RenderTransform = new RotateTransform(-90)
+                        FontSize = 7, Foreground = tickBrush, IsHitTestVisible = false
                     };
-                    Canvas.SetLeft(tb, 2);
-                    Canvas.SetTop(tb, y - 4);
+                    // Place label above the tick, horizontally, within the 18px ruler width
+                    Canvas.SetLeft(tb, 1);
+                    Canvas.SetTop(tb, y - 9);
                     RulerV.Children.Add(tb);
                     _rulerVElements.Add(tb);
                 }
