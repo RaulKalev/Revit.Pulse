@@ -16,7 +16,7 @@ namespace Pulse.UI.Controls
         private const double Cx     = 70;
         private const double Cy     = 78;
         private const double OuterR = 58;
-        private const double InnerR = 48;
+        private const double InnerR = 35;
 
         // -- Dependency Properties --------------------------------------------
 
