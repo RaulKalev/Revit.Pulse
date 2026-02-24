@@ -452,7 +452,9 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public void SetAssignedWireSilent(string value)
         {
-            SetField(ref _assignedWire, value);
+            if (Equals(_assignedWire, value)) return;
+            _assignedWire = value;
+            OnPropertyChanged(nameof(AssignedWire));
         }
 
         public ObservableCollection<TopologyNodeViewModel> Children { get; } = new ObservableCollection<TopologyNodeViewModel>();
