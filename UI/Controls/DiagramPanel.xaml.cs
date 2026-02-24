@@ -434,14 +434,14 @@ namespace Pulse.UI.Controls
                                 IsHitTestVisible = false
                             });
 
-                            // Device circles centered on laneX at each level
+                            // Device circles on the spine at each level — multiple devices spread vertically
                             foreach (var (lvlY, devCount) in levelPoints)
                             {
                                 double totalSpan = (devCount - 1) * circPitch;
-                                double startX    = laneX - totalSpan / 2.0;
+                                double startY    = lvlY - totalSpan / 2.0;
                                 for (int di = 0; di < devCount; di++)
                                 {
-                                    double devX = startX + di * circPitch;
+                                    double devY = startY + di * circPitch;
                                     var circle = new Ellipse
                                     {
                                         Width            = circR * 2,
@@ -451,8 +451,8 @@ namespace Pulse.UI.Controls
                                         Fill             = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
                                         IsHitTestVisible = false
                                     };
-                                    Canvas.SetLeft(circle, devX - circR);
-                                    Canvas.SetTop(circle,  lvlY - circR);
+                                    Canvas.SetLeft(circle, laneX - circR);
+                                    Canvas.SetTop(circle,  devY  - circR);
                                     DiagramCanvas.Children.Add(circle);
                                 }
                             }
