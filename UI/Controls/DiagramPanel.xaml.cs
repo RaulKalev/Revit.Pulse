@@ -301,7 +301,6 @@ namespace Pulse.UI.Controls
 
                     const double headerH   = 22.0;
                     const double termSize  = 6.0;
-                    const double termLabelFontSize = 7.0;
 
                     if (loopCount > 0 && rectH > headerH + 8)
                     {
@@ -338,30 +337,7 @@ namespace Pulse.UI.Controls
                             Canvas.SetTop(term,  termY);
                             DiagramCanvas.Children.Add(term);
 
-                            // Label below the terminal (inside header strip)
-                            string lbl = li < panel.LoopNames.Count
-                                ? panel.LoopNames[li]
-                                : $"L{li + 1}";
-                            // Shorten to first word / number after "Loop " for brevity
-                            if (lbl.StartsWith("Loop ", StringComparison.OrdinalIgnoreCase))
-                                lbl = lbl.Substring(5).Trim();
-                            if (lbl.Length > 3) lbl = lbl.Substring(0, 3);
-
-                            if (slotW >= 9) // only draw label if there is room
-                            {
-                                var termLabel = new TextBlock
-                                {
-                                    Text             = lbl,
-                                    FontSize         = termLabelFontSize,
-                                    Foreground       = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
-                                    IsHitTestVisible = false,
-                                    TextAlignment    = TextAlignment.Center,
-                                    Width            = slotW
-                                };
-                                Canvas.SetLeft(termLabel, cx - slotW / 2.0);
-                                Canvas.SetTop(termLabel,  termY + termSize + 1);
-                                DiagramCanvas.Children.Add(termLabel);
-                            }
+                            // (rotated loop name label drawn separately in the body area below)
                         }
                     }
 
@@ -370,6 +346,44 @@ namespace Pulse.UI.Controls
                         ? rectTop + headerH + 2
                         : rectTop;
                     double bodyH   = rectTop + rectH - bodyTop;
+
+                    // ── Rotated loop name labels (bottom-to-top, in body) ─
+                    if (loopCount > 0 && bodyH > 8)
+                    {
+                        double slotW2        = (rectW - 8.0) / loopCount;
+                        double labelAvailH   = bodyH - 4;      // visual height of each label
+                        const double lblFont = 7.0;
+                        double approxTextH   = lblFont * 1.35; // ~9.5 px — visual width of label
+
+                        for (int li = 0; li < loopCount; li++)
+                        {
+                            double cx2 = rectLeft + 4.0 + slotW2 * (li + 0.5);
+
+                            string fullLabel = li < panel.LoopNames.Count
+                                ? panel.LoopNames[li]
+                                : $"Loop {li + 1}";
+
+                            var rotLabel = new TextBlock
+                            {
+                                Text             = fullLabel,
+                                FontSize         = lblFont,
+                                Foreground       = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
+                                IsHitTestVisible = false,
+                                Width            = labelAvailH,
+                                TextTrimming     = TextTrimming.CharacterEllipsis
+                            };
+
+                            // RenderTransform -90° around (0,0): visual bounds are
+                            //   left = L, right = L+H,  top = T-W, bottom = T
+                            // Want visual centered at cx2, visual top at bodyTop+2:
+                            //   L = cx2 - approxTextH/2
+                            //   T = (bodyTop + 2) + labelAvailH
+                            rotLabel.RenderTransform = new System.Windows.Media.RotateTransform(-90);
+                            Canvas.SetLeft(rotLabel, cx2 - approxTextH / 2.0);
+                            Canvas.SetTop(rotLabel,  bodyTop + 2 + labelAvailH);
+                            DiagramCanvas.Children.Add(rotLabel);
+                        }
+                    }
 
                     var panelLabel = new TextBlock
                     {
