@@ -111,6 +111,56 @@ namespace Pulse.UI.ViewModels
             }
         }
 
+        // ── Loop flip + selection ─────────────────────────────────────────
+
+        private string _selectedLoopKey;
+        /// <summary>"panelName::loopName" of the currently selected loop, or null.</summary>
+        public string SelectedLoopKey
+        {
+            get => _selectedLoopKey;
+            set
+            {
+                if (SetField(ref _selectedLoopKey, value))
+                    OnPropertyChanged(nameof(IsFlipEnabled));
+            }
+        }
+
+        /// <summary>True when a loop is selected and the Flip button should be enabled.</summary>
+        public bool IsFlipEnabled => !string.IsNullOrEmpty(_selectedLoopKey);
+
+        private Dictionary<string, bool> _flipStates =
+            new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Raised after FlipSelectedLoop() so the diagram redraws.</summary>
+        public Action FlipStateChanged { get; set; }
+
+        /// <summary>Load flip-states from the persisted store (call alongside LoadPanels).</summary>
+        public void LoadFlipStates(DeviceConfigStore store)
+        {
+            _flipStates = new Dictionary<string, bool>(
+                store?.LoopFlipStates ?? new Dictionary<string, bool>(),
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>True when the given loop should be drawn on the right side of its panel.</summary>
+        public bool IsLoopFlipped(string panelName, string loopName)
+        {
+            string key = panelName + "::" + loopName;
+            return _flipStates.TryGetValue(key, out bool v) && v;
+        }
+
+        /// <summary>Toggle flip state of the selected loop and persist to disk immediately.</summary>
+        public void FlipSelectedLoop()
+        {
+            if (string.IsNullOrEmpty(_selectedLoopKey)) return;
+            bool current = _flipStates.TryGetValue(_selectedLoopKey, out bool v) && v;
+            _flipStates[_selectedLoopKey] = !current;
+            var store = DeviceConfigService.Load();
+            store.LoopFlipStates = new Dictionary<string, bool>(_flipStates, StringComparer.OrdinalIgnoreCase);
+            DeviceConfigService.Save(store);
+            FlipStateChanged?.Invoke();
+        }
+
         // ── Visibility preferences ────────────────────────────────────────
 
         private LevelVisibilitySettings _visibility = new LevelVisibilitySettings();

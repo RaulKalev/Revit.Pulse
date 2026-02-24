@@ -91,6 +91,7 @@ namespace Pulse.UI.Controls
             {
                 _currentVm.Levels.CollectionChanged  -= OnLevelsChanged;
                 _currentVm.Panels.CollectionChanged  -= OnLevelsChanged;
+                _currentVm.FlipStateChanged           = null;
             }
 
             _currentVm = DataContext as DiagramViewModel;
@@ -99,6 +100,8 @@ namespace Pulse.UI.Controls
             {
                 _currentVm.Levels.CollectionChanged  += OnLevelsChanged;
                 _currentVm.Panels.CollectionChanged  += OnLevelsChanged;
+                _currentVm.FlipStateChanged           = () => Dispatcher.BeginInvoke(
+                    DispatcherPriority.Loaded, (System.Action)DrawLevels);
             }
 
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
@@ -431,10 +434,22 @@ namespace Pulse.UI.Controls
                             lst.Add(kvp.Key);
                         }
 
+                        const double wireRight = 10.0; // right margin (mirror of wireLeft)
+
                         // Pass 3: draw one closed rectangle per loop at its majority level
                         for (int li = 0; li < panel.LoopInfos.Count; li++)
                         {
                             if (!loopMajority.TryGetValue(li, out var maj)) continue;
+
+                            var loopInfo  = panel.LoopInfos[li];
+                            string loopKey = panel.Name + "::" + loopInfo.Name;
+                            bool flipped  = _currentVm.IsLoopFlipped(panel.Name, loopInfo.Name);
+                            bool selected = _currentVm.SelectedLoopKey == loopKey;
+
+                            // Selected loops use a brighter accent stroke
+                            var wireBrush = selected
+                                ? new SolidColorBrush(Color.FromArgb(0xFF, 0x4F, 0xC3, 0xF7)) // blue
+                                : strokeBrush;
 
                             double laneX = rectLeft + slotWire * (li + 0.5);
                             double key   = Math.Round(maj.Elevation, 3);
@@ -449,25 +464,44 @@ namespace Pulse.UI.Controls
                             // Clamp above panel: include rank so every loop keeps its unique offset
                             topY          = Math.Min(topY, rectTop - loopH - 2 - rank * (loopH + loopGap));
 
-                            double botY = topY + loopH;
+                            double botY    = topY + loopH;
+                            double farEdge = flipped ? (w - wireRight) : wireLeft;
 
-                            // ── Vertical spine: panel top → rect top ──────────────
-                            Line(strokeBrush, laneX, rectTop, laneX, topY);
-                            // ── Top wire ──────────────────────────────────────────
-                            Line(strokeBrush, wireLeft, topY, laneX, topY);
-                            // ── Left vertical ─────────────────────────────────────
-                            Line(strokeBrush, wireLeft, topY, wireLeft, botY);
+                            // ── Vertical spine ────────────────────────────────────
+                            Line(wireBrush, laneX, rectTop, laneX, topY);
+                            // ── Top wire (with devices) ───────────────────────────
+                            Line(wireBrush, farEdge, topY, laneX, topY);
+                            // ── Far vertical ──────────────────────────────────────
+                            Line(wireBrush, farEdge, topY, farEdge, botY);
                             // ── Bottom wire ───────────────────────────────────────
-                            Line(strokeBrush, wireLeft, botY, laneX, botY);
+                            Line(wireBrush, farEdge, botY, laneX, botY);
+
+                            // ── Transparent hit-test rectangle for click-to-select
+                            double hitX = Math.Min(laneX, farEdge);
+                            double hitW = Math.Abs(laneX - farEdge);
+                            var hitRect = new System.Windows.Shapes.Rectangle
+                            {
+                                Width  = Math.Max(hitW, 8),
+                                Height = loopH + 4,
+                                Fill   = Brushes.Transparent,
+                                Tag    = "loop::" + loopKey,
+                                Cursor = Cursors.Hand
+                            };
+                            Canvas.SetLeft(hitRect, hitX);
+                            Canvas.SetTop(hitRect,  topY - 2);
+                            DiagramCanvas.Children.Add(hitRect);
 
                             if (maj.TotalDevices <= 0) continue;
 
                             // ── Device circles evenly along the top wire ──────────
-                            double span  = laneX - wireLeft;
+                            double span  = Math.Abs(laneX - farEdge);
                             double pitch = span / (maj.TotalDevices + 1);
                             for (int di = 0; di < maj.TotalDevices; di++)
                             {
-                                double devX = wireLeft + pitch * (di + 1);
+                                // flipped → circles go left from laneX; normal → right from wireLeft
+                                double devX = flipped
+                                    ? laneX - pitch * (di + 1)
+                                    : wireLeft + pitch * (di + 1);
                                 var circle  = new Ellipse
                                 {
                                     Width = circR * 2, Height = circR * 2,
@@ -494,6 +528,11 @@ namespace Pulse.UI.Controls
             UpdateRestoreButton();
         }
 
+        // ── Loop flip ─────────────────────────────────────────────────────
+
+        private void FlipLoopButton_Click(object sender, RoutedEventArgs e)
+            => _currentVm?.FlipSelectedLoop();
+
         // ── Level context popup ───────────────────────────────────────────
 
         private void DiagramCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -503,6 +542,17 @@ namespace Pulse.UI.Controls
             var tag = (e.OriginalSource as FrameworkElement)?.Tag as string;
             if (string.IsNullOrEmpty(tag)) return;
 
+            // ── Loop wire selection ───────────────────────────────────────
+            if (tag.StartsWith("loop::", StringComparison.Ordinal))
+            {
+                string loopKey = tag.Substring(6); // "panelName::loopName"
+                _currentVm.SelectedLoopKey = (_currentVm.SelectedLoopKey == loopKey) ? null : loopKey;
+                DrawLevels();
+                e.Handled = true;
+                return;
+            }
+
+            // ── Level popup (existing) ────────────────────────────────────
             int sep = tag.LastIndexOf('|');
             if (sep < 0) return;
 

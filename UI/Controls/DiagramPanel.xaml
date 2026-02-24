@@ -63,6 +63,18 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- Flip selected loop wire to the other side of the panel -->
+                    <Button x:Name="FlipLoopButton"
+                            DockPanel.Dock="Right"
+                            Style="{StaticResource PulseActionButtonStyle}"
+                            Width="24" Height="24"
+                            IsEnabled="{Binding IsFlipEnabled, FallbackValue=False}"
+                            ToolTip="Flip selected loop to other side"
+                            Click="FlipLoopButton_Click">
+                        <materialDesign:PackIcon Kind="SwapHorizontal"
+                                                 Width="14" Height="14"/>
+                    </Button>
+
                     <!-- Diagram icon + title — hidden when collapsed -->
                     <StackPanel x:Name="HeaderTitleStack"
                                 Orientation="Horizontal"

@@ -98,5 +98,9 @@ namespace Pulse.Core.Settings
         /// <summary>Loop label → assigned LoopModuleConfig name.</summary>
         [JsonProperty("loopAssignments")]
         public Dictionary<string, string> LoopAssignments { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>"panelName::loopName" → true means draw wire on the right side of the panel.</summary>
+        [JsonProperty("loopFlipStates")]
+        public Dictionary<string, bool> LoopFlipStates { get; set; } = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
     }
 }
