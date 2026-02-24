@@ -246,7 +246,7 @@ namespace Pulse.UI.ViewModels
 
             // Update diagram levels and panels
             Diagram.LoadLevels(data.Levels);
-            Diagram.LoadPanels(data.Panels);
+            Diagram.LoadPanels(data.Panels, data.Loops, DeviceConfigService.Load());
 
             // Update status
             int panelCount = data.Panels.Count;

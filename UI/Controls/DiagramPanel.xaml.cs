@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
@@ -255,56 +256,136 @@ namespace Pulse.UI.Controls
 
                     double panelElev = panel.Elevation.Value;
 
-                    // Floor: highest visible level at-or-below the panel (larger canvas Y)
+                    // Floor: highest level at-or-below the panel
                     var floorEntry = yLookup.LastOrDefault(e2 => e2.Elevation <= panelElev + 0.001);
-                    // Ceiling: lowest visible level above the panel (smaller canvas Y)
+                    // Ceiling: lowest level strictly above the panel
                     var ceilEntry  = yLookup.FirstOrDefault(e2 => e2.Elevation > panelElev + 0.001);
 
                     if (floorEntry == null) continue;
 
-                    double rectBottom = floorEntry.Y;
-                    double rectTop2   = ceilEntry != null ? ceilEntry.Y : MarginTop;
+                    double zoneBottom = floorEntry.Y;
+                    double zoneTop    = ceilEntry != null ? ceilEntry.Y : MarginTop;
 
-                    const double pad = 6.0;
-                    double rectH = rectBottom - rectTop2 - pad * 2;
-                    if (rectH < 8) continue;
+                    const double vPad  = 10.0;  // gap from level lines
+                    double rectH = zoneBottom - zoneTop - vPad * 2;
+                    if (rectH < 16) continue;
 
-                    const double hPad   = 0.12;         // 12% margin each side
-                    double rectLeft2    = w * hPad;
-                    double rectW        = w * (1.0 - hPad * 2);
+                    // Narrower rect — 56 % of canvas width, centered
+                    const double hFrac = 0.22;
+                    double rectLeft = w * hFrac;
+                    double rectW    = w * (1.0 - hFrac * 2);
+                    double rectTop  = zoneTop + vPad;
 
-                    // Rectangle
+                    // ── Outer rectangle ──────────────────────────────────
                     var panelRect = new System.Windows.Shapes.Rectangle
                     {
-                        Width           = rectW,
-                        Height          = rectH,
-                        Stroke          = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
-                        StrokeThickness = 1,
-                        Fill            = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF)),
-                        RadiusX         = 3,
-                        RadiusY         = 3,
+                        Width            = rectW,
+                        Height           = rectH,
+                        Stroke           = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                        StrokeThickness  = 1,
+                        Fill             = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF)),
+                        RadiusX          = 3,
+                        RadiusY          = 3,
                         IsHitTestVisible = false
                     };
-                    Canvas.SetLeft(panelRect, rectLeft2);
-                    Canvas.SetTop(panelRect,  rectTop2 + pad);
+                    Canvas.SetLeft(panelRect, rectLeft);
+                    Canvas.SetTop(panelRect,  rectTop);
                     DiagramCanvas.Children.Add(panelRect);
 
-                    // Label — centered inside the rectangle
+                    // ── Loop output header ────────────────────────────────
+                    // Total outputs to show: prefer config count, fall back to actual loops
+                    int loopCount = panel.ConfigLoopCount > 0
+                        ? panel.ConfigLoopCount
+                        : panel.LoopNames.Count;
+                    loopCount = Math.Min(loopCount, 16); // hard cap
+
+                    const double headerH   = 22.0;
+                    const double termSize  = 6.0;
+                    const double termLabelFontSize = 7.0;
+
+                    if (loopCount > 0 && rectH > headerH + 8)
+                    {
+                        // Separator line below the header
+                        var sep = new Line
+                        {
+                            X1               = rectLeft + 1,
+                            X2               = rectLeft + rectW - 1,
+                            Y1               = rectTop + headerH,
+                            Y2               = rectTop + headerH,
+                            Stroke           = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
+                            StrokeThickness  = 1,
+                            IsHitTestVisible = false
+                        };
+                        DiagramCanvas.Children.Add(sep);
+
+                        // Distribute terminals evenly across header width
+                        double slotW  = (rectW - 8.0) / loopCount;
+                        double termY  = rectTop + (headerH - termSize) / 2.0;
+
+                        for (int li = 0; li < loopCount; li++)
+                        {
+                            double cx = rectLeft + 4.0 + slotW * (li + 0.5);
+
+                            // Small filled square terminal
+                            var term = new System.Windows.Shapes.Rectangle
+                            {
+                                Width            = termSize,
+                                Height           = termSize,
+                                Fill             = new SolidColorBrush(Color.FromArgb(0xBB, 0xFF, 0xFF, 0xFF)),
+                                IsHitTestVisible = false
+                            };
+                            Canvas.SetLeft(term, cx - termSize / 2.0);
+                            Canvas.SetTop(term,  termY);
+                            DiagramCanvas.Children.Add(term);
+
+                            // Label below the terminal (inside header strip)
+                            string lbl = li < panel.LoopNames.Count
+                                ? panel.LoopNames[li]
+                                : $"L{li + 1}";
+                            // Shorten to first word / number after "Loop " for brevity
+                            if (lbl.StartsWith("Loop ", StringComparison.OrdinalIgnoreCase))
+                                lbl = lbl.Substring(5).Trim();
+                            if (lbl.Length > 3) lbl = lbl.Substring(0, 3);
+
+                            if (slotW >= 9) // only draw label if there is room
+                            {
+                                var termLabel = new TextBlock
+                                {
+                                    Text             = lbl,
+                                    FontSize         = termLabelFontSize,
+                                    Foreground       = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
+                                    IsHitTestVisible = false,
+                                    TextAlignment    = TextAlignment.Center,
+                                    Width            = slotW
+                                };
+                                Canvas.SetLeft(termLabel, cx - slotW / 2.0);
+                                Canvas.SetTop(termLabel,  termY + termSize + 1);
+                                DiagramCanvas.Children.Add(termLabel);
+                            }
+                        }
+                    }
+
+                    // ── Panel name (centered in body below header) ────────
+                    double bodyTop = (loopCount > 0 && rectH > headerH + 8)
+                        ? rectTop + headerH + 2
+                        : rectTop;
+                    double bodyH   = rectTop + rectH - bodyTop;
+
                     var panelLabel = new TextBlock
                     {
-                        Text            = panel.Name,
-                        FontSize        = 9,
-                        FontWeight      = FontWeights.SemiBold,
-                        Foreground      = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
-                        TextWrapping    = TextWrapping.Wrap,
-                        TextAlignment   = TextAlignment.Center,
-                        MaxWidth        = rectW - 8,
+                        Text             = panel.Name,
+                        FontSize         = 9,
+                        FontWeight       = FontWeights.SemiBold,
+                        Foreground       = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                        TextWrapping     = TextWrapping.Wrap,
+                        TextAlignment    = TextAlignment.Center,
+                        MaxWidth         = rectW - 8,
                         IsHitTestVisible = false
                     };
                     panelLabel.Measure(new System.Windows.Size(rectW - 8, double.PositiveInfinity));
                     double labelH = panelLabel.DesiredSize.Height;
-                    Canvas.SetLeft(panelLabel, rectLeft2 + 4);
-                    Canvas.SetTop(panelLabel,  rectTop2 + pad + (rectH - labelH) / 2.0);
+                    Canvas.SetLeft(panelLabel, rectLeft + 4);
+                    Canvas.SetTop(panelLabel,  bodyTop + Math.Max(0, (bodyH - labelH) / 2.0));
                     DiagramCanvas.Children.Add(panelLabel);
                 }
             }

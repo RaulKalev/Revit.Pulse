@@ -3,16 +3,22 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Pulse.Core.Modules;
+using Pulse.Core.Settings;
 using Pulse.Core.SystemModel;
 
 namespace Pulse.UI.ViewModels
 {
     public readonly struct PanelInfo
     {
-        public string Name      { get; }
-        public double? Elevation { get; }
-        public PanelInfo(string name, double? elevation)
-        { Name = name; Elevation = elevation; }
+        public string Name             { get; }
+        public double? Elevation        { get; }
+        /// <summary>Actual loop names extracted from the model for this panel (sorted).</summary>
+        public IReadOnlyList<string> LoopNames { get; }
+        /// <summary>MaxLoopCount from the assigned ControlPanelConfig (0 = no config assigned).</summary>
+        public int ConfigLoopCount { get; }
+        public PanelInfo(string name, double? elevation,
+                         IReadOnlyList<string> loopNames, int configLoopCount)
+        { Name = name; Elevation = elevation; LoopNames = loopNames; ConfigLoopCount = configLoopCount; }
     }
 
     public readonly struct NonVisibleItem
@@ -46,11 +52,34 @@ namespace Pulse.UI.ViewModels
 
         public ObservableCollection<PanelInfo> Panels { get; } = new ObservableCollection<PanelInfo>();
 
-        public void LoadPanels(IEnumerable<Panel> panels)
+        public void LoadPanels(IEnumerable<Panel> panels, IEnumerable<Loop> loops, DeviceConfigStore configStore)
         {
             Panels.Clear();
+
+            var store = configStore ?? new DeviceConfigStore();
+            var loopsByPanel = (loops ?? Enumerable.Empty<Loop>())
+                .GroupBy(l => l.PanelId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
             foreach (var p in panels)
-                Panels.Add(new PanelInfo(p.DisplayName, p.Elevation));
+            {
+                var panelLoops  = loopsByPanel.TryGetValue(p.EntityId, out var ls) ? ls
+                                  : new List<Loop>();
+                var loopNames   = panelLoops
+                    .OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase)
+                    .Select(l => l.DisplayName)
+                    .ToList();
+
+                int configLoopCount = 0;
+                if (store.PanelAssignments.TryGetValue(p.DisplayName, out string cfgName)
+                    && !string.IsNullOrEmpty(cfgName))
+                {
+                    var cfg = store.ControlPanels.FirstOrDefault(c => c.Name == cfgName);
+                    configLoopCount = cfg?.MaxLoopCount ?? 0;
+                }
+
+                Panels.Add(new PanelInfo(p.DisplayName, p.Elevation, loopNames, configLoopCount));
+            }
         }
 
         // ── Visibility preferences ────────────────────────────────────────
