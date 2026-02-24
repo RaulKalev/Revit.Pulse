@@ -63,6 +63,25 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- Canvas settings button — always visible when expanded -->
+                    <Button x:Name="CanvasSettingsButton"
+                            DockPanel.Dock="Right"
+                            Style="{StaticResource PulseActionButtonStyle}"
+                            Height="24"
+                            Padding="6,0"
+                            ToolTip="Canvas drawing settings"
+                            Click="CanvasSettingsButton_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <materialDesign:PackIcon Kind="TuneVariant"
+                                                     Width="13" Height="13"
+                                                     VerticalAlignment="Center"
+                                                     Margin="0,0,4,0"/>
+                            <TextBlock Text="Settings"
+                                       FontSize="10"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
 
 
                     <!-- Diagram icon + title — hidden when collapsed -->
@@ -250,6 +269,81 @@
                                           HorizontalScrollBarVisibility="Disabled">
                                 <StackPanel x:Name="RestoreList" Margin="0,0,0,4"/>
                             </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <!-- Canvas settings popup -->
+                <Popup x:Name="CanvasSettingsPopup"
+                       StaysOpen="False"
+                       AllowsTransparency="True"
+                       PopupAnimation="Fade"
+                       PlacementTarget="{Binding ElementName=CanvasSettingsButton}"
+                       Placement="Bottom">
+                    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            MinWidth="210"
+                            Padding="10,8,10,10">
+                        <StackPanel>
+                            <TextBlock Text="Canvas Settings"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Opacity="0.45"
+                                       Margin="0,0,0,6"
+                                       Foreground="{DynamicResource ForegroundBrush}"/>
+                            <Separator Margin="0,0,0,8"
+                                       Background="{DynamicResource BorderBrush}"/>
+
+                            <!-- Wire row spacing -->
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="56"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Wire row spacing (px):"
+                                           FontSize="11" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           Grid.Column="0" Margin="0,0,8,0"/>
+                                <TextBox x:Name="TbWireSpacing"
+                                         Grid.Column="1"
+                                         FontSize="11"
+                                         Style="{DynamicResource DarkTextBoxStyle}"
+                                         VerticalContentAlignment="Center"
+                                         Height="24"/>
+                            </Grid>
+
+                            <!-- Device spacing -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="56"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Device spacing (px, 0=auto):"
+                                           FontSize="11" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           Grid.Column="0" Margin="0,0,8,0"
+                                           TextWrapping="Wrap"/>
+                                <TextBox x:Name="TbDeviceSpacing"
+                                         Grid.Column="1"
+                                         FontSize="11"
+                                         Style="{DynamicResource DarkTextBoxStyle}"
+                                         VerticalContentAlignment="Center"
+                                         Height="24"/>
+                            </Grid>
+
+                            <Button x:Name="BtnCanvasSettingsApply"
+                                    Click="BtnCanvasSettingsApply_Click"
+                                    Style="{StaticResource PulseActionButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    Height="26"
+                                    FontSize="11">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="Check" Width="13" Height="13"
+                                                             VerticalAlignment="Center" Margin="0,0,5,0"/>
+                                    <TextBlock Text="Apply" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
                         </StackPanel>
                     </Border>
                 </Popup>

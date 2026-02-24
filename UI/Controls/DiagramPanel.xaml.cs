@@ -61,6 +61,9 @@ namespace Pulse.UI.Controls
         // Custom symbol library (loaded once per VM change)
         private List<CustomSymbolDefinition> _symbolLibrary;
 
+        // Canvas drawing settings (loaded from disk, editable via popup)
+        private DiagramCanvasSettings _canvasSettings = new DiagramCanvasSettings();
+
         public DiagramPanel()
         {
             InitializeComponent();
@@ -96,18 +99,20 @@ namespace Pulse.UI.Controls
 
             if (_isExpanded)
             {
-                DiagramContent.Visibility   = Visibility.Visible;
-                HeaderTitleStack.Visibility = Visibility.Visible;
-                CollapsedLabel.Visibility   = Visibility.Collapsed;
-                ToggleIcon.Kind             = PackIconKind.ChevronRight;
+                DiagramContent.Visibility        = Visibility.Visible;
+                HeaderTitleStack.Visibility      = Visibility.Visible;
+                CollapsedLabel.Visibility        = Visibility.Collapsed;
+                CanvasSettingsButton.Visibility  = Visibility.Visible;
+                ToggleIcon.Kind                  = PackIconKind.ChevronRight;
                 Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
             }
             else
             {
-                DiagramContent.Visibility   = Visibility.Collapsed;
-                HeaderTitleStack.Visibility = Visibility.Collapsed;
-                CollapsedLabel.Visibility   = Visibility.Visible;
-                ToggleIcon.Kind             = PackIconKind.ChevronLeft;
+                DiagramContent.Visibility        = Visibility.Collapsed;
+                HeaderTitleStack.Visibility      = Visibility.Collapsed;
+                CollapsedLabel.Visibility        = Visibility.Visible;
+                CanvasSettingsButton.Visibility  = Visibility.Collapsed;
+                ToggleIcon.Kind                  = PackIconKind.ChevronLeft;
             }
         }
 
@@ -146,6 +151,7 @@ namespace Pulse.UI.Controls
 
             // Refresh symbol library whenever the data context changes
             _symbolLibrary = CustomSymbolLibraryService.Load();
+            _canvasSettings = DiagramCanvasSettingsService.Load();
 
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
         }
@@ -685,7 +691,7 @@ namespace Pulse.UI.Controls
                     {
                         double slotWire        = leftSecW / loopCount;
                         const double circR     = 3.5;
-                        const double loopH     = 16.0;  // height of each closed-loop rectangle
+                        double loopH           = _canvasSettings.WireSpacingPx;
                         const double wireLeft  = 10.0;  // left margin for loop wires
                         var strokeBrush = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF));
                         var circleFill  = new SolidColorBrush(Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF));
@@ -783,9 +789,9 @@ namespace Pulse.UI.Controls
                             double topY  = effectiveLevelY - pitch * (rank + 1);
 
                             // Number of horizontal wires (default 2 = top + bottom)
-                            int    wireCount    = _currentVm.GetLoopWireCount(panel.Name, loopInfo.Name);
-                            const double wireSpacing = 13.0;
-                            double effectiveLoopH    = wireSpacing * (wireCount - 1);
+                            int    wireCount      = _currentVm.GetLoopWireCount(panel.Name, loopInfo.Name);
+                            double wireSpacing    = _canvasSettings.WireSpacingPx;
+                            double effectiveLoopH = wireSpacing * (wireCount - 1);
                             double botY    = topY + effectiveLoopH;
                             double farEdge = flipped ? (w - wireRight) : wireLeft;
 
@@ -829,22 +835,31 @@ namespace Pulse.UI.Controls
                             }
 
                             // ── Devices distributed evenly across all wires ───────
-                            double span    = Math.Abs(laneX - farEdge);
-                            int devRemain  = maj.TotalDevices;
-                            int devOffset  = 0;  // index into flatTypes
+                            // Pre-compute one shared column-X grid for ALL devices in the loop
+                            // so that devices on different wire rows are vertically aligned.
+                            double span  = Math.Abs(laneX - farEdge);
+                            int total    = maj.TotalDevices;
+                            double deviceSpacing = _canvasSettings.DeviceSpacingPx > 0
+                                ? _canvasSettings.DeviceSpacingPx
+                                : span / (total + 1);
+
+                            var devPositions = new double[total];
+                            for (int i = 0; i < total; i++)
+                                devPositions[i] = flipped
+                                    ? farEdge - deviceSpacing * (i + 1)
+                                    : wireLeft + deviceSpacing * (i + 1);
+
+                            // Distribute devices across wires using the shared column grid
+                            int devRemain = total;
+                            int devOffset = 0;
                             for (int wi = 0; wi < wireCount; wi++)
                             {
                                 // Ceiling-divide remaining devices among remaining wires
                                 int wireDevs = (devRemain + (wireCount - wi) - 1) / (wireCount - wi);
                                 double wY    = topY + wi * wireSpacing;
-                                double cp    = span / (wireDevs + 1);
                                 for (int di = 0; di < wireDevs; di++)
                                 {
-                                    double devX = flipped
-                                        ? farEdge - cp * (di + 1)
-                                        : wireLeft + cp * (di + 1);
-
-                                    // Resolve symbol for this specific device slot
+                                    double devX    = devPositions[devOffset];
                                     string devType = devOffset < flatTypes.Count ? flatTypes[devOffset] : null;
                                     devOffset++;
 
@@ -1250,6 +1265,35 @@ namespace Pulse.UI.Controls
             if (_currentVm == null) { RestoreButton.Visibility = Visibility.Collapsed; return; }
             RestoreButton.Visibility = _currentVm.GetNonVisibleItems().Count > 0
                 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        // ── Canvas settings popup ───────────────────────────────────────
+
+        private void CanvasSettingsButton_Click(object sender, RoutedEventArgs e)
+        {
+            // Populate textboxes with current values
+            TbWireSpacing.Text    = _canvasSettings.WireSpacingPx.ToString("F1",
+                System.Globalization.CultureInfo.InvariantCulture);
+            TbDeviceSpacing.Text  = _canvasSettings.DeviceSpacingPx.ToString("F1",
+                System.Globalization.CultureInfo.InvariantCulture);
+            CanvasSettingsPopup.IsOpen = true;
+        }
+
+        private void BtnCanvasSettingsApply_Click(object sender, RoutedEventArgs e)
+        {
+            if (double.TryParse(TbWireSpacing.Text,
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out double ws) && ws >= 4)
+                _canvasSettings.WireSpacingPx = ws;
+
+            if (double.TryParse(TbDeviceSpacing.Text,
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out double ds) && ds >= 0)
+                _canvasSettings.DeviceSpacingPx = ds;
+
+            DiagramCanvasSettingsService.Save(_canvasSettings);
+            CanvasSettingsPopup.IsOpen = false;
+            DrawLevels();
         }
 
         private void RestoreButton_Click(object sender, RoutedEventArgs e)
