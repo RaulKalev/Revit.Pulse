@@ -13,9 +13,9 @@
         Layout: label at top, thin arc ring, combined "V / M unit" text centered inside arc, percentage below.
     -->
     <Viewbox Stretch="Uniform">
-        <Canvas Width="140" Height="100">
+        <Canvas Width="140" Height="112">
 
-            <!-- Gauge label — sits above the arc -->
+            <!-- Gauge label — sits above the arc with breathing room -->
             <TextBlock x:Name="LabelText"
                        Canvas.Left="0" Canvas.Top="2"
                        Width="140" TextAlignment="Center"
@@ -40,14 +40,14 @@
 
             <!-- Combined "value / max unit" — below the arc -->
             <TextBlock x:Name="ValueText"
-                       Canvas.Left="0" Canvas.Top="74"
+                       Canvas.Left="0" Canvas.Top="88"
                        Width="140" TextAlignment="Center"
                        FontSize="13" FontWeight="Bold"
                        Foreground="White"/>
 
             <!-- Percentage -->
             <TextBlock x:Name="PercentText"
-                       Canvas.Left="0" Canvas.Top="89"
+                       Canvas.Left="0" Canvas.Top="103"
                        Width="140" TextAlignment="Center"
                        FontSize="9" Opacity="0.50"
                        Foreground="White"/>

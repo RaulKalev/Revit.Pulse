@@ -8,7 +8,7 @@ namespace Pulse.UI.Controls
     {
         // Arc center and radius (to stroke centerline). StrokeThickness=12 in XAML.
         private const double Cx = 70;
-        private const double Cy = 70;
+        private const double Cy = 82;
         private const double R  = 52;
 
         public static readonly DependencyProperty ValueProperty =

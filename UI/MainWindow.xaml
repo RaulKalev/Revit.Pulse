@@ -154,7 +154,7 @@
 
                     <!-- GridSplitter -->
                     <GridSplitter Grid.Column="1"
-                                  Width="5"
+                                  Width="1"
                                   HorizontalAlignment="Stretch"
                                   Background="{DynamicResource BorderBrush}"
                                   Cursor="SizeWE"/>
