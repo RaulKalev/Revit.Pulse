@@ -23,10 +23,10 @@
                        Foreground="White"
                        TextOptions.TextFormattingMode="Display"/>
 
-            <!-- Static background track: full 180° ring, Cx=70 Cy=78 OuterR=58 InnerR=22 -->
-            <!-- M 12,78 A 58,58 0 0 0 128,78 L 92,78 A 22,22 0 0 1 48,78 Z -->
+            <!-- Static background track: full 180° ring going UP over the top -->
+            <!-- outer: sweep=1 (clockwise/up), inner: sweep=0 (CCW/up, right-to-left) -->
             <Path x:Name="BackTrackPath"
-                  Data="M 12,78 A 58,58 0 0 0 128,78 L 92,78 A 22,22 0 0 1 48,78 Z"
+                  Data="M 12,78 A 58,58 0 1 1 128,78 L 92,78 A 22,22 0 1 0 48,78 Z"
                   Fill="#55FFFFFF"/>
 
             <!-- Value arc: geometry replaced in code-behind -->

@@ -111,15 +111,17 @@ namespace Pulse.UI.Controls
             using (var ctx = geo.Open())
             {
                 ctx.BeginFigure(new Point(ox0, oy0), isFilled: true, isClosed: true);
+                // Clockwise in screen coords (Y-down) sweeps upward over the top
                 ctx.ArcTo(new Point(ox1, oy1),
                     new Size(OuterR, OuterR), 0,
-                    largeArc, SweepDirection.Counterclockwise,
+                    largeArc, SweepDirection.Clockwise,
                     isStroked: false, isSmoothJoin: true);
 
                 ctx.LineTo(new Point(ix1, iy1), isStroked: false, isSmoothJoin: true);
+                // Inner arc goes back right-to-left, counterclockwise (also upward)
                 ctx.ArcTo(new Point(ix0, iy0),
                     new Size(InnerR, InnerR), 0,
-                    largeArc, SweepDirection.Clockwise,
+                    largeArc, SweepDirection.Counterclockwise,
                     isStroked: false, isSmoothJoin: true);
             }
             geo.Freeze();
