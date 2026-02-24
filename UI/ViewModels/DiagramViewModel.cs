@@ -20,8 +20,10 @@ namespace Pulse.UI.ViewModels
     {
         public string Name { get; }
         public IReadOnlyList<LoopLevelInfo> Levels { get; }
-        public LoopDrawInfo(string name, IReadOnlyList<LoopLevelInfo> levels)
-        { Name = name; Levels = levels; }
+        /// <summary>Most frequent DeviceType among devices on this loop, or null if unknown.</summary>
+        public string DominantDeviceType { get; }
+        public LoopDrawInfo(string name, IReadOnlyList<LoopLevelInfo> levels, string dominantDeviceType = null)
+        { Name = name; Levels = levels; DominantDeviceType = dominantDeviceType; }
     }
 
     public readonly struct PanelInfo
@@ -143,7 +145,13 @@ namespace Pulse.UI.ViewModels
                         .Select(kv => new LoopLevelInfo(kv.Key, kv.Value))
                         .OrderBy(x => x.Elevation)
                         .ToList();
-                    loopInfos.Add(new LoopDrawInfo(loop.DisplayName, levelInfos));
+                    string dominantType = loop.Devices
+                        .Where(d => !string.IsNullOrEmpty(d.DeviceType))
+                        .GroupBy(d => d.DeviceType)
+                        .OrderByDescending(g => g.Count())
+                        .Select(g => g.Key)
+                        .FirstOrDefault();
+                    loopInfos.Add(new LoopDrawInfo(loop.DisplayName, levelInfos, dominantType));
                 }
 
                 int configLoopCount = 0;
@@ -156,6 +164,18 @@ namespace Pulse.UI.ViewModels
 
                 Panels.Add(new PanelInfo(p.DisplayName, p.Elevation, loopInfos, configLoopCount));
             }
+        }
+
+        /// <summary>
+        /// Returns the symbol name/key mapped to the given device type via SymbolMappings,
+        /// or null if no mapping exists.
+        /// </summary>
+        public string GetDeviceTypeSymbol(string deviceType)
+        {
+            if (string.IsNullOrEmpty(deviceType)) return null;
+            return (_assignmentsStore?.SymbolMappings != null
+                    && _assignmentsStore.SymbolMappings.TryGetValue(deviceType, out var s))
+                ? s : null;
         }
 
         // ── Loop flip + selection ─────────────────────────────────────────

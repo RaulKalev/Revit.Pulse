@@ -11,6 +11,7 @@ using System.Windows.Shapes;
 using System.Windows.Threading;
 using MaterialDesignThemes.Wpf;
 using Pulse.Core.Modules;
+using Pulse.Core.Settings;
 using Pulse.UI.ViewModels;
 
 namespace Pulse.UI.Controls
@@ -50,6 +51,9 @@ namespace Pulse.UI.Controls
             new Dictionary<string, FrameworkElement>();
         private FrameworkElement _selectedVisual;
         private Brush            _selectedOriginalBrush;
+
+        // Custom symbol library (loaded once per VM change)
+        private List<CustomSymbolDefinition> _symbolLibrary;
 
         public DiagramPanel()
         {
@@ -133,6 +137,9 @@ namespace Pulse.UI.Controls
                 _currentVm.FlipStateChanged           = () => Dispatcher.BeginInvoke(
                     DispatcherPriority.Loaded, (System.Action)DrawLevels);
             }
+
+            // Refresh symbol library whenever the data context changes
+            _symbolLibrary = CustomSymbolLibraryService.Load();
 
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
         }
@@ -785,6 +792,15 @@ namespace Pulse.UI.Controls
 
                             if (maj.TotalDevices <= 0) continue;
 
+                            // Resolve custom symbol for this loop's device type (null → default circle)
+                            string symKey = loopInfo.DominantDeviceType != null
+                                ? _currentVm.GetDeviceTypeSymbol(loopInfo.DominantDeviceType)
+                                : null;
+                            CustomSymbolDefinition loopSymbol = symKey != null && _symbolLibrary != null
+                                ? _symbolLibrary.FirstOrDefault(s =>
+                                    string.Equals(s.Name, symKey, StringComparison.OrdinalIgnoreCase))
+                                : null;
+
                             // ── Devices distributed evenly across all wires ───────
                             double span     = Math.Abs(laneX - farEdge);
                             int devRemain   = maj.TotalDevices;
@@ -799,15 +815,22 @@ namespace Pulse.UI.Controls
                                     double devX = flipped
                                         ? farEdge - cp * (di + 1)
                                         : wireLeft + cp * (di + 1);
-                                    var circle = new Ellipse
+                                    if (loopSymbol != null)
                                     {
-                                        Width = circR * 2, Height = circR * 2,
-                                        Stroke = circleStroke, StrokeThickness = 1,
-                                        Fill = circleFill, IsHitTestVisible = false
-                                    };
-                                    Canvas.SetLeft(circle, devX - circR);
-                                    Canvas.SetTop(circle,  wY  - circR);
-                                    DiagramCanvas.Children.Add(circle);
+                                        AddSymbolToCanvas(devX, wY, circR * 2.8, loopSymbol, circleStroke);
+                                    }
+                                    else
+                                    {
+                                        var circle = new Ellipse
+                                        {
+                                            Width = circR * 2, Height = circR * 2,
+                                            Stroke = circleStroke, StrokeThickness = 1,
+                                            Fill = circleFill, IsHitTestVisible = false
+                                        };
+                                        Canvas.SetLeft(circle, devX - circR);
+                                        Canvas.SetTop(circle,  wY  - circR);
+                                        DiagramCanvas.Children.Add(circle);
+                                    }
                                 }
                                 devRemain -= wireDevs;
                             }
@@ -1230,6 +1253,101 @@ namespace Pulse.UI.Controls
 
                 RestoreList.Children.Add(row);
             }
+        }
+
+        // ── Custom symbol rendering ───────────────────────────────────────
+
+        /// <summary>
+        /// Renders a <see cref="CustomSymbolDefinition"/> centred at (cx, cy) within
+        /// the diagram canvas, scaled so the symbol fits inside a square of <paramref name="sizePx"/>.
+        /// Falls back silently if the symbol has no elements.
+        /// </summary>
+        private void AddSymbolToCanvas(double cx, double cy, double sizePx,
+                                        CustomSymbolDefinition symbol, Brush defaultStroke)
+        {
+            if (symbol?.Elements == null || symbol.Elements.Count == 0) return;
+
+            double vw = symbol.ViewboxWidthMm  > 0 ? symbol.ViewboxWidthMm  : 10.0;
+            double vh = symbol.ViewboxHeightMm > 0 ? symbol.ViewboxHeightMm : 10.0;
+            double scale = sizePx / Math.Max(vw, vh);   // px per mm
+            double ox = cx - vw * scale / 2;
+            double oy = cy - vh * scale / 2;
+
+            foreach (var el in symbol.Elements)
+            {
+                var shape = CreateDiagramShape(el, scale, ox, oy, defaultStroke);
+                if (shape == null) continue;
+                DiagramCanvas.Children.Add(shape);
+            }
+        }
+
+        private static UIElement CreateDiagramShape(SymbolElement el, double scale,
+                                                     double ox, double oy, Brush defaultStroke)
+        {
+            var stroke = TryParseBrush(el.StrokeColor) ?? defaultStroke;
+            var fill   = el.IsFilled ? (TryParseBrush(el.FillColor) ?? Brushes.Transparent) : Brushes.Transparent;
+            double thick = Math.Max(0.6, el.StrokeThicknessMm * scale);
+
+            switch (el.Type)
+            {
+                case SymbolElementType.Line:
+                {
+                    if (el.Points.Count < 2) return null;
+                    return new Line
+                    {
+                        X1 = ox + el.Points[0].X * scale, Y1 = oy + el.Points[0].Y * scale,
+                        X2 = ox + el.Points[1].X * scale, Y2 = oy + el.Points[1].Y * scale,
+                        Stroke = stroke, StrokeThickness = thick, IsHitTestVisible = false
+                    };
+                }
+                case SymbolElementType.Polyline:
+                {
+                    if (el.Points.Count < 2) return null;
+                    var pts = new PointCollection(
+                        el.Points.Select(p => new Point(ox + p.X * scale, oy + p.Y * scale)));
+                    if (el.IsClosed || el.IsFilled)
+                        return new Polygon  { Points = pts, Stroke = stroke, StrokeThickness = thick, Fill = fill, IsHitTestVisible = false };
+                    return new Polyline { Points = pts, Stroke = stroke, StrokeThickness = thick, IsHitTestVisible = false };
+                }
+                case SymbolElementType.Circle:
+                {
+                    if (el.Points.Count < 2) return null;
+                    double cx2 = ox + el.Points[0].X * scale, cy2 = oy + el.Points[0].Y * scale;
+                    double r = Math.Sqrt(
+                        Math.Pow((ox + el.Points[1].X * scale) - cx2, 2) +
+                        Math.Pow((oy + el.Points[1].Y * scale) - cy2, 2));
+                    if (r < 0.3) return null;
+                    var e2 = new Ellipse { Width = r * 2, Height = r * 2, Stroke = stroke, StrokeThickness = thick, Fill = fill, IsHitTestVisible = false };
+                    Canvas.SetLeft(e2, cx2 - r);
+                    Canvas.SetTop(e2,  cy2 - r);
+                    return e2;
+                }
+                case SymbolElementType.Rectangle:
+                {
+                    if (el.Points.Count < 2) return null;
+                    double rx = Math.Min(el.Points[0].X, el.Points[1].X) * scale + ox;
+                    double ry = Math.Min(el.Points[0].Y, el.Points[1].Y) * scale + oy;
+                    double rw = Math.Abs(el.Points[1].X - el.Points[0].X) * scale;
+                    double rh = Math.Abs(el.Points[1].Y - el.Points[0].Y) * scale;
+                    if (rw < 0.5 || rh < 0.5) return null;
+                    var rect = new System.Windows.Shapes.Rectangle { Width = rw, Height = rh, Stroke = stroke, StrokeThickness = thick, Fill = fill, IsHitTestVisible = false };
+                    Canvas.SetLeft(rect, rx);
+                    Canvas.SetTop(rect,  ry);
+                    return rect;
+                }
+            }
+            return null;
+        }
+
+        private static Brush TryParseBrush(string hex)
+        {
+            if (string.IsNullOrWhiteSpace(hex)) return null;
+            try
+            {
+                var c = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
+                return new SolidColorBrush(c);
+            }
+            catch { return null; }
         }
     }
 }
