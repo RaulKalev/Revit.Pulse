@@ -8,17 +8,33 @@ using Pulse.Core.SystemModel;
 
 namespace Pulse.UI.ViewModels
 {
+    public readonly struct LoopLevelInfo
+    {
+        public double Elevation   { get; }
+        public int    DeviceCount { get; }
+        public LoopLevelInfo(double elevation, int deviceCount)
+        { Elevation = elevation; DeviceCount = deviceCount; }
+    }
+
+    public readonly struct LoopDrawInfo
+    {
+        public string Name { get; }
+        public IReadOnlyList<LoopLevelInfo> Levels { get; }
+        public LoopDrawInfo(string name, IReadOnlyList<LoopLevelInfo> levels)
+        { Name = name; Levels = levels; }
+    }
+
     public readonly struct PanelInfo
     {
-        public string Name             { get; }
-        public double? Elevation        { get; }
-        /// <summary>Actual loop names extracted from the model for this panel (sorted).</summary>
-        public IReadOnlyList<string> LoopNames { get; }
+        public string Name              { get; }
+        public double? Elevation         { get; }
+        /// <summary>Loop draw data for each actual loop on this panel, sorted by loop name.</summary>
+        public IReadOnlyList<LoopDrawInfo> LoopInfos { get; }
         /// <summary>MaxLoopCount from the assigned ControlPanelConfig (0 = no config assigned).</summary>
         public int ConfigLoopCount { get; }
         public PanelInfo(string name, double? elevation,
-                         IReadOnlyList<string> loopNames, int configLoopCount)
-        { Name = name; Elevation = elevation; LoopNames = loopNames; ConfigLoopCount = configLoopCount; }
+                         IReadOnlyList<LoopDrawInfo> loopInfos, int configLoopCount)
+        { Name = name; Elevation = elevation; LoopInfos = loopInfos; ConfigLoopCount = configLoopCount; }
     }
 
     public readonly struct NonVisibleItem
@@ -63,12 +79,25 @@ namespace Pulse.UI.ViewModels
 
             foreach (var p in panels)
             {
-                var panelLoops  = loopsByPanel.TryGetValue(p.EntityId, out var ls) ? ls
-                                  : new List<Loop>();
-                var loopNames   = panelLoops
-                    .OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase)
-                    .Select(l => l.DisplayName)
-                    .ToList();
+                var panelLoops  = loopsByPanel.TryGetValue(p.EntityId, out var ls) ? ls : new List<Loop>();
+                var sortedLoops = panelLoops.OrderBy(l => l.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
+
+                var loopInfos = new List<LoopDrawInfo>();
+                foreach (var loop in sortedLoops)
+                {
+                    var levelMap = new Dictionary<double, int>();
+                    foreach (var d in loop.Devices)
+                    {
+                        if (!d.Elevation.HasValue) continue;
+                        double key = Math.Round(d.Elevation.Value, 3);
+                        levelMap[key] = levelMap.TryGetValue(key, out int cnt) ? cnt + 1 : 1;
+                    }
+                    var levelInfos = levelMap
+                        .Select(kv => new LoopLevelInfo(kv.Key, kv.Value))
+                        .OrderBy(x => x.Elevation)
+                        .ToList();
+                    loopInfos.Add(new LoopDrawInfo(loop.DisplayName, levelInfos));
+                }
 
                 int configLoopCount = 0;
                 if (store.PanelAssignments.TryGetValue(p.DisplayName, out string cfgName)
@@ -78,7 +107,7 @@ namespace Pulse.UI.ViewModels
                     configLoopCount = cfg?.MaxLoopCount ?? 0;
                 }
 
-                Panels.Add(new PanelInfo(p.DisplayName, p.Elevation, loopNames, configLoopCount));
+                Panels.Add(new PanelInfo(p.DisplayName, p.Elevation, loopInfos, configLoopCount));
             }
         }
 

@@ -206,6 +206,16 @@ namespace Pulse.Modules.FireAlarm
                     device.SetProperty(kvp.Key, kvp.Value);
                 }
 
+                // Capture the Revit level elevation directly on the device
+                if (element.Parameters.TryGetValue("_LevelElevation", out string devElevStr)
+                    && double.TryParse(devElevStr,
+                           System.Globalization.NumberStyles.Any,
+                           System.Globalization.CultureInfo.InvariantCulture,
+                           out double devElev))
+                {
+                    device.Elevation = devElev;
+                }
+
                 loop.Devices.Add(device);
                 data.Devices.Add(device);
             }

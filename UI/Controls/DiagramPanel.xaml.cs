@@ -273,10 +273,10 @@ namespace Pulse.UI.Controls
                     // Skip zone if it is too narrow to contain the panel
                     if (zoneBottom - zoneTop < panelFixedH + 8) continue;
 
-                    double rectW   = panelFixedW;
-                    double rectH   = panelFixedH;
-                    double rectLeft = (w - rectW) / 2.0;                              // horizontally centered
-                    double rectTop  = zoneTop + (zoneBottom - zoneTop - rectH) / 2.0; // vertically centered in zone
+                    double rectW    = panelFixedW;
+                    double rectH    = panelFixedH;
+                    double rectLeft = (w - rectW) / 2.0;          // horizontally centered
+                    double rectTop  = zoneBottom - 10.0 - rectH;  // 10 px above floor level line
 
                     // ── Outer rectangle ──────────────────────────────────
                     var panelRect = new System.Windows.Shapes.Rectangle
@@ -298,7 +298,7 @@ namespace Pulse.UI.Controls
                     // Total outputs to show: prefer config count, fall back to actual loops
                     int loopCount = panel.ConfigLoopCount > 0
                         ? panel.ConfigLoopCount
-                        : panel.LoopNames.Count;
+                        : panel.LoopInfos.Count;
                     loopCount = Math.Min(loopCount, 16); // hard cap
 
                     // Header height is driven by the rotated text; 52 px gives room for "Loop 10"
@@ -346,7 +346,7 @@ namespace Pulse.UI.Controls
                             }
 
                             // Always "Loop X" — add prefix when the model name is bare
-                            string rawName   = li < panel.LoopNames.Count ? panel.LoopNames[li] : $"{li + 1}";
+                            string rawName   = li < panel.LoopInfos.Count ? panel.LoopInfos[li].Name : $"{li + 1}";
                             string fullLabel = rawName.StartsWith("Loop ", StringComparison.OrdinalIgnoreCase)
                                 ? rawName
                                 : $"Loop {rawName}";
@@ -397,6 +397,67 @@ namespace Pulse.UI.Controls
                     Canvas.SetLeft(panelLabel, rectLeft + 4);
                     Canvas.SetTop(panelLabel,  bodyTop + Math.Max(0, (bodyH - labelH) / 2.0));
                     DiagramCanvas.Children.Add(panelLabel);
+
+                    // ── Loop spines and device circles ───────────────────────────
+                    if (loopCount > 0 && panel.LoopInfos.Count > 0)
+                    {
+                        double slotWire   = rectW / loopCount;
+                        const double circR     = 3.0;
+                        const double circPitch = circR * 2 + 3; // 9 px per device
+
+                        for (int li = 0; li < panel.LoopInfos.Count; li++)
+                        {
+                            var loopInfo = panel.LoopInfos[li];
+                            if (loopInfo.Levels == null || loopInfo.Levels.Count == 0) continue;
+
+                            double laneX = rectLeft + slotWire * (li + 0.5);
+
+                            // Map each device-level elevation → canvas Y (closest level in yLookup)
+                            var levelPoints = new List<(double Y, int Count)>();
+                            foreach (var ld in loopInfo.Levels)
+                            {
+                                var closest = yLookup
+                                    .OrderBy(e2 => Math.Abs(e2.Elevation - ld.Elevation))
+                                    .First();
+                                levelPoints.Add((closest.Y, ld.DeviceCount));
+                            }
+                            if (levelPoints.Count == 0) continue;
+
+                            // Spine: panel top → topmost device level (smallest Y = highest on canvas)
+                            double spineTop = levelPoints.Min(lp => lp.Y);
+                            DiagramCanvas.Children.Add(new Line
+                            {
+                                X1 = laneX, Y1 = rectTop,
+                                X2 = laneX, Y2 = spineTop,
+                                Stroke           = new SolidColorBrush(Color.FromArgb(0x88, 0xFF, 0xFF, 0xFF)),
+                                StrokeThickness  = 1,
+                                IsHitTestVisible = false
+                            });
+
+                            // Device circles centered on laneX at each level
+                            foreach (var (lvlY, devCount) in levelPoints)
+                            {
+                                double totalSpan = (devCount - 1) * circPitch;
+                                double startX    = laneX - totalSpan / 2.0;
+                                for (int di = 0; di < devCount; di++)
+                                {
+                                    double devX = startX + di * circPitch;
+                                    var circle = new Ellipse
+                                    {
+                                        Width            = circR * 2,
+                                        Height           = circR * 2,
+                                        Stroke           = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                                        StrokeThickness  = 1,
+                                        Fill             = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
+                                        IsHitTestVisible = false
+                                    };
+                                    Canvas.SetLeft(circle, devX - circR);
+                                    Canvas.SetTop(circle,  lvlY - circR);
+                                    DiagramCanvas.Children.Add(circle);
+                                }
+                            }
+                        }
+                    }
                 }
             }
 
