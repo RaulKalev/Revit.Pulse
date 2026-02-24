@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows.Input;
 using Pulse.Core.Settings;
 
@@ -163,16 +164,31 @@ namespace Pulse.UI.ViewModels
 
         // ─── Commands ─────────────────────────────────────────────────────────
 
-        public ICommand SelectToolCommand    { get; }
-        public ICommand LineToolCommand      { get; }
-        public ICommand PolylineToolCommand  { get; }
-        public ICommand CircleToolCommand    { get; }
-        public ICommand RectangleToolCommand { get; }
-        public ICommand UndoCommand          { get; }
-        public ICommand RedoCommand          { get; }
-        public ICommand ClearCommand         { get; }
-        public ICommand SaveCommand          { get; }
-        public ICommand CancelCommand        { get; }
+        // ─── Selection ────────────────────────────────────────────────────────
+
+        private SymbolElement _selectedElement;
+        /// <summary>Currently selected element in Select mode. Null when nothing is selected.</summary>
+        public SymbolElement SelectedElement
+        {
+            get => _selectedElement;
+            set
+            {
+                SetField(ref _selectedElement, value);
+                CommandManager.InvalidateRequerySuggested();
+            }
+        }
+
+        public ICommand SelectToolCommand      { get; }
+        public ICommand LineToolCommand        { get; }
+        public ICommand PolylineToolCommand    { get; }
+        public ICommand CircleToolCommand      { get; }
+        public ICommand RectangleToolCommand   { get; }
+        public ICommand UndoCommand            { get; }
+        public ICommand RedoCommand            { get; }
+        public ICommand ClearCommand           { get; }
+        public ICommand DeleteSelectedCommand  { get; }
+        public ICommand SaveCommand            { get; }
+        public ICommand CancelCommand          { get; }
 
         // ─── Events ───────────────────────────────────────────────────────────
 
@@ -198,11 +214,12 @@ namespace Pulse.UI.ViewModels
             CircleToolCommand    = new RelayCommand(_ => ActiveTool = DesignerTool.Circle);
             RectangleToolCommand = new RelayCommand(_ => ActiveTool = DesignerTool.Rectangle);
 
-            UndoCommand    = new RelayCommand(_ => ExecuteUndo(),  _ => _undoStack.Count > 0);
-            RedoCommand    = new RelayCommand(_ => ExecuteRedo(),  _ => _redoStack.Count > 0);
-            ClearCommand   = new RelayCommand(_ => ExecuteClear(), _ => Elements.Count > 0);
-            SaveCommand    = new RelayCommand(_ => ExecuteSave(),  _ => !string.IsNullOrWhiteSpace(SymbolName));
-            CancelCommand  = new RelayCommand(_ => Cancelled?.Invoke());
+            UndoCommand           = new RelayCommand(_ => ExecuteUndo(),    _ => _undoStack.Count > 0);
+            RedoCommand           = new RelayCommand(_ => ExecuteRedo(),    _ => _redoStack.Count > 0);
+            ClearCommand          = new RelayCommand(_ => ExecuteClear(),   _ => Elements.Count > 0);
+            DeleteSelectedCommand = new RelayCommand(_ => ExecuteDeleteSelected(), _ => _selectedElement != null);
+            SaveCommand           = new RelayCommand(_ => ExecuteSave(),    _ => !string.IsNullOrWhiteSpace(SymbolName));
+            CancelCommand         = new RelayCommand(_ => Cancelled?.Invoke());
         }
 
         // ─── Public API used by code-behind ───────────────────────────────────
@@ -229,6 +246,21 @@ namespace Pulse.UI.ViewModels
         }
 
         // ─── Private helpers ──────────────────────────────────────────────────
+
+        private void ExecuteDeleteSelected()
+        {
+            if (_selectedElement == null) return;
+            var toDelete = _selectedElement;
+            SelectedElement = null;
+            Elements.Remove(toDelete);
+            // Remove from undo stack so it can't be re-added via redo
+            var remaining = new List<SymbolElement>(_undoStack.Where(e => e != toDelete));
+            remaining.Reverse();
+            _undoStack.Clear();
+            foreach (var e in remaining) _undoStack.Push(e);
+            _redoStack.Clear();
+            CommandManager.InvalidateRequerySuggested();
+        }
 
         private void ExecuteUndo()
         {

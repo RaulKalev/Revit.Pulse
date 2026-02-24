@@ -661,6 +661,16 @@
                                     <TextBlock Text="Redo" FontSize="11" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
+                            <Button Style="{StaticResource NegativeActionButtonStyle}"
+                                    Command="{Binding DeleteSelectedCommand}"
+                                    ToolTip="Delete selected element (Delete key)"
+                                    Margin="0,0,4,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="VectorRemove" Width="13" Height="13"
+                                                             VerticalAlignment="Center" Margin="0,0,4,0" />
+                                    <TextBlock Text="Delete" FontSize="11" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
                             <Button Style="{StaticResource PulseActionButtonStyle}"
                                     Command="{Binding ClearCommand}"
                                     ToolTip="Clear all elements"

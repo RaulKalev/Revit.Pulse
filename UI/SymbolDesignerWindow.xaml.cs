@@ -28,7 +28,15 @@ namespace Pulse.UI
 
         // ─── Canvas layers (all children of DrawingCanvas) ────────────────────
         private readonly List<UIElement> _gridElements  = new List<UIElement>();
-        private readonly List<UIElement> _drawnElements = new List<UIElement>();
+
+        // Forward and reverse maps between model elements and their WPF shapes
+        private readonly Dictionary<SymbolElement, UIElement> _elementToShape
+            = new Dictionary<SymbolElement, UIElement>();
+        private readonly Dictionary<UIElement, SymbolElement> _shapeToElement
+            = new Dictionary<UIElement, SymbolElement>();
+
+        // Dashed cyan overlay drawn on top of the selected shape
+        private UIElement _selectionOverlay;
 
         // ─── In-progress draw state ───────────────────────────────────────────
         private bool   _isDrawing;
@@ -50,6 +58,7 @@ namespace Pulse.UI
             // Wire up ViewModel events
             _vm.Elements.CollectionChanged += Elements_CollectionChanged;
             _vm.CanvasSizeChanged          += OnCanvasSizeChanged;
+            _vm.ToolChanged                += OnToolChanged;
             _vm.Saved     += _ => Close();
             _vm.Cancelled += Close;
 
@@ -130,6 +139,21 @@ namespace Pulse.UI
 
         private void OnCanvasSizeChanged() => DrawGrid();
 
+        /// <summary>Switch canvas cursor between Arrow (select) and Cross (drawing tools).</summary>
+        private void OnToolChanged(DesignerTool tool)
+        {
+            DrawingCanvas.Cursor = tool == DesignerTool.Select
+                ? Cursors.Arrow
+                : Cursors.Cross;
+
+            // Leaving select mode clears the selection highlight
+            if (tool != DesignerTool.Select)
+            {
+                _vm.SelectedElement = null;
+                ClearSelectionOverlay();
+            }
+        }
+
         // ─── Element rendering ────────────────────────────────────────────────
 
         private void Elements_CollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
@@ -157,9 +181,14 @@ namespace Pulse.UI
 
         private void RebuildAllDrawnShapes()
         {
-            foreach (var s in _drawnElements)
+            foreach (var s in _elementToShape.Values)
                 DrawingCanvas.Children.Remove(s);
-            _drawnElements.Clear();
+            _elementToShape.Clear();
+            _shapeToElement.Clear();
+
+            // Selection is now stale — clear it
+            _vm.SelectedElement = null;
+            ClearSelectionOverlay();
 
             foreach (var el in _vm.Elements)
                 AddDrawnShape(el);
@@ -167,15 +196,17 @@ namespace Pulse.UI
 
         private void AddDrawnShape(SymbolElement el)
         {
-            var shape = CreateShape(el);
+            var shape = CreateShape(el, hitTestVisible: true);
             if (shape == null) return;
             DrawingCanvas.Children.Add(shape);
-            _drawnElements.Add(shape);
+            _elementToShape[el]    = shape;
+            _shapeToElement[shape] = el;
         }
 
         // ─── Shape factory ────────────────────────────────────────────────────
 
-        private static UIElement CreateShape(SymbolElement el, double opacityMultiplier = 1.0)
+        private static UIElement CreateShape(SymbolElement el, double opacityMultiplier = 1.0,
+                                              bool hitTestVisible = false)
         {
             var stroke = ParseBrush(el.StrokeColor, opacityMultiplier);
             var fill   = el.IsFilled
@@ -198,7 +229,7 @@ namespace Pulse.UI
                         StrokeThickness  = thick,
                         StrokeStartLineCap = PenLineCap.Round,
                         StrokeEndLineCap   = PenLineCap.Round,
-                        IsHitTestVisible = false
+                        IsHitTestVisible = hitTestVisible
                     };
                 }
 
@@ -217,7 +248,7 @@ namespace Pulse.UI
                             StrokeThickness = thick,
                             Fill            = fill,
                             StrokeLineJoin  = PenLineJoin.Round,
-                            IsHitTestVisible = false
+                            IsHitTestVisible = hitTestVisible
                         };
                     }
                     return new Polyline
@@ -226,7 +257,7 @@ namespace Pulse.UI
                         Stroke          = stroke,
                         StrokeThickness = thick,
                         StrokeLineJoin  = PenLineJoin.Round,
-                        IsHitTestVisible = false
+                        IsHitTestVisible = hitTestVisible
                     };
                 }
 
@@ -246,7 +277,7 @@ namespace Pulse.UI
                         Stroke          = stroke,
                         StrokeThickness = thick,
                         Fill            = fill,
-                        IsHitTestVisible = false
+                        IsHitTestVisible = hitTestVisible
                     };
                     Canvas.SetLeft(ellipse, cx - r);
                     Canvas.SetTop(ellipse, cy - r);
@@ -268,7 +299,7 @@ namespace Pulse.UI
                         Stroke          = stroke,
                         StrokeThickness = thick,
                         Fill            = fill,
-                        IsHitTestVisible = false
+                        IsHitTestVisible = hitTestVisible
                     };
                     Canvas.SetLeft(rect, x1);
                     Canvas.SetTop(rect, y1);
@@ -278,11 +309,69 @@ namespace Pulse.UI
             return null;
         }
 
+        // ─── Selection highlight ────────────────────────────────────────────────
+
+        private void UpdateSelectionOverlay()
+        {
+            ClearSelectionOverlay();
+            if (_vm.SelectedElement == null) return;
+
+            var overlay = CreateSelectionOverlay(_vm.SelectedElement);
+            if (overlay == null) return;
+
+            Panel.SetZIndex(overlay, 200);
+            DrawingCanvas.Children.Add(overlay);
+            _selectionOverlay = overlay;
+        }
+
+        private void ClearSelectionOverlay()
+        {
+            if (_selectionOverlay != null)
+            {
+                DrawingCanvas.Children.Remove(_selectionOverlay);
+                _selectionOverlay = null;
+            }
+        }
+
+        /// <summary>Creates a dashed cyan outline shape over the given element.</summary>
+        private static UIElement CreateSelectionOverlay(SymbolElement el)
+        {
+            var overlay = CreateShape(el, hitTestVisible: false);
+            if (!(overlay is Shape s)) return overlay;
+
+            var selBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x00, 0xD4, 0xFF));
+            selBrush.Freeze();
+            s.Stroke          = selBrush;
+            s.StrokeThickness = Math.Max(el.StrokeThicknessMm * Ppm + 2.5, 3.5);
+            s.StrokeDashArray = new DoubleCollection { 5, 3 };
+            s.StrokeLineJoin  = PenLineJoin.Round;
+            // Subtle fill tint for filled shapes
+            if (el.IsFilled)
+                s.Fill = new SolidColorBrush(Color.FromArgb(0x22, 0x00, 0xD4, 0xFF));
+            s.Opacity         = 0.85;
+            return s;
+        }
+
         // ─── Mouse events ─────────────────────────────────────────────────────
 
         private void DrawingCanvas_MouseDown(object sender, MouseButtonEventArgs e)
         {
             if (e.ChangedButton != MouseButton.Left) return;
+
+            // ── Select tool ─────────────────────────────────────────────────
+            if (_vm.ActiveTool == DesignerTool.Select)
+            {
+                // e.OriginalSource is the topmost WPF element hit (one of our drawn shapes)
+                var hitShape = e.OriginalSource as UIElement;
+                if (hitShape != null && _shapeToElement.TryGetValue(hitShape, out var hitEl))
+                    _vm.SelectedElement = hitEl;
+                else
+                    _vm.SelectedElement = null;  // clicked empty canvas → deselect
+
+                UpdateSelectionOverlay();
+                e.Handled = true;
+                return;
+            }
 
             // Polyline: double-click finishes the shape
             if (e.ClickCount == 2 && _vm.ActiveTool == DesignerTool.Polyline && _isDrawing)
@@ -552,10 +641,27 @@ namespace Pulse.UI
             // Cancel/abort current drawing operation on Escape
             if (e.Key == Key.Escape)
             {
-                _isDrawing = false;
-                _polyPoints.Clear();
-                ClearPreview();
-                ClearPolylinePreview();
+                if (_vm.ActiveTool == DesignerTool.Select)
+                {
+                    // Deselect
+                    _vm.SelectedElement = null;
+                    ClearSelectionOverlay();
+                }
+                else
+                {
+                    _isDrawing = false;
+                    _polyPoints.Clear();
+                    ClearPreview();
+                    ClearPolylinePreview();
+                }
+                e.Handled = true;
+                return;
+            }
+
+            // Delete selected element
+            if (e.Key == Key.Delete)
+            {
+                _vm.DeleteSelectedCommand.Execute(null);
                 e.Handled = true;
                 return;
             }
