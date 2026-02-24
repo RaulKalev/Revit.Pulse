@@ -269,5 +269,88 @@ namespace Pulse.Revit.Storage
 
             return builder.Finish();
         }
+
+        // ─── Topology assignments ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Read per-document topology assignments (panel/loop configs, flip states,
+        /// extra lines, elevation offsets, wire assignments) from Extensible Storage.
+        /// Returns a fresh empty store if nothing has been saved yet.
+        /// </summary>
+        public TopologyAssignmentsStore ReadTopologyAssignments()
+        {
+            try
+            {
+                var dataStorage = FindDataStorage();
+                if (dataStorage == null) return new TopologyAssignmentsStore();
+
+                var schema = GetOrCreateTopologyAssignmentsSchema();
+                var entity = dataStorage.GetEntity(schema);
+                if (entity == null || !entity.IsValid()) return new TopologyAssignmentsStore();
+
+                string json = entity.Get<string>(SchemaDefinitions.TopologyAssignmentsJsonField);
+                if (string.IsNullOrWhiteSpace(json)) return new TopologyAssignmentsStore();
+
+                return JsonConvert.DeserializeObject<TopologyAssignmentsStore>(json)
+                       ?? new TopologyAssignmentsStore();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Failed to read topology assignments from Extensible Storage.", ex);
+                return new TopologyAssignmentsStore();
+            }
+        }
+
+        /// <summary>
+        /// Write per-document topology assignments to Extensible Storage.
+        /// Must be called from within a Revit API context (ExternalEvent).
+        /// </summary>
+        public bool WriteTopologyAssignments(TopologyAssignmentsStore store)
+        {
+            try
+            {
+                string json = JsonConvert.SerializeObject(store, Formatting.None);
+                var schema = GetOrCreateTopologyAssignmentsSchema();
+
+                using (var tx = new Transaction(_doc, "Pulse: Save Topology Assignments"))
+                {
+                    tx.Start();
+                    var dataStorage = FindDataStorage() ?? CreateDataStorage();
+                    var entity = new Entity(schema);
+                    entity.Set(SchemaDefinitions.TopologyAssignmentsVersionField, SchemaDefinitions.TopologyAssignmentsSchemaVersion);
+                    entity.Set(SchemaDefinitions.TopologyAssignmentsJsonField, json);
+                    dataStorage.SetEntity(entity);
+                    tx.Commit();
+                }
+
+                _logger.Info("Saved topology assignments to Extensible Storage.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Failed to write topology assignments to Extensible Storage.", ex);
+                return false;
+            }
+        }
+
+        private static Schema GetOrCreateTopologyAssignmentsSchema()
+        {
+            var schema = Schema.Lookup(SchemaDefinitions.TopologyAssignmentsSchemaGuid);
+            if (schema != null) return schema;
+
+            var builder = new SchemaBuilder(SchemaDefinitions.TopologyAssignmentsSchemaGuid);
+            builder.SetSchemaName("PulseTopologyAssignments");
+            builder.SetDocumentation("Stores per-document topology assignments: panel/loop configs, flip states, wire assignments, and elevation offsets.");
+            builder.SetReadAccessLevel(AccessLevel.Public);
+            builder.SetWriteAccessLevel(AccessLevel.Public);
+
+            builder.AddSimpleField(SchemaDefinitions.TopologyAssignmentsVersionField, typeof(int))
+                .SetDocumentation("Schema version for upgrade compatibility.");
+
+            builder.AddSimpleField(SchemaDefinitions.TopologyAssignmentsJsonField, typeof(string))
+                .SetDocumentation("JSON blob containing all topology assignments for this document.");
+
+            return builder.Finish();
+        }
     }
 }

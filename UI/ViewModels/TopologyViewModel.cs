@@ -25,8 +25,25 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         private List<TopologyNodeViewModel> _allNodes = new List<TopologyNodeViewModel>();
 
-        /// <summary>Current device config store — kept in sync after each load.</summary>
+        /// <summary>Current device config store — kept in sync after each load (library data only).</summary>
         private DeviceConfigStore _deviceStore = new DeviceConfigStore();
+
+        /// <summary>Current topology assignments store — per-document, from Extensible Storage.</summary>
+        private TopologyAssignmentsStore _assignmentsStore = new TopologyAssignmentsStore();
+
+        /// <summary>
+        /// Raised after any assignment mutation so that MainViewModel can persist
+        /// the updated store to Revit Extensible Storage via an ExternalEvent.
+        /// </summary>
+        public Action AssignmentsSaveRequested { get; set; }
+
+        /// <summary>Apply topology assignments loaded from Extensible Storage.
+        /// Must be called before <see cref="LoadFromModuleData"/> so initial combobox values are correct.
+        /// </summary>
+        public void LoadAssignments(TopologyAssignmentsStore store)
+        {
+            _assignmentsStore = store ?? new TopologyAssignmentsStore();
+        }
 
         /// <summary>
         /// Fired when a node is selected in the topology.
@@ -122,12 +139,12 @@ namespace Pulse.UI.ViewModels
 
             Action<TopologyNodeViewModel> onAssignConfig = vm =>
             {
-                // Persist assignment locally
+                // Persist assignment to per-document store
                 if (vm.NodeType == "Panel")
-                    _deviceStore.PanelAssignments[vm.Label] = vm.AssignedConfig ?? string.Empty;
+                    _assignmentsStore.PanelAssignments[vm.Label] = vm.AssignedConfig ?? string.Empty;
                 else if (vm.NodeType == "Loop")
-                    _deviceStore.LoopAssignments[vm.Label] = vm.AssignedConfig ?? string.Empty;
-                DeviceConfigService.Save(_deviceStore);
+                    _assignmentsStore.LoopAssignments[vm.Label] = vm.AssignedConfig ?? string.Empty;
+                AssignmentsSaveRequested?.Invoke();
 
                 // Notify MainViewModel so it can write to Revit
                 ConfigAssigned?.Invoke(vm);
@@ -138,10 +155,10 @@ namespace Pulse.UI.ViewModels
                 // vm.ParentLabel + "::" + vm.Label is the key used by DiagramViewModel
                 string key = (vm.ParentLabel ?? string.Empty) + "::" + vm.Label;
                 if (string.IsNullOrEmpty(vm.AssignedWire))
-                    _deviceStore.LoopWireAssignments.Remove(key);
+                    _assignmentsStore.LoopWireAssignments.Remove(key);
                 else
-                    _deviceStore.LoopWireAssignments[key] = vm.AssignedWire;
-                DeviceConfigService.Save(_deviceStore);
+                    _assignmentsStore.LoopWireAssignments[key] = vm.AssignedWire;
+                AssignmentsSaveRequested?.Invoke();
 
                 WireAssigned?.Invoke(vm);
             };
@@ -185,17 +202,17 @@ namespace Pulse.UI.ViewModels
             if (node.NodeType == "Panel")
             {
                 availableConfigs = panelOptions;
-                _deviceStore.PanelAssignments.TryGetValue(node.Label, out initialAssignment);
+                _assignmentsStore.PanelAssignments.TryGetValue(node.Label, out initialAssignment);
             }
             else if (node.NodeType == "Loop")
             {
                 availableConfigs = loopOptions;
-                _deviceStore.LoopAssignments.TryGetValue(node.Label, out initialAssignment);
+                _assignmentsStore.LoopAssignments.TryGetValue(node.Label, out initialAssignment);
 
                 availableWires = wireOptions;
                 // Wire key uses "panelName::loopName" to match DiagramViewModel convention
                 string wireKey = (parentLabel ?? string.Empty) + "::" + node.Label;
-                _deviceStore.LoopWireAssignments.TryGetValue(wireKey, out initialWire);
+                _assignmentsStore.LoopWireAssignments.TryGetValue(wireKey, out initialWire);
             }
 
             var vm = new TopologyNodeViewModel(node, onSelect, onAssignConfig, availableConfigs, initialAssignment,

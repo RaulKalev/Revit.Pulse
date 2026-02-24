@@ -372,8 +372,9 @@ namespace Pulse.UI.ViewModels
         // ─── Helpers ─────────────────────────────────────────────────────────
         private void ExecuteSave()
         {
-            // Load the existing store so that non-UI data (assignments, flip states, etc.)
-            // is preserved — we only overwrite the sections we manage here.
+            // Load the existing library store so previously saved wire/panel/loop
+            // type definitions are preserved — we only overwrite the sections we manage here.
+            // Per-document assignments are stored separately in Extensible Storage.
             var store = DeviceConfigService.Load();
 
             store.ControlPanels.Clear();

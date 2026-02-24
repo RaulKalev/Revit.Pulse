@@ -110,7 +110,10 @@ namespace Pulse.Core.Settings
 
     /// <summary>
     /// Root object persisted to the local JSON file.
-    /// Contains all configured control panels and loop modules.
+    /// Contains the device library: control-panel types, loop-module types, and wire types.
+    ///
+    /// Per-document assignments (which config is assigned in a given model, flip states, etc.)
+    /// are stored in Revit Extensible Storage via <c>TopologyAssignmentsStore</c>.
     /// </summary>
     public class DeviceConfigStore
     {
@@ -123,32 +126,8 @@ namespace Pulse.Core.Settings
         [JsonProperty("loopModules")]
         public List<LoopModuleConfig> LoopModules { get; set; } = new List<LoopModuleConfig>();
 
-        /// <summary>Panel label → assigned ControlPanelConfig name.</summary>
-        [JsonProperty("panelAssignments")]
-        public Dictionary<string, string> PanelAssignments { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>Loop label → assigned LoopModuleConfig name.</summary>
-        [JsonProperty("loopAssignments")]
-        public Dictionary<string, string> LoopAssignments { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>"panelName::loopName" → true means draw wire on the right side of the panel.</summary>
-        [JsonProperty("loopFlipStates")]
-        public Dictionary<string, bool> LoopFlipStates { get; set; } = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>"panelName::loopName" → number of extra horizontal lines added (total wires = 2 + value).</summary>
-        [JsonProperty("loopExtraLines")]
-        public Dictionary<string, int> LoopExtraLines { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>Level name → overridden elevation (Revit feet), set by Move mode in the diagram.</summary>
-        [JsonProperty("levelElevationOffsets")]
-        public Dictionary<string, double> LevelElevationOffsets { get; set; } = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
-
         /// <summary>User-defined cable/wire definitions selectable on loops.</summary>
         [JsonProperty("wires")]
         public List<WireConfig> Wires { get; set; } = new List<WireConfig>();
-
-        /// <summary>"panelName::loopName" → assigned WireConfig name.</summary>
-        [JsonProperty("loopWireAssignments")]
-        public Dictionary<string, string> LoopWireAssignments { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     }
 }

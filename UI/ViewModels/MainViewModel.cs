@@ -46,6 +46,11 @@ namespace Pulse.UI.ViewModels
         private readonly ExternalEvent _writeParamEvent;
         private readonly SaveDiagramSettingsHandler _saveDiagramHandler;
         private readonly ExternalEvent _saveDiagramEvent;
+        private readonly SaveTopologyAssignmentsHandler _saveAssignmentsHandler;
+        private readonly ExternalEvent _saveAssignmentsEvent;
+
+        /// <summary>Per-document topology assignments — loaded from ES at startup and kept in sync.</summary>
+        private TopologyAssignmentsStore _topologyAssignments = new TopologyAssignmentsStore();
 
         // Child ViewModels
         public TopologyViewModel Topology { get; }
@@ -164,12 +169,24 @@ namespace Pulse.UI.ViewModels
             _saveDiagramHandler = new SaveDiagramSettingsHandler();
             _saveDiagramEvent   = ExternalEvent.Create(_saveDiagramHandler);
 
+            _saveAssignmentsHandler = new SaveTopologyAssignmentsHandler();
+            _saveAssignmentsEvent   = ExternalEvent.Create(_saveAssignmentsHandler);
+
             // Wire diagram visibility saves
             Diagram.VisibilityChanged = () =>
             {
                 _saveDiagramHandler.Settings = Diagram.Visibility;
                 _saveDiagramEvent.Raise();
             };
+
+            // Wire topology assignment saves (panel/loop configs, flip states, etc.)
+            Action saveAssignments = () =>
+            {
+                _saveAssignmentsHandler.Store = _topologyAssignments;
+                _saveAssignmentsEvent.Raise();
+            };
+            Topology.AssignmentsSaveRequested = saveAssignments;
+            Diagram.AssignmentsSaveRequested = saveAssignments;
 
             // Wire diagram wire-assignment writes
             Diagram.WireAssigned = OnDiagramWireAssigned;
@@ -244,18 +261,19 @@ namespace Pulse.UI.ViewModels
             TotalWarnings = data.WarningCount;
             TotalErrors = data.ErrorCount;
 
-            // Update topology
+            // Update topology (assignments must be set before LoadFromModuleData builds the tree)
+            Topology.LoadAssignments(_topologyAssignments);
             Topology.LoadFromModuleData(data);
             Topology.RestoreExpandState(UiStateService.Load().ExpandedNodeIds);
 
             // Update diagram levels and panels
+            var devStore = DeviceConfigService.Load();
+            Inspector.DeviceStore = devStore;
+            Inspector.AssignmentsStore = _topologyAssignments;
             Diagram.LoadLevels(data.Levels);
-            var diagramConfigStore = DeviceConfigService.Load();
-            Diagram.LoadLevelElevationOffsets(diagramConfigStore);
-            Diagram.LoadPanels(data.Panels, data.Loops, diagramConfigStore);
-            Diagram.LoadFlipStates(diagramConfigStore);
-            Diagram.LoadLoopExtraLines(diagramConfigStore);
-            Diagram.LoadLoopWireAssignments(diagramConfigStore);
+            Diagram.LoadAssignments(_topologyAssignments);
+            Diagram.LoadLevelElevationOffsets(_topologyAssignments);
+            Diagram.LoadPanels(data.Panels, data.Loops, devStore);
 
             // Update status
             int panelCount = data.Panels.Count;
@@ -420,6 +438,11 @@ namespace Pulse.UI.ViewModels
                 var diagramSettings = service.ReadDiagramSettings();
                 if (diagramSettings != null)
                     Diagram.LoadVisibility(diagramSettings);
+
+                // Load per-document topology assignments
+                _topologyAssignments = service.ReadTopologyAssignments();
+                Inspector.DeviceStore = DeviceConfigService.Load();
+                Inspector.AssignmentsStore = _topologyAssignments;
             }
             catch
             {

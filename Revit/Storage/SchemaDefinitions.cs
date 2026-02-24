@@ -47,5 +47,24 @@ namespace Pulse.Revit.Storage
 
         /// <summary>Field name for the diagram schema version integer.</summary>
         public const string DiagramSchemaVersionField = "DiagramSchemaVersion";
+
+        // ─── Topology assignments schema ──────────────────────────────────────
+
+        /// <summary>
+        /// Schema for storing per-document topology assignments:
+        /// panel/loop config assignments, loop flip states, extra lines,
+        /// level elevation offsets, and wire assignments.
+        /// NEVER change this GUID — create a new version instead.
+        /// </summary>
+        public static readonly Guid TopologyAssignmentsSchemaGuid = new Guid("C9D5E3F4-6A7B-8C9D-0E1F-2A3B4C5D6E7F");
+
+        /// <summary>Current version of the topology assignments schema.</summary>
+        public const int TopologyAssignmentsSchemaVersion = 1;
+
+        /// <summary>Field name for the JSON blob storing topology assignments.</summary>
+        public const string TopologyAssignmentsJsonField = "TopologyAssignmentsJson";
+
+        /// <summary>Field name for the topology assignments schema version integer.</summary>
+        public const string TopologyAssignmentsVersionField = "TopologyAssignmentsVersion";
     }
 }

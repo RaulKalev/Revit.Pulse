@@ -53,6 +53,35 @@ namespace Pulse.UI.ViewModels
     /// </summary>
     public class DiagramViewModel : ViewModelBase
     {
+        // ── Topology assignments store ───────────────────────────────────
+
+        private TopologyAssignmentsStore _assignmentsStore = new TopologyAssignmentsStore();
+
+        /// <summary>
+        /// Load all topology assignments at once and initialise in-memory caches.
+        /// Call this (and <see cref="LoadLevelElevationOffsets"/>) before
+        /// <see cref="LoadPanels"/> whenever the document is refreshed.
+        /// </summary>
+        public void LoadAssignments(TopologyAssignmentsStore store)
+        {
+            _assignmentsStore = store ?? new TopologyAssignmentsStore();
+            _flipStates = new Dictionary<string, bool>(
+                _assignmentsStore.LoopFlipStates ?? new Dictionary<string, bool>(),
+                StringComparer.OrdinalIgnoreCase);
+            _extraLines = new Dictionary<string, int>(
+                _assignmentsStore.LoopExtraLines ?? new Dictionary<string, int>(),
+                StringComparer.OrdinalIgnoreCase);
+            _wireAssignments = new Dictionary<string, string>(
+                _assignmentsStore.LoopWireAssignments ?? new Dictionary<string, string>(),
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Raised after any assignment mutation so that MainViewModel can persist
+        /// the updated store to Revit Extensible Storage via an ExternalEvent.
+        /// </summary>
+        public Action AssignmentsSaveRequested { get; set; }
+
         // ── Levels ────────────────────────────────────────────────────────
 
         public ObservableCollection<LevelInfo> Levels { get; } = new ObservableCollection<LevelInfo>();
@@ -64,8 +93,8 @@ namespace Pulse.UI.ViewModels
                 Levels.Add(level);
         }
 
-        /// <summary>Apply saved elevation overrides (drag-to-move) from the config store.</summary>
-        public void LoadLevelElevationOffsets(DeviceConfigStore store)
+        /// <summary>Apply saved elevation overrides (drag-to-move) from the assignments store.</summary>
+        public void LoadLevelElevationOffsets(TopologyAssignmentsStore store)
         {
             if (store?.LevelElevationOffsets == null) return;
             foreach (var level in Levels)
@@ -78,9 +107,8 @@ namespace Pulse.UI.ViewModels
         /// <summary>Persist the new elevation for one level immediately.</summary>
         public void PersistLevelElevationOffset(string levelName, double elevation)
         {
-            var store = DeviceConfigService.Load();
-            store.LevelElevationOffsets[levelName] = elevation;
-            DeviceConfigService.Save(store);
+            _assignmentsStore.LevelElevationOffsets[levelName] = elevation;
+            AssignmentsSaveRequested?.Invoke();
         }
 
         // ── Panels ────────────────────────────────────────────────────────
@@ -119,7 +147,7 @@ namespace Pulse.UI.ViewModels
                 }
 
                 int configLoopCount = 0;
-                if (store.PanelAssignments.TryGetValue(p.DisplayName, out string cfgName)
+                if (_assignmentsStore.PanelAssignments.TryGetValue(p.DisplayName, out string cfgName)
                     && !string.IsNullOrEmpty(cfgName))
                 {
                     var cfg = store.ControlPanels.FirstOrDefault(c => c.Name == cfgName);
@@ -153,13 +181,7 @@ namespace Pulse.UI.ViewModels
         /// <summary>Raised after FlipSelectedLoop() so the diagram redraws.</summary>
         public Action FlipStateChanged { get; set; }
 
-        /// <summary>Load flip-states from the persisted store (call alongside LoadPanels).</summary>
-        public void LoadFlipStates(DeviceConfigStore store)
-        {
-            _flipStates = new Dictionary<string, bool>(
-                store?.LoopFlipStates ?? new Dictionary<string, bool>(),
-                StringComparer.OrdinalIgnoreCase);
-        }
+        // LoadFlipStates is handled by LoadAssignments.
 
         /// <summary>True when the given loop should be drawn on the right side of its panel.</summary>
         public bool IsLoopFlipped(string panelName, string loopName)
@@ -174,9 +196,8 @@ namespace Pulse.UI.ViewModels
             if (string.IsNullOrEmpty(_selectedLoopKey)) return;
             bool current = _flipStates.TryGetValue(_selectedLoopKey, out bool v) && v;
             _flipStates[_selectedLoopKey] = !current;
-            var store = DeviceConfigService.Load();
-            store.LoopFlipStates = new Dictionary<string, bool>(_flipStates, StringComparer.OrdinalIgnoreCase);
-            DeviceConfigService.Save(store);
+            _assignmentsStore.LoopFlipStates = new Dictionary<string, bool>(_flipStates, StringComparer.OrdinalIgnoreCase);
+            AssignmentsSaveRequested?.Invoke();
             FlipStateChanged?.Invoke();
         }
 
@@ -185,13 +206,7 @@ namespace Pulse.UI.ViewModels
         private Dictionary<string, int> _extraLines =
             new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>Load extra-line counts from the persisted store.</summary>
-        public void LoadLoopExtraLines(DeviceConfigStore store)
-        {
-            _extraLines = new Dictionary<string, int>(
-                store?.LoopExtraLines ?? new Dictionary<string, int>(),
-                StringComparer.OrdinalIgnoreCase);
-        }
+        // LoadLoopExtraLines is handled by LoadAssignments.
 
         /// <summary>Total number of horizontal wires for this loop (minimum 2 = top + bottom).</summary>
         public int GetLoopWireCount(string panelName, string loopName)
@@ -224,9 +239,8 @@ namespace Pulse.UI.ViewModels
 
         private void PersistExtraLines()
         {
-            var store = DeviceConfigService.Load();
-            store.LoopExtraLines = new Dictionary<string, int>(_extraLines, StringComparer.OrdinalIgnoreCase);
-            DeviceConfigService.Save(store);
+            _assignmentsStore.LoopExtraLines = new Dictionary<string, int>(_extraLines, StringComparer.OrdinalIgnoreCase);
+            AssignmentsSaveRequested?.Invoke();
         }
 
         // ── Loop wire assignments ─────────────────────────────────────────────
@@ -240,13 +254,7 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public Action<string, string, string> WireAssigned { get; set; }
 
-        /// <summary>Load wire assignments from the persisted store.</summary>
-        public void LoadLoopWireAssignments(DeviceConfigStore store)
-        {
-            _wireAssignments = new Dictionary<string, string>(
-                store?.LoopWireAssignments ?? new Dictionary<string, string>(),
-                StringComparer.OrdinalIgnoreCase);
-        }
+        // LoadLoopWireAssignments is handled by LoadAssignments.
 
         /// <summary>Returns the assigned wire name for the given loop, or null if none.</summary>
         public string GetLoopWire(string panelName, string loopName)
@@ -267,10 +275,9 @@ namespace Pulse.UI.ViewModels
             else
                 _wireAssignments[key] = wireName;
 
-            var store = DeviceConfigService.Load();
-            store.LoopWireAssignments = new Dictionary<string, string>(
+            _assignmentsStore.LoopWireAssignments = new Dictionary<string, string>(
                 _wireAssignments, StringComparer.OrdinalIgnoreCase);
-            DeviceConfigService.Save(store);
+            AssignmentsSaveRequested?.Invoke();
 
             WireAssigned?.Invoke(panelName, loopName, wireName);
         }

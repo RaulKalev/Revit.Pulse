@@ -64,6 +64,18 @@ namespace Pulse.UI.ViewModels
 
         // ── Gauge data (Panel / Loop only) ────────────────────────────────
 
+        /// <summary>
+        /// Device library store (panel/loop/wire type definitions). Set by MainViewModel.
+        /// Used to look up assigned config specs for gauge calculations.
+        /// </summary>
+        public DeviceConfigStore DeviceStore { get; set; } = new DeviceConfigStore();
+
+        /// <summary>
+        /// Per-document topology assignments store. Set by MainViewModel.
+        /// Used to determine which config is assigned to the selected node.
+        /// </summary>
+        public TopologyAssignmentsStore AssignmentsStore { get; set; } = new TopologyAssignmentsStore();
+
         private bool _showGauges;
         public bool ShowGauges
         {
@@ -196,10 +208,9 @@ namespace Pulse.UI.ViewModels
             ShowGauges = false;
             if (panel == null) return;
 
-            var store = DeviceConfigService.Load();
-            if (!store.PanelAssignments.TryGetValue(panelLabel, out string assignedName)) return;
+            if (!AssignmentsStore.PanelAssignments.TryGetValue(panelLabel, out string assignedName)) return;
 
-            var cfg = store.ControlPanels.FirstOrDefault(p => p.Name == assignedName);
+            var cfg = DeviceStore.ControlPanels.FirstOrDefault(p => p.Name == assignedName);
             if (cfg == null) return;
 
             int loopCount = System.Math.Max(panel.Loops.Count, 1);
@@ -215,10 +226,9 @@ namespace Pulse.UI.ViewModels
             ShowGauges = false;
             if (loop == null) return;
 
-            var store = DeviceConfigService.Load();
-            if (!store.LoopAssignments.TryGetValue(loopLabel, out string assignedName)) return;
+            if (!AssignmentsStore.LoopAssignments.TryGetValue(loopLabel, out string assignedName)) return;
 
-            var cfg = store.LoopModules.FirstOrDefault(m => m.Name == assignedName);
+            var cfg = DeviceStore.LoopModules.FirstOrDefault(m => m.Name == assignedName);
             if (cfg == null) return;
 
             AddressesMax  = cfg.AddressesPerLoop;
