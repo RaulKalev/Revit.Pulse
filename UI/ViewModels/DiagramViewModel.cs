@@ -85,6 +85,9 @@ namespace Pulse.UI.ViewModels
             _wireAssignments = new Dictionary<string, string>(
                 _assignmentsStore.LoopWireAssignments ?? new Dictionary<string, string>(),
                 StringComparer.OrdinalIgnoreCase);
+            _rankOverrides = new Dictionary<string, int>(
+                _assignmentsStore.LoopRankOverrides ?? new Dictionary<string, int>(),
+                StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>
@@ -271,6 +274,38 @@ namespace Pulse.UI.ViewModels
         {
             _assignmentsStore.LoopExtraLines = new Dictionary<string, int>(_extraLines, StringComparer.OrdinalIgnoreCase);
             AssignmentsSaveRequested?.Invoke();
+        }
+
+        // ── Loop rank overrides ────────────────────────────────────────────
+
+        private Dictionary<string, int> _rankOverrides =
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Returns the visual rank of the given loop within its side+elevation group.
+        /// Falls back to <paramref name="naturalIndex"/> when no override is stored.
+        /// Rank 0 = bottommost position.
+        /// </summary>
+        public int GetLoopRank(string panelName, string loopName, int naturalIndex)
+        {
+            string key = panelName + "::" + loopName;
+            return _rankOverrides.TryGetValue(key, out int r) ? r : naturalIndex;
+        }
+
+        /// <summary>
+        /// Swaps the display ranks of two loops identified by their full "panel::loop" keys,
+        /// then persists and fires a redraw.
+        /// </summary>
+        public void SwapLoopRanks(string loopKeyA, string loopKeyB, int naturalA, int naturalB)
+        {
+            int rA = _rankOverrides.TryGetValue(loopKeyA, out int vA) ? vA : naturalA;
+            int rB = _rankOverrides.TryGetValue(loopKeyB, out int vB) ? vB : naturalB;
+            _rankOverrides[loopKeyA] = rB;
+            _rankOverrides[loopKeyB] = rA;
+            _assignmentsStore.LoopRankOverrides =
+                new Dictionary<string, int>(_rankOverrides, StringComparer.OrdinalIgnoreCase);
+            AssignmentsSaveRequested?.Invoke();
+            FlipStateChanged?.Invoke();
         }
 
         // ── Loop wire assignments ─────────────────────────────────────────────

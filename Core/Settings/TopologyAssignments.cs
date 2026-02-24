@@ -36,6 +36,13 @@ namespace Pulse.Core.Settings
         public Dictionary<string, string> LoopWireAssignments { get; set; }
             = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// "panelName::loopName" → visual rank within its side+elevation group (0 = bottommost).
+        /// When absent the loop's natural index in LoopInfos is used as the default rank.
+        /// </summary>
+        public Dictionary<string, int> LoopRankOverrides { get; set; }
+            = new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
+
         /// <summary>DeviceType string → symbol key. Each device type maps to one symbol for display.</summary>
         public Dictionary<string, string> SymbolMappings { get; set; }
             = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);

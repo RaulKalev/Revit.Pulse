@@ -232,6 +232,9 @@ namespace Pulse.UI.Controls
 
             double w = DiagramContent.ActualWidth;
             double h = DiagramContent.ActualHeight;
+
+            // Reset side-group cache each full redraw
+            _loopSideGroupsCache.Clear();
             if (w < 1 || h < 1) return;
 
             DiagramCanvas.Height = h;
@@ -763,6 +766,23 @@ namespace Pulse.UI.Controls
 
                         const double wireRight = 10.0; // right margin (mirror of wireLeft)
 
+                        // Sort each side group by rank (override → natural index fallback),
+                        // then build the side-group cache used by the Move Up / Move Down popup.
+                        foreach (var sKey in sideLevelMap.Keys.ToList())
+                        {
+                            sideLevelMap[sKey].Sort((a, b) =>
+                            {
+                                int rA = _currentVm.GetLoopRank(panel.Name, panel.LoopInfos[a].Name, a);
+                                int rB = _currentVm.GetLoopRank(panel.Name, panel.LoopInfos[b].Name, b);
+                                return rA.CompareTo(rB);
+                            });
+                            var orderedKeys = sideLevelMap[sKey]
+                                .Select(idx => panel.Name + "::" + panel.LoopInfos[idx].Name)
+                                .ToList();
+                            foreach (var lk in orderedKeys)
+                                _loopSideGroupsCache[lk] = orderedKeys;
+                        }
+
                         // Pass 2.5: pre-compute effective height for every loop so the Y-placement
                         // pass has all heights available without revisiting GetLoopWireCount twice.
                         double wireSpacingGlobal = _canvasSettings.WireSpacingPx;
@@ -985,8 +1005,17 @@ namespace Pulse.UI.Controls
 
         // ── Loop popup ────────────────────────────────────────────────────
 
-        private string _popupLoopKey; // "panelName::loopName" open in LoopPopup
+        private string _popupLoopKey;      // "panelName::loopName" open in LoopPopup
+        private string _moveUpTargetKey;   // loopKey one rank above the popup's loop (null if none)
+        private string _moveDownTargetKey; // loopKey one rank below the popup's loop (null if none)
+        private int    _popupNaturalIdx;
+        private int    _moveUpNaturalIdx;
+        private int    _moveDownNaturalIdx;
         private bool   _suppressWireChange;
+
+        // Side-group cache rebuilt each DrawLevels: loopKey → sorted list of loopKeys in same group
+        private readonly Dictionary<string, List<string>> _loopSideGroupsCache
+            = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
 
         private void LoopPopupFlip_Click(object sender, RoutedEventArgs e)
         {
@@ -1003,6 +1032,20 @@ namespace Pulse.UI.Controls
         private void LoopPopupRemoveLine_Click(object sender, RoutedEventArgs e)
         {
             _currentVm?.RemoveLineFromSelectedLoop();
+            LoopPopup.IsOpen = false;
+        }
+
+        private void LoopPopupMoveUp_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentVm == null || _moveUpTargetKey == null) return;
+            _currentVm.SwapLoopRanks(_popupLoopKey, _moveUpTargetKey, _popupNaturalIdx, _moveUpNaturalIdx);
+            LoopPopup.IsOpen = false;
+        }
+
+        private void LoopPopupMoveDown_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentVm == null || _moveDownTargetKey == null) return;
+            _currentVm.SwapLoopRanks(_popupLoopKey, _moveDownTargetKey, _popupNaturalIdx, _moveDownNaturalIdx);
             LoopPopup.IsOpen = false;
         }
 
@@ -1084,6 +1127,44 @@ namespace Pulse.UI.Controls
                     $"Remove line ({wires} \u2192 {wires - 1})");
                 LoopPopupRemoveLineButton.Visibility = wires > 2
                     ? Visibility.Visible : Visibility.Collapsed;
+
+                // Move Up / Move Down — look up the sorted side group built by DrawLevels
+                _moveUpTargetKey   = null;
+                _moveDownTargetKey = null;
+                _popupNaturalIdx   = 0;
+                _moveUpNaturalIdx  = 0;
+                _moveDownNaturalIdx = 0;
+
+                if (_loopSideGroupsCache.TryGetValue(_popupLoopKey, out var group))
+                {
+                    var panel2    = _currentVm.Panels.FirstOrDefault(p => p.Name == pName);
+                    int myPosInGrp = group.IndexOf(_popupLoopKey);
+                    _popupNaturalIdx = panel2.LoopInfos != null
+                        ? panel2.LoopInfos.ToList().FindIndex(l => l.Name == lName)
+                        : 0;
+
+                    if (myPosInGrp > 0) // there is a loop below
+                    {
+                        _moveDownTargetKey = group[myPosInGrp - 1];
+                        string dnName = _moveDownTargetKey.Contains("::") ? _moveDownTargetKey.Substring(_moveDownTargetKey.IndexOf("::")+2) : _moveDownTargetKey;
+                        _moveDownNaturalIdx = panel2.LoopInfos != null
+                            ? panel2.LoopInfos.ToList().FindIndex(l => l.Name == dnName)
+                            : 0;
+                    }
+                    if (myPosInGrp < group.Count - 1) // there is a loop above
+                    {
+                        _moveUpTargetKey = group[myPosInGrp + 1];
+                        string upName = _moveUpTargetKey.Contains("::") ? _moveUpTargetKey.Substring(_moveUpTargetKey.IndexOf("::")+2) : _moveUpTargetKey;
+                        _moveUpNaturalIdx = panel2.LoopInfos != null
+                            ? panel2.LoopInfos.ToList().FindIndex(l => l.Name == upName)
+                            : 0;
+                    }
+                }
+
+                LoopPopupMoveUpButton.IsEnabled   = _moveUpTargetKey   != null;
+                LoopPopupMoveDownButton.IsEnabled = _moveDownTargetKey != null;
+                LoopPopupMoveUpButton.Visibility   = Visibility.Visible;
+                LoopPopupMoveDownButton.Visibility = Visibility.Visible;
 
                 // Populate wire combobox
                 _suppressWireChange = true;
