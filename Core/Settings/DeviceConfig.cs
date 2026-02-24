@@ -102,5 +102,9 @@ namespace Pulse.Core.Settings
         /// <summary>"panelName::loopName" → true means draw wire on the right side of the panel.</summary>
         [JsonProperty("loopFlipStates")]
         public Dictionary<string, bool> LoopFlipStates { get; set; } = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>"panelName::loopName" → number of extra horizontal lines added (total wires = 2 + value).</summary>
+        [JsonProperty("loopExtraLines")]
+        public Dictionary<string, int> LoopExtraLines { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
     }
 }

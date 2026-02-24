@@ -560,6 +560,18 @@ namespace Pulse.UI.Controls
             _currentVm?.FlipSelectedLoop();
         }
 
+        private void LoopPopupAddLine_Click(object sender, RoutedEventArgs e)
+        {
+            LoopPopup.IsOpen = false;
+            _currentVm?.AddLineToSelectedLoop();
+        }
+
+        private void LoopPopupRemoveLine_Click(object sender, RoutedEventArgs e)
+        {
+            LoopPopup.IsOpen = false;
+            _currentVm?.RemoveLineFromSelectedLoop();
+        }
+
         // ── Level context popup ───────────────────────────────────────────
 
         private void DiagramCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
@@ -576,17 +588,26 @@ namespace Pulse.UI.Controls
                 _currentVm.SelectedLoopKey = _popupLoopKey;
                 DrawLevels();
 
-                bool isFlipped = _currentVm.IsLoopFlipped(
-                    _popupLoopKey.Substring(0, _popupLoopKey.IndexOf("::", StringComparison.Ordinal)),
-                    _popupLoopKey.Substring(_popupLoopKey.IndexOf("::", StringComparison.Ordinal) + 2));
+                int dbl2      = _popupLoopKey.IndexOf("::", StringComparison.Ordinal);
+                string pName  = dbl2 >= 0 ? _popupLoopKey.Substring(0, dbl2)  : _popupLoopKey;
+                string lName  = dbl2 >= 0 ? _popupLoopKey.Substring(dbl2 + 2) : _popupLoopKey;
+                LoopPopupTitle.Text = lName;
 
-                // Parse a friendly display name from "panelName::loopName"
-                int dbl = _popupLoopKey.IndexOf("::", StringComparison.Ordinal);
-                string loopDisplay = dbl >= 0 ? _popupLoopKey.Substring(dbl + 2) : _popupLoopKey;
-                LoopPopupTitle.Text = loopDisplay;
+                bool isFlipped = _currentVm.IsLoopFlipped(pName, lName);
                 LoopPopupFlipButton.Content = MakeButtonContent(
                     PackIconKind.SwapHorizontal,
                     isFlipped ? "Flip to left side" : "Flip to right side");
+
+                int wires = _currentVm.GetLoopWireCount(pName, lName);
+                LoopPopupAddLineButton.Content = MakeButtonContent(
+                    PackIconKind.Plus,
+                    $"Add line ({wires} \u2192 {wires + 1})");
+                LoopPopupAddLineButton.IsEnabled = wires < 8;
+                LoopPopupRemoveLineButton.Content = MakeButtonContent(
+                    PackIconKind.Minus,
+                    $"Remove line ({wires} \u2192 {wires - 1})");
+                LoopPopupRemoveLineButton.Visibility = wires > 2
+                    ? Visibility.Visible : Visibility.Collapsed;
 
                 LoopPopup.IsOpen = true;
                 e.Handled = true;

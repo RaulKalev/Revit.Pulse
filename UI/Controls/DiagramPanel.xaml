@@ -133,7 +133,21 @@
                                     Style="{StaticResource PulseActionButtonStyle}"
                                     HorizontalAlignment="Stretch"
                                     HorizontalContentAlignment="Left"
-                                    Padding="10,5,10,7"
+                                    Padding="10,5,10,4"
+                                    FontSize="11"/>
+                            <Button x:Name="LoopPopupAddLineButton"
+                                    Click="LoopPopupAddLine_Click"
+                                    Style="{StaticResource PulseActionButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Padding="10,4,10,4"
+                                    FontSize="11"/>
+                            <Button x:Name="LoopPopupRemoveLineButton"
+                                    Click="LoopPopupRemoveLine_Click"
+                                    Style="{StaticResource PulseActionButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Padding="10,4,10,7"
                                     FontSize="11"/>
                         </StackPanel>
                     </Border>

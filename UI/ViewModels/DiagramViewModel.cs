@@ -161,6 +161,55 @@ namespace Pulse.UI.ViewModels
             FlipStateChanged?.Invoke();
         }
 
+        // ── Loop extra lines ───────────────────────────────────────────────
+
+        private Dictionary<string, int> _extraLines =
+            new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Load extra-line counts from the persisted store.</summary>
+        public void LoadLoopExtraLines(DeviceConfigStore store)
+        {
+            _extraLines = new Dictionary<string, int>(
+                store?.LoopExtraLines ?? new Dictionary<string, int>(),
+                StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Total number of horizontal wires for this loop (minimum 2 = top + bottom).</summary>
+        public int GetLoopWireCount(string panelName, string loopName)
+        {
+            string key = panelName + "::" + loopName;
+            return 2 + (_extraLines.TryGetValue(key, out int e) ? Math.Max(0, e) : 0);
+        }
+
+        /// <summary>Add one horizontal line to the selected loop (max 8 wires total) and persist.</summary>
+        public void AddLineToSelectedLoop()
+        {
+            if (string.IsNullOrEmpty(_selectedLoopKey)) return;
+            int cur = _extraLines.TryGetValue(_selectedLoopKey, out int e) ? e : 0;
+            if (cur + 2 >= 8) return; // already at max
+            _extraLines[_selectedLoopKey] = cur + 1;
+            PersistExtraLines();
+            FlipStateChanged?.Invoke();
+        }
+
+        /// <summary>Remove one horizontal line from the selected loop (min 2 wires) and persist.</summary>
+        public void RemoveLineFromSelectedLoop()
+        {
+            if (string.IsNullOrEmpty(_selectedLoopKey)) return;
+            int cur = _extraLines.TryGetValue(_selectedLoopKey, out int e) ? e : 0;
+            if (cur <= 0) return;
+            _extraLines[_selectedLoopKey] = cur - 1;
+            PersistExtraLines();
+            FlipStateChanged?.Invoke();
+        }
+
+        private void PersistExtraLines()
+        {
+            var store = DeviceConfigService.Load();
+            store.LoopExtraLines = new Dictionary<string, int>(_extraLines, StringComparer.OrdinalIgnoreCase);
+            DeviceConfigService.Save(store);
+        }
+
         // ── Visibility preferences ────────────────────────────────────────
 
         private LevelVisibilitySettings _visibility = new LevelVisibilitySettings();

@@ -249,6 +249,7 @@ namespace Pulse.UI.ViewModels
             var diagramConfigStore = DeviceConfigService.Load();
             Diagram.LoadPanels(data.Panels, data.Loops, diagramConfigStore);
             Diagram.LoadFlipStates(diagramConfigStore);
+            Diagram.LoadLoopExtraLines(diagramConfigStore);
 
             // Update status
             int panelCount = data.Panels.Count;
