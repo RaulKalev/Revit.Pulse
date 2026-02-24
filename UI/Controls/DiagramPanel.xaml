@@ -110,7 +110,8 @@
 
                 <Canvas x:Name="DiagramCanvas"
                         ClipToBounds="True"
-                        MouseLeftButtonUp="DiagramCanvas_MouseLeftButtonUp"/>
+                        MouseLeftButtonUp="DiagramCanvas_MouseLeftButtonUp"
+                        MouseMove="DiagramCanvas_MouseMove"/>
 
                 <!-- Loop context popup — appears when clicking a loop wire -->
                 <Popup x:Name="LoopPopup"
@@ -182,6 +183,14 @@
                                     HorizontalContentAlignment="Left"
                                     Padding="10,5,10,5"
                                     FontSize="11"/>
+                            <Button x:Name="PopupMoveButton"
+                                    Click="PopupMove_Click"
+                                    Style="{StaticResource PulseActionButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Padding="10,5,10,5"
+                                    FontSize="11"
+                                    Visibility="Collapsed"/>
                             <Button x:Name="PopupDeleteButton"
                                     Click="PopupDelete_Click"
                                     Style="{StaticResource PulseActionButtonStyle}"

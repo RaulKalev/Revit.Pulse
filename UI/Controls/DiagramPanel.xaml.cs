@@ -32,6 +32,15 @@ namespace Pulse.UI.Controls
         private readonly ScaleTransform     _zoomST = new ScaleTransform(1, 1);
         private readonly TranslateTransform _zoomTT = new TranslateTransform(0, 0);
 
+        // ── Move mode ─────────────────────────────────────────────────────
+        private bool      _inMoveMode;
+        private LevelInfo _movingLevel;
+        private double    _moveOriginalElev;
+        // Cached after each DrawLevels — used by Move mouse handler
+        private double _drawMinElev;
+        private double _drawRange;
+        private double _drawDrawH;
+
         // Popup target: level name + kind ("line" | "text-above" | "text-below")
         private string _popupTargetLevel;
         private string _popupTargetKind;
@@ -207,6 +216,11 @@ namespace Pulse.UI.Controls
 
             double drawH = h - MarginTop - MarginBottom;
 
+            // Cache for move-mode Y↔elevation conversion
+            _drawMinElev = minElev;
+            _drawRange   = range;
+            _drawDrawH   = drawH;
+
             for (int i = 0; i < rangeLevels.Count; i++)
             {
                 var level     = rangeLevels[i];
@@ -216,20 +230,32 @@ namespace Pulse.UI.Controls
                 double y = MarginTop + (1.0 - t) * drawH;
 
                 // ── Line ──────────────────────────────────────────────────
-                if (lineState == LevelState.Visible)
+                bool isMovingLevel = _inMoveMode && _movingLevel != null
+                                      && level.Name == _movingLevel.Name;
+
+                if (lineState == LevelState.Visible || isMovingLevel)
                 {
-                    var hitLine = new Line
+                    // Hit-test overlay only for normally-visible (clickable) lines
+                    if (lineState == LevelState.Visible)
                     {
-                        X1              = 8,
-                        X2              = w - 4,
-                        Y1              = y,
-                        Y2              = y,
-                        Stroke          = Brushes.Transparent,
-                        StrokeThickness = 10,
-                        Tag             = level.Name + "|line",
-                        Cursor          = Cursors.Hand
-                    };
-                    DiagramCanvas.Children.Add(hitLine);
+                        var hitLine = new Line
+                        {
+                            X1              = 8,
+                            X2              = w - 4,
+                            Y1              = y,
+                            Y2              = y,
+                            Stroke          = Brushes.Transparent,
+                            StrokeThickness = 10,
+                            Tag             = level.Name + "|line",
+                            Cursor          = Cursors.Hand
+                        };
+                        DiagramCanvas.Children.Add(hitLine);
+                    }
+
+                    var lineVisualBrush = isMovingLevel
+                        ? new SolidColorBrush(Color.FromArgb(0xFF, 0xFF, 0xC1, 0x07)) // amber
+                        : new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF));
+                    double lineThickness = isMovingLevel ? 2.0 : 1.0;
 
                     var line = new Line
                     {
@@ -237,11 +263,12 @@ namespace Pulse.UI.Controls
                         X2               = w - 4,
                         Y1               = y,
                         Y2               = y,
-                        Stroke           = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
-                        StrokeThickness  = 1,
-                        StrokeDashArray  = new DoubleCollection { 10, 4, 4, 4 },
+                        Stroke           = lineVisualBrush,
+                        StrokeThickness  = lineThickness,
                         IsHitTestVisible = false
                     };
+                    if (!isMovingLevel)
+                        line.StrokeDashArray = new DoubleCollection { 10, 4, 4, 4 };
                     DiagramCanvas.Children.Add(line);
                     _visualElements[level.Name + "|line"] = line;
                 }
@@ -806,6 +833,14 @@ namespace Pulse.UI.Controls
 
         private void DiagramCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
+            // Commit move mode on any left-click
+            if (_inMoveMode)
+            {
+                ExitMoveMode(commit: true);
+                e.Handled = true;
+                return;
+            }
+
             if (_currentVm == null) return;
 
             var tag = (e.OriginalSource as FrameworkElement)?.Tag as string;
@@ -918,6 +953,11 @@ namespace Pulse.UI.Controls
             string kindDisplay = kind == "line" ? "Line" : "Text";
             PopupLevelName.Text = $"{levelName} \u2014 {kindDisplay}";
 
+            // Move button only makes sense for line elements
+            PopupMoveButton.Visibility = kind == "line" ? Visibility.Visible : Visibility.Collapsed;
+            if (kind == "line")
+                PopupMoveButton.Content = MakeButtonContent(PackIconKind.ArrowUpDown, "Move");
+
             switch (state)
             {
                 case LevelState.Visible:
@@ -972,6 +1012,83 @@ namespace Pulse.UI.Controls
             SetStateForKind(_popupTargetLevel, _popupTargetKind, next);
 
             Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
+        }
+
+        private void PopupMove_Click(object sender, RoutedEventArgs e)
+        {
+            LevelPopup.IsOpen = false;
+            if (_currentVm == null || _popupTargetLevel == null) return;
+
+            var lev = _currentVm.Levels.FirstOrDefault(l => l.Name == _popupTargetLevel);
+            if (lev == null) return;
+
+            _movingLevel      = lev;
+            _moveOriginalElev = lev.Elevation;
+            _inMoveMode       = true;
+            DiagramContent.Cursor = Cursors.SizeNS;
+            DiagramContent.Focus();
+            DrawLevels();
+        }
+
+        private void DiagramCanvas_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!_inMoveMode || _movingLevel == null || _drawRange < 0.001) return;
+
+            // Convert mouse position (DiagramContent space) → canvas space (undo zoom transform)
+            Point mouse   = e.GetPosition(DiagramContent);
+            double canvasY = (mouse.Y - _zoomTT.Y) / _zoomST.ScaleY;
+
+            // Invert the draw formula:  y = MarginTop + (1 - (elev-min)/range) * drawH
+            double t       = 1.0 - (canvasY - MarginTop) / _drawDrawH;
+            double newElev = _drawMinElev + t * _drawRange;
+
+            // Clamp between immediate neighbours so the line can't jump past them
+            var others = _currentVm.Levels
+                .Where(l => l != _movingLevel
+                         && _currentVm.GetLineState(l.Name) != LevelState.Deleted)
+                .OrderBy(l => l.Elevation)
+                .ToList();
+
+            const double gap = 0.0001;
+            double lo = others.Where(l => l.Elevation <= _moveOriginalElev - gap)
+                               .Select(l => l.Elevation)
+                               .DefaultIfEmpty(double.MinValue).Max();
+            double hi = others.Where(l => l.Elevation >= _moveOriginalElev + gap)
+                               .Select(l => l.Elevation)
+                               .DefaultIfEmpty(double.MaxValue).Min();
+
+            if (lo > double.MinValue) newElev = Math.Max(lo + gap, newElev);
+            if (hi < double.MaxValue) newElev = Math.Min(hi - gap, newElev);
+
+            if (Math.Abs(newElev - _movingLevel.Elevation) < 1e-9) return;
+            _movingLevel.Elevation = newElev;
+            DrawLevels();
+        }
+
+        private void DiagramContent_PreviewKeyDown(object sender, KeyEventArgs e)
+        {
+            if (!_inMoveMode) return;
+            if (e.Key == Key.Escape)
+            {
+                ExitMoveMode(commit: false);
+                e.Handled = true;
+            }
+            else if (e.Key == Key.Return || e.Key == Key.Enter)
+            {
+                ExitMoveMode(commit: true);
+                e.Handled = true;
+            }
+        }
+
+        private void ExitMoveMode(bool commit)
+        {
+            if (!_inMoveMode) return;
+            _inMoveMode = false;
+            if (!commit && _movingLevel != null)
+                _movingLevel.Elevation = _moveOriginalElev;
+            _movingLevel          = null;
+            DiagramContent.Cursor = Cursors.Arrow;
+            DrawLevels();
         }
 
         private void PopupDelete_Click(object sender, RoutedEventArgs e)
