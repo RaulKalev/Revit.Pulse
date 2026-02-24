@@ -52,6 +52,10 @@ namespace Pulse.UI.ViewModels
         /// <summary>Per-document topology assignments — loaded from ES at startup and kept in sync.</summary>
         private TopologyAssignmentsStore _topologyAssignments = new TopologyAssignmentsStore();
 
+        /// <summary>Custom symbol library — loaded from %APPDATA%\Pulse\custom-symbols.json at startup.</summary>
+        private System.Collections.Generic.List<Pulse.Core.Settings.CustomSymbolDefinition> _symbolLibrary
+            = Pulse.Core.Settings.CustomSymbolLibraryService.Load();
+
         // Child ViewModels
         public TopologyViewModel Topology { get; }
         public InspectorViewModel Inspector { get; }
@@ -466,7 +470,7 @@ namespace Pulse.UI.ViewModels
         /// <summary>Open the Symbol Mapping dialog.</summary>
         private void ExecuteOpenSymbolMapping()
         {
-            var vm = new SymbolMappingViewModel(_currentData, _topologyAssignments.SymbolMappings);
+            var vm = new SymbolMappingViewModel(_currentData, _topologyAssignments.SymbolMappings, _symbolLibrary);
 
             vm.Saved += mappings =>
             {
@@ -481,6 +485,15 @@ namespace Pulse.UI.ViewModels
             {
                 Owner = _ownerWindow
             };
+
+            // When the user designs a new symbol, persist it to the library file
+            win.SymbolCreated += definition =>
+            {
+                _symbolLibrary.RemoveAll(s => s.Id == definition.Id || s.Name == definition.Name);
+                _symbolLibrary.Add(definition);
+                Pulse.Core.Settings.CustomSymbolLibraryService.Save(_symbolLibrary);
+            };
+
             win.ShowDialog();
         }
 

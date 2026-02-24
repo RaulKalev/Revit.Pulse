@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
 using Pulse.Core.Modules;
+using Pulse.Core.Settings;
 
 namespace Pulse.UI.ViewModels
 {
@@ -63,8 +64,8 @@ namespace Pulse.UI.ViewModels
             = new ObservableCollection<SymbolMappingEntryViewModel>();
 
         /// <summary>
-        /// Available symbol names for the ComboBox dropdown.
-        /// Populated when symbols are implemented; editable so users can type freely now.
+        /// Available symbol names for the ComboBox dropdown, sourced from the custom symbol library.
+        /// Users can also type freely if no matching symbol exists.
         /// </summary>
         public ObservableCollection<string> AvailableSymbols { get; }
             = new ObservableCollection<string>();
@@ -97,16 +98,28 @@ namespace Pulse.UI.ViewModels
         /// <summary>Raised on Cancel/Close.</summary>
         public event Action Cancelled;
 
+        /// <summary>
+        /// Raised when the user clicks the "+ New Symbol" button.
+        /// The caller (Window code-behind or MainViewModel) should open the designer and,
+        /// on success, call <see cref="AddSymbolToLibrary"/> with the new definition.
+        /// </summary>
+        public event Action NewSymbolRequested;
+
         // ─── Commands ────────────────────────────────────────────────────────
-        public ICommand SaveCommand     { get; }
-        public ICommand CancelCommand   { get; }
-        public ICommand ClearAllCommand { get; }
+        public ICommand SaveCommand            { get; }
+        public ICommand CancelCommand          { get; }
+        public ICommand ClearAllCommand        { get; }
+        public ICommand CreateNewSymbolCommand { get; }
 
         // ─── Constructor ─────────────────────────────────────────────────────
 
         /// <param name="data">Current module data. May be null before first Refresh.</param>
         /// <param name="existingMappings">Previously saved mappings: deviceType → symbol.</param>
-        public SymbolMappingViewModel(ModuleData data, Dictionary<string, string> existingMappings)
+        /// <param name="symbolLibrary">Custom symbol definitions to populate the dropdown.</param>
+        public SymbolMappingViewModel(
+            ModuleData data,
+            Dictionary<string, string> existingMappings,
+            IEnumerable<CustomSymbolDefinition> symbolLibrary = null)
         {
             if (existingMappings == null)
                 existingMappings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -127,6 +140,13 @@ namespace Pulse.UI.ViewModels
                 }
             }
 
+            // Populate symbol dropdown from library
+            if (symbolLibrary != null)
+            {
+                foreach (var sym in symbolLibrary.OrderBy(s => s.Name))
+                    AvailableSymbols.Add(sym.Name);
+            }
+
             ApplyFilter();
             RefreshMappedCount();
 
@@ -138,6 +158,18 @@ namespace Pulse.UI.ViewModels
                     e.SymbolName = string.Empty;
                 RefreshMappedCount();
             });
+            CreateNewSymbolCommand = new RelayCommand(_ => NewSymbolRequested?.Invoke());
+        }
+
+        /// <summary>
+        /// Called after the user successfully creates a symbol in the designer.
+        /// Adds the name to the dropdown so they can immediately assign it.
+        /// </summary>
+        public void AddSymbolToLibrary(CustomSymbolDefinition definition)
+        {
+            if (definition == null || string.IsNullOrWhiteSpace(definition.Name)) return;
+            if (!AvailableSymbols.Contains(definition.Name))
+                AvailableSymbols.Add(definition.Name);
         }
 
         // ─── Helpers ─────────────────────────────────────────────────────────

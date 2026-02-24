@@ -243,6 +243,20 @@
                             </TextBlock>
                         </StackPanel>
 
+                        <!-- + New Symbol button -->
+                        <Button DockPanel.Dock="Right"
+                                Style="{StaticResource PulseActionButtonStyle}"
+                                Command="{Binding CreateNewSymbolCommand}"
+                                ToolTip="Design a new custom symbol"
+                                Padding="8,4"
+                                Margin="0,0,12,0">
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="Plus" Width="12" Height="12"
+                                                         VerticalAlignment="Center" Margin="0,0,4,0" />
+                                <TextBlock Text="New Symbol" FontSize="11" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+
                         <!-- Search box -->
                         <Grid DockPanel.Dock="Left">
                             <TextBox Style="{StaticResource SearchBoxStyle}"
