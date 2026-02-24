@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 using System.Windows;
@@ -26,11 +27,18 @@ namespace Pulse.UI.Controls
         private string _popupTargetLevel;
         private string _popupTargetKind;
 
+        // Tracks visual elements by tag for highlighting
+        private readonly Dictionary<string, FrameworkElement> _visualElements =
+            new Dictionary<string, FrameworkElement>();
+        private FrameworkElement _selectedVisual;
+        private Brush            _selectedOriginalBrush;
+
         public DiagramPanel()
         {
             InitializeComponent();
             DataContextChanged += OnDataContextChanged;
             Loaded += (_, __) => ApplyState();
+            LevelPopup.Closed += (_, __) => ClearHighlight();
         }
 
         // ── Toggle ────────────────────────────────────────────────────────
@@ -101,6 +109,8 @@ namespace Pulse.UI.Controls
 
         private void DrawLevels()
         {
+            ClearHighlight();
+            _visualElements.Clear();
             DiagramCanvas.Children.Clear();
 
             if (_currentVm == null || _currentVm.Levels.Count == 0) return;
@@ -164,6 +174,7 @@ namespace Pulse.UI.Controls
                         IsHitTestVisible = false
                     };
                     DiagramCanvas.Children.Add(line);
+                    _visualElements[level.Name + "|line"] = line;
                 }
 
                 // ── Text above this line (this level's name) ──────────────
@@ -183,6 +194,7 @@ namespace Pulse.UI.Controls
                     Canvas.SetRight(nameLabel, 8);
                     Canvas.SetTop(nameLabel, y - 13);
                     DiagramCanvas.Children.Add(nameLabel);
+                    _visualElements[level.Name + "|text-above"] = nameLabel;
                 }
 
                 // ── Text below this line (previous level's name) ──────────
@@ -214,6 +226,7 @@ namespace Pulse.UI.Controls
                         Canvas.SetRight(prevLabel, 8);
                         Canvas.SetTop(prevLabel, y + 2);
                         DiagramCanvas.Children.Add(prevLabel);
+                        _visualElements[prevName + "|text-below"] = prevLabel;
                     }
                 }
             }
@@ -236,10 +249,52 @@ namespace Pulse.UI.Controls
             _popupTargetLevel = tag.Substring(0, sep);
             _popupTargetKind  = tag.Substring(sep + 1); // "line" | "text-above" | "text-below"
 
+            // Highlight the clicked element
+            if (_visualElements.TryGetValue(tag, out var visual))
+                HighlightElement(visual);
+
             var state = GetStateForKind(_popupTargetLevel, _popupTargetKind);
             ConfigurePopup(_popupTargetLevel, _popupTargetKind, state);
             LevelPopup.IsOpen = true;
             e.Handled = true;
+        }
+
+        // ── Highlight ─────────────────────────────────────────────────────
+
+        private static readonly SolidColorBrush AccentBrush =
+            new SolidColorBrush(Color.FromRgb(0x4F, 0xC3, 0xF7)); // Material Blue 300
+
+        private void HighlightElement(FrameworkElement el)
+        {
+            ClearHighlight();
+            if (el is Line ln)
+            {
+                _selectedOriginalBrush = ln.Stroke;
+                ln.Stroke          = AccentBrush;
+                ln.StrokeThickness = 2;
+            }
+            else if (el is TextBlock tb)
+            {
+                _selectedOriginalBrush = tb.Foreground;
+                tb.Foreground = AccentBrush;
+            }
+            _selectedVisual = el;
+        }
+
+        private void ClearHighlight()
+        {
+            if (_selectedVisual == null) return;
+            if (_selectedVisual is Line ln)
+            {
+                ln.Stroke          = _selectedOriginalBrush;
+                ln.StrokeThickness = 1;
+            }
+            else if (_selectedVisual is TextBlock tb)
+            {
+                tb.Foreground = _selectedOriginalBrush;
+            }
+            _selectedVisual        = null;
+            _selectedOriginalBrush = null;
         }
 
         private LevelState GetStateForKind(string levelName, string kind)
