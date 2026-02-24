@@ -45,6 +45,18 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public event Action<TopologyNodeViewModel> WireAssigned;
 
+        /// <summary>
+        /// Returns the Loop node whose parent matches <paramref name="panelName"/> and
+        /// label matches <paramref name="loopName"/>, or null if not found.
+        /// </summary>
+        public TopologyNodeViewModel FindLoopNode(string panelName, string loopName)
+        {
+            return _allNodes.FirstOrDefault(n =>
+                n.NodeType == "Loop" &&
+                string.Equals(n.Label, loopName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(n.ParentLabel, panelName, StringComparison.OrdinalIgnoreCase));
+        }
+
         private TopologyNodeViewModel _selectedNode;
         public TopologyNodeViewModel SelectedNode
         {
@@ -431,6 +443,16 @@ namespace Pulse.UI.ViewModels
                 if (SetField(ref _assignedWire, value))
                     _onAssignWire?.Invoke(this);
             }
+        }
+
+        /// <summary>
+        /// Updates <see cref="AssignedWire"/> silently — raises PropertyChanged so the
+        /// combobox binding updates, but does NOT trigger the save/Revit-write callback.
+        /// Used to sync the topology combobox when the diagram canvas changes.
+        /// </summary>
+        public void SetAssignedWireSilent(string value)
+        {
+            SetField(ref _assignedWire, value);
         }
 
         public ObservableCollection<TopologyNodeViewModel> Children { get; } = new ObservableCollection<TopologyNodeViewModel>();

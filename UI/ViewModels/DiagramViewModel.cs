@@ -275,6 +275,22 @@ namespace Pulse.UI.ViewModels
             WireAssigned?.Invoke(panelName, loopName, wireName);
         }
 
+        /// <summary>
+        /// Updates the in-memory wire assignment and redraws the diagram
+        /// without persisting or raising <see cref="WireAssigned"/>.
+        /// Used to sync the canvas when the topology combobox changes.
+        /// </summary>
+        public void SyncLoopWire(string panelName, string loopName, string wireName)
+        {
+            string key = panelName + "::" + loopName;
+            if (string.IsNullOrEmpty(wireName))
+                _wireAssignments.Remove(key);
+            else
+                _wireAssignments[key] = wireName;
+
+            FlipStateChanged?.Invoke(); // reuse the redraw signal
+        }
+
         /// <summary>Returns the names of all defined wire types from the config store.</summary>
         public IReadOnlyList<string> GetAvailableWireNames()
         {

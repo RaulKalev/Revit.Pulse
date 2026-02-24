@@ -538,6 +538,9 @@ namespace Pulse.UI.ViewModels
                     StatusText = $"Could not write wire: {ex.Message}");
 
             _writeParamEvent.Raise();
+
+            // Sync diagram canvas — update in-memory assignment and redraw
+            Diagram.SyncLoopWire(vm.ParentLabel ?? string.Empty, vm.Label, vm.AssignedWire);
         }
 
         /// <summary>
@@ -583,6 +586,10 @@ namespace Pulse.UI.ViewModels
                     StatusText = $"Could not write wire: {ex.Message}");
 
             _writeParamEvent.Raise();
+
+            // Sync topology combobox silently (no re-save / Revit write)
+            var topoNode = Topology.FindLoopNode(panelName, loopName);
+            topoNode?.SetAssignedWireSilent(wireName ?? string.Empty);
         }
 
         /// <summary>Open the Settings dialog for the active module.</summary>
