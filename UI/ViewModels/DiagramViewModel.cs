@@ -12,18 +12,27 @@ namespace Pulse.UI.ViewModels
     {
         public double Elevation   { get; }
         public int    DeviceCount { get; }
-        public LoopLevelInfo(double elevation, int deviceCount)
-        { Elevation = elevation; DeviceCount = deviceCount; }
+        /// <summary>
+        /// Per-type breakdown at this elevation, sorted by DeviceType for consistent render order.
+        /// Each entry: (DeviceType, count). DeviceType may be null/empty for untyped devices.
+        /// </summary>
+        public IReadOnlyList<(string DeviceType, int Count)> TypeCounts { get; }
+
+        public LoopLevelInfo(double elevation,
+                             IReadOnlyList<(string DeviceType, int Count)> typeCounts)
+        {
+            Elevation   = elevation;
+            TypeCounts  = typeCounts ?? System.Array.Empty<(string, int)>();
+            DeviceCount = TypeCounts.Sum(t => t.Count);
+        }
     }
 
     public readonly struct LoopDrawInfo
     {
         public string Name { get; }
         public IReadOnlyList<LoopLevelInfo> Levels { get; }
-        /// <summary>Most frequent DeviceType among devices on this loop, or null if unknown.</summary>
-        public string DominantDeviceType { get; }
-        public LoopDrawInfo(string name, IReadOnlyList<LoopLevelInfo> levels, string dominantDeviceType = null)
-        { Name = name; Levels = levels; DominantDeviceType = dominantDeviceType; }
+        public LoopDrawInfo(string name, IReadOnlyList<LoopLevelInfo> levels)
+        { Name = name; Levels = levels; }
     }
 
     public readonly struct PanelInfo
@@ -134,24 +143,25 @@ namespace Pulse.UI.ViewModels
                 var loopInfos = new List<LoopDrawInfo>();
                 foreach (var loop in sortedLoops)
                 {
-                    var levelMap = new Dictionary<double, int>();
+                    // Group devices by (elevation, deviceType)
+                    var levelTypeMap = new Dictionary<double, Dictionary<string, int>>();
                     foreach (var d in loop.Devices)
                     {
                         if (!d.Elevation.HasValue) continue;
                         double key = Math.Round(d.Elevation.Value, 3);
-                        levelMap[key] = levelMap.TryGetValue(key, out int cnt) ? cnt + 1 : 1;
+                        if (!levelTypeMap.TryGetValue(key, out var typeMap))
+                            levelTypeMap[key] = typeMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                        string dt = d.DeviceType ?? string.Empty;
+                        typeMap[dt] = typeMap.TryGetValue(dt, out int c) ? c + 1 : 1;
                     }
-                    var levelInfos = levelMap
-                        .Select(kv => new LoopLevelInfo(kv.Key, kv.Value))
+                    var levelInfos = levelTypeMap
+                        .Select(kv => new LoopLevelInfo(kv.Key,
+                            kv.Value.OrderBy(t => t.Key, StringComparer.OrdinalIgnoreCase)
+                                     .Select(t => (t.Key, t.Value))
+                                     .ToList()))
                         .OrderBy(x => x.Elevation)
                         .ToList();
-                    string dominantType = loop.Devices
-                        .Where(d => !string.IsNullOrEmpty(d.DeviceType))
-                        .GroupBy(d => d.DeviceType)
-                        .OrderByDescending(g => g.Count())
-                        .Select(g => g.Key)
-                        .FirstOrDefault();
-                    loopInfos.Add(new LoopDrawInfo(loop.DisplayName, levelInfos, dominantType));
+                    loopInfos.Add(new LoopDrawInfo(loop.DisplayName, levelInfos));
                 }
 
                 int configLoopCount = 0;

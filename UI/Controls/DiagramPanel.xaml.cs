@@ -670,14 +670,14 @@ namespace Pulse.UI.Controls
                         var circleStroke= new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
 
                         // Pass 1: find the majority level (most devices) for each loop
-                        var loopMajority = new Dictionary<int, (double Elevation, int TotalDevices)>();
+                        var loopMajority = new Dictionary<int, (double Elevation, int TotalDevices, IReadOnlyList<(string, int)> TypeCounts)>();
                         for (int li2 = 0; li2 < panel.LoopInfos.Count; li2++)
                         {
                             var inf = panel.LoopInfos[li2];
                             if (inf.Levels == null || inf.Levels.Count == 0) continue;
-                            var majority    = inf.Levels.OrderByDescending(ld => ld.DeviceCount).First();
-                            int totalDevs   = inf.Levels.Sum(ld => ld.DeviceCount);
-                            loopMajority[li2] = (majority.Elevation, totalDevs);
+                            var majority  = inf.Levels.OrderByDescending(ld => ld.DeviceCount).First();
+                            int totalDevs = inf.Levels.Sum(ld => ld.DeviceCount);
+                            loopMajority[li2] = (majority.Elevation, totalDevs, majority.TypeCounts);
                         }
 
                         // Pass 2: per-side stagger maps — key = "elevKey|L" or "elevKey|R"
@@ -792,18 +792,24 @@ namespace Pulse.UI.Controls
 
                             if (maj.TotalDevices <= 0) continue;
 
-                            // Resolve custom symbol for this loop's device type (null → default circle)
-                            string symKey = loopInfo.DominantDeviceType != null
-                                ? _currentVm.GetDeviceTypeSymbol(loopInfo.DominantDeviceType)
-                                : null;
-                            CustomSymbolDefinition loopSymbol = symKey != null && _symbolLibrary != null
-                                ? _symbolLibrary.FirstOrDefault(s =>
-                                    string.Equals(s.Name, symKey, StringComparison.OrdinalIgnoreCase))
-                                : null;
+                            // Build a flat, ordered list of device types for this loop
+                            // (one entry per device slot, sorted by type for consistency)
+                            var flatTypes = new List<string>(maj.TotalDevices);
+                            if (maj.TypeCounts != null)
+                            {
+                                foreach (var (dt, cnt) in maj.TypeCounts)
+                                    for (int k = 0; k < cnt; k++)
+                                        flatTypes.Add(dt);
+                            }
+                            else
+                            {
+                                for (int k = 0; k < maj.TotalDevices; k++) flatTypes.Add(null);
+                            }
 
                             // ── Devices distributed evenly across all wires ───────
-                            double span     = Math.Abs(laneX - farEdge);
-                            int devRemain   = maj.TotalDevices;
+                            double span    = Math.Abs(laneX - farEdge);
+                            int devRemain  = maj.TotalDevices;
+                            int devOffset  = 0;  // index into flatTypes
                             for (int wi = 0; wi < wireCount; wi++)
                             {
                                 // Ceiling-divide remaining devices among remaining wires
@@ -815,9 +821,21 @@ namespace Pulse.UI.Controls
                                     double devX = flipped
                                         ? farEdge - cp * (di + 1)
                                         : wireLeft + cp * (di + 1);
-                                    if (loopSymbol != null)
+
+                                    // Resolve symbol for this specific device slot
+                                    string devType = devOffset < flatTypes.Count ? flatTypes[devOffset] : null;
+                                    devOffset++;
+
+                                    string slotSymKey = devType != null
+                                        ? _currentVm.GetDeviceTypeSymbol(devType) : null;
+                                    CustomSymbolDefinition slotSym = slotSymKey != null && _symbolLibrary != null
+                                        ? _symbolLibrary.FirstOrDefault(s =>
+                                            string.Equals(s.Name, slotSymKey, StringComparison.OrdinalIgnoreCase))
+                                        : null;
+
+                                    if (slotSym != null)
                                     {
-                                        AddSymbolToCanvas(devX, wY, circR * 2.8, loopSymbol, circleStroke);
+                                        AddSymbolToCanvas(devX, wY, circR * 2.8, slotSym, circleStroke);
                                     }
                                     else
                                     {
