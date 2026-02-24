@@ -666,7 +666,7 @@
                                     ToolTip="Delete selected element (Delete key)"
                                     Margin="0,0,4,0">
                                 <StackPanel Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="VectorRemove" Width="13" Height="13"
+                                    <materialDesign:PackIcon Kind="DeleteForever" Width="13" Height="13"
                                                              VerticalAlignment="Center" Margin="0,0,4,0" />
                                     <TextBlock Text="Delete" FontSize="11" VerticalAlignment="Center" />
                                 </StackPanel>
