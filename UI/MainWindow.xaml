@@ -110,6 +110,14 @@
                                 <materialDesign:PackIcon Kind="Wrench" Width="14" Height="14" VerticalAlignment="Center"/>
                             </Button>
 
+                            <!-- Symbol Mapping -->
+                            <Button Style="{StaticResource PulseActionButtonStyle}"
+                                    Command="{Binding OpenSymbolMappingCommand}"
+                                    ToolTip="Map symbols to loop elements"
+                                    Margin="0,0,4,0">
+                                <materialDesign:PackIcon Kind="ShapePlus" Width="14" Height="14" VerticalAlignment="Center"/>
+                            </Button>
+
                             <!-- Settings -->
                             <Button Style="{StaticResource PulseActionButtonStyle}"
                                     Command="{Binding OpenSettingsCommand}"

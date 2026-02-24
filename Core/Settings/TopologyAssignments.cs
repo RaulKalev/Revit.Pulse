@@ -35,5 +35,9 @@ namespace Pulse.Core.Settings
         /// <summary>"panelName::loopName" → assigned WireConfig name.</summary>
         public Dictionary<string, string> LoopWireAssignments { get; set; }
             = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>DeviceType string → symbol key. Each device type maps to one symbol for display.</summary>
+        public Dictionary<string, string> SymbolMappings { get; set; }
+            = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
     }
 }

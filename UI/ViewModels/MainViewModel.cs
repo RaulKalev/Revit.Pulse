@@ -63,6 +63,7 @@ namespace Pulse.UI.ViewModels
         public ICommand FilterWarningsCommand { get; }
         public ICommand OpenSettingsCommand { get; }
         public ICommand OpenDeviceConfiguratorCommand { get; }
+        public ICommand OpenSymbolMappingCommand { get; }
 
         // Status
         private string _statusText = "Ready. Press Refresh to load system data.";
@@ -197,6 +198,7 @@ namespace Pulse.UI.ViewModels
             FilterWarningsCommand = new RelayCommand(_ => ShowWarningsOnly = !ShowWarningsOnly);
             OpenSettingsCommand = new RelayCommand(ExecuteOpenSettings);
             OpenDeviceConfiguratorCommand = new RelayCommand(ExecuteOpenDeviceConfigurator);
+            OpenSymbolMappingCommand = new RelayCommand(ExecuteOpenSymbolMapping);
 
             // Load previously saved settings from Extensible Storage (we are on the API thread here)
             LoadInitialSettings(uiApp.ActiveUIDocument?.Document);
@@ -455,6 +457,27 @@ namespace Pulse.UI.ViewModels
         {
             var vm = new DeviceConfigViewModel();
             var win = new DeviceConfiguratorWindow(vm)
+            {
+                Owner = _ownerWindow
+            };
+            win.ShowDialog();
+        }
+
+        /// <summary>Open the Symbol Mapping dialog.</summary>
+        private void ExecuteOpenSymbolMapping()
+        {
+            var vm = new SymbolMappingViewModel(_currentData, _topologyAssignments.SymbolMappings);
+
+            vm.Saved += mappings =>
+            {
+                _topologyAssignments.SymbolMappings =
+                    new System.Collections.Generic.Dictionary<string, string>(
+                        mappings, System.StringComparer.OrdinalIgnoreCase);
+                _saveAssignmentsHandler.Store = _topologyAssignments;
+                _saveAssignmentsEvent.Raise();
+            };
+
+            var win = new SymbolMappingWindow(vm)
             {
                 Owner = _ownerWindow
             };
