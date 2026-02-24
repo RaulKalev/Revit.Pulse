@@ -33,6 +33,12 @@ namespace Pulse.UI.Controls
         private readonly ScaleTransform     _zoomST = new ScaleTransform(1, 1);
         private readonly TranslateTransform _zoomTT = new TranslateTransform(0, 0);
 
+        // ── Middle-mouse pan ──────────────────────────────────────────
+        private bool   _isPanning;
+        private Point  _panStart;
+        private double _panStartX;
+        private double _panStartY;
+
         // ── Move mode ─────────────────────────────────────────────────────
         private bool      _inMoveMode;
         private LevelInfo _movingLevel;
@@ -178,15 +184,31 @@ namespace Pulse.UI.Controls
 
         private void DiagramContent_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            // Middle-button double-click → reset zoom
-            if (e.ChangedButton == MouseButton.Middle && e.ClickCount == 2)
+            if (e.ChangedButton == MouseButton.Middle)
             {
-                _zoom       = 1.0;
-                _zoomST.ScaleX = 1.0;
-                _zoomST.ScaleY = 1.0;
-                _zoomTT.X   = 0.0;
-                _zoomTT.Y   = 0.0;
-                e.Handled   = true;
+                // Double-click → reset zoom & pan
+                if (e.ClickCount == 2)
+                {
+                    _isPanning     = false;
+                    _zoom          = 1.0;
+                    _zoomST.ScaleX = 1.0;
+                    _zoomST.ScaleY = 1.0;
+                    _zoomTT.X      = 0.0;
+                    _zoomTT.Y      = 0.0;
+                    DiagramContent.ReleaseMouseCapture();
+                    DiagramContent.Cursor = Cursors.Arrow;
+                    e.Handled = true;
+                    return;
+                }
+
+                // Single middle-button press → start panning
+                _isPanning  = true;
+                _panStart   = e.GetPosition(DiagramContent);
+                _panStartX  = _zoomTT.X;
+                _panStartY  = _zoomTT.Y;
+                DiagramContent.CaptureMouse();
+                DiagramContent.Cursor = Cursors.SizeAll;
+                e.Handled = true;
             }
         }
 
@@ -916,6 +938,17 @@ namespace Pulse.UI.Controls
             }
         }
 
+        private void DiagramContent_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ChangedButton == MouseButton.Middle && _isPanning)
+            {
+                _isPanning = false;
+                DiagramContent.ReleaseMouseCapture();
+                DiagramContent.Cursor = Cursors.Arrow;
+                e.Handled = true;
+            }
+        }
+
         private void DiagramCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             // Commit move mode on any left-click
@@ -1128,6 +1161,16 @@ namespace Pulse.UI.Controls
 
         private void DiagramContent_MouseMove(object sender, MouseEventArgs e)
         {
+            // ── Middle-mouse pan ─────────────────────────────────────────
+            if (_isPanning)
+            {
+                Point cur = e.GetPosition(DiagramContent);
+                _zoomTT.X = _panStartX + (cur.X - _panStart.X);
+                _zoomTT.Y = _panStartY + (cur.Y - _panStart.Y);
+                e.Handled = true;
+                return;
+            }
+
             if (!_inMoveMode || _movingLevel == null || _drawRange < 0.001) return;
 
             // Convert mouse position (DiagramContent space) → canvas space (undo zoom transform)
@@ -1286,9 +1329,13 @@ namespace Pulse.UI.Controls
         {
             if (symbol?.Elements == null || symbol.Elements.Count == 0) return;
 
-            double vw = symbol.ViewboxWidthMm  > 0 ? symbol.ViewboxWidthMm  : 10.0;
-            double vh = symbol.ViewboxHeightMm > 0 ? symbol.ViewboxHeightMm : 10.0;
-            double scale = sizePx / Math.Max(vw, vh);   // px per mm
+            // Use a fixed 10mm reference so that all symbols render at the same px/mm
+            // ratio regardless of their viewbox size.  sizePx therefore means:
+            // "how many canvas pixels should 10mm of symbol content occupy".
+            // (Previously this divided by Math.Max(ViewboxWidthMm, ViewboxHeightMm) which
+            // caused symbols with different viewbox dimensions to appear at inconsistent scales.)
+            const double SymbolRefMm = 10.0;
+            double scale = sizePx / SymbolRefMm;  // px per mm
 
             // Align the snap origin to the device centre position
             double ox = cx - symbol.SnapOriginXMm * scale;
