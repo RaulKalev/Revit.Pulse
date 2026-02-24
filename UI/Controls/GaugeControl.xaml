@@ -13,7 +13,7 @@
         Layout: label at top, thin arc ring, combined "V / M unit" text centered inside arc, percentage below.
     -->
     <Viewbox Stretch="Uniform">
-        <Canvas Width="140" Height="108">
+        <Canvas Width="140" Height="90">
 
             <!-- Gauge label (e.g. "Controller Load") — top of gauge -->
             <TextBlock x:Name="LabelText"
@@ -27,21 +27,21 @@
             <!-- M 12,78 A 58,58 0 0 0 128,78 L 92,78 A 22,22 0 0 1 48,78 Z -->
             <Path x:Name="BackTrackPath"
                   Data="M 12,78 A 58,58 0 0 0 128,78 L 92,78 A 22,22 0 0 1 48,78 Z"
-                  Fill="#22FFFFFF"/>
+                  Fill="#55FFFFFF"/>
 
             <!-- Value arc: geometry replaced in code-behind -->
             <Path x:Name="ValueArcPath"/>
 
             <!-- Combined "value / max unit" — large bold, centered inside the arc -->
             <TextBlock x:Name="ValueText"
-                       Canvas.Left="0" Canvas.Top="40"
+                       Canvas.Left="0" Canvas.Top="42"
                        Width="140" TextAlignment="Center"
                        FontSize="14" FontWeight="Bold"
                        Foreground="White"/>
 
             <!-- Percentage below the value text -->
             <TextBlock x:Name="PercentText"
-                       Canvas.Left="0" Canvas.Top="57"
+                       Canvas.Left="0" Canvas.Top="59"
                        Width="140" TextAlignment="Center"
                        FontSize="9" Opacity="0.50"
                        Foreground="White"/>
