@@ -43,6 +43,18 @@
                                                  Width="14" Height="14"/>
                     </Button>
 
+                    <!-- Restore hidden/deleted items button — only visible when there are non-visible items -->
+                    <Button x:Name="RestoreButton"
+                            DockPanel.Dock="Right"
+                            Style="{StaticResource PulseActionButtonStyle}"
+                            Width="24" Height="24"
+                            Visibility="Collapsed"
+                            ToolTip="Show hidden / deleted items"
+                            Click="RestoreButton_Click">
+                        <materialDesign:PackIcon Kind="EyeOff"
+                                                 Width="13" Height="13"/>
+                    </Button>
+
                     <!-- Diagram icon + title — hidden when collapsed -->
                     <StackPanel x:Name="HeaderTitleStack"
                                 Orientation="Horizontal"
@@ -97,7 +109,7 @@
                             BorderBrush="{DynamicResource BorderBrush}"
                             BorderThickness="1"
                             CornerRadius="4"
-                            MinWidth="140">
+                            MinWidth="130">
                         <StackPanel>
                             <TextBlock x:Name="PopupLevelName"
                                        FontSize="9" FontWeight="SemiBold"
@@ -120,6 +132,35 @@
                                     HorizontalContentAlignment="Left"
                                     Padding="10,5,10,7"
                                     FontSize="11"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
+                <!-- Restore popup — lists all hidden/deleted elements -->
+                <Popup x:Name="RestorePopup"
+                       StaysOpen="False"
+                       AllowsTransparency="True"
+                       PopupAnimation="Fade"
+                       PlacementTarget="{Binding ElementName=RestoreButton}"
+                       Placement="Bottom">
+                    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            MinWidth="200">
+                        <StackPanel>
+                            <TextBlock Text="Hidden / Deleted"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Opacity="0.45"
+                                       Padding="10,7,10,4"
+                                       Foreground="{DynamicResource ForegroundBrush}"/>
+                            <Separator Margin="0,2,0,4"
+                                       Background="{DynamicResource BorderBrush}"/>
+                            <ScrollViewer MaxHeight="260"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled">
+                                <StackPanel x:Name="RestoreList" Margin="0,0,0,4"/>
+                            </ScrollViewer>
                         </StackPanel>
                     </Border>
                 </Popup>

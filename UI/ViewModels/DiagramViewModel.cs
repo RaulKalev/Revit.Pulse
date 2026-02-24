@@ -1,23 +1,31 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using Pulse.Core.Modules;
 
 namespace Pulse.UI.ViewModels
 {
+    public readonly struct NonVisibleItem
+    {
+        public string LevelName { get; }
+        public string Kind      { get; }   // "line" or "text"
+        public LevelState State { get; }
+        public NonVisibleItem(string levelName, string kind, LevelState state)
+        { LevelName = levelName; Kind = kind; State = state; }
+    }
+
     /// <summary>
     /// ViewModel for the Diagram panel.
-    /// Holds the list of project levels used to draw the background level grid,
-    /// and manages per-level visibility preferences that are persisted to Extensible Storage.
+    /// Manages project levels and per-element (line/text) visibility preferences
+    /// that are persisted to Revit Extensible Storage.
     /// </summary>
     public class DiagramViewModel : ViewModelBase
     {
         // ── Levels ────────────────────────────────────────────────────────
 
-        /// <summary>Project levels ordered by elevation ascending.</summary>
         public ObservableCollection<LevelInfo> Levels { get; } = new ObservableCollection<LevelInfo>();
 
-        /// <summary>Replace the levels collection with fresh data from the last Refresh.</summary>
         public void LoadLevels(IEnumerable<LevelInfo> levels)
         {
             Levels.Clear();
@@ -25,39 +33,53 @@ namespace Pulse.UI.ViewModels
                 Levels.Add(level);
         }
 
-        // ── Visibility preferences ─────────────────────────────────────────
+        // ── Visibility preferences ────────────────────────────────────────
 
         private LevelVisibilitySettings _visibility = new LevelVisibilitySettings();
 
-        /// <summary>Current visibility settings (read-only snapshot for storage).</summary>
         public LevelVisibilitySettings Visibility => _visibility;
 
-        /// <summary>
-        /// Delegate raised whenever the user changes a level's visibility state.
-        /// MainViewModel wires this to raise the SaveDiagramSettings ExternalEvent.
-        /// </summary>
+        /// <summary>Raised whenever the user changes any visibility state, to trigger a save.</summary>
         public Action VisibilityChanged { get; set; }
 
-        /// <summary>Restore persisted visibility settings loaded from Extensible Storage.</summary>
         public void LoadVisibility(LevelVisibilitySettings settings)
         {
             _visibility = settings ?? new LevelVisibilitySettings();
             OnPropertyChanged(nameof(Visibility));
         }
 
-        /// <summary>Returns the current display state for a level by name.</summary>
-        public LevelState GetLevelState(string levelName)
-            => _visibility.GetState(levelName);
+        // ── Per-element accessors ─────────────────────────────────────────
 
-        /// <summary>
-        /// Change the display state for a level and request a save.
-        /// </summary>
-        public void SetLevelState(string levelName, LevelState state)
+        public LevelState GetLineState(string levelName) => _visibility.GetLineState(levelName);
+        public LevelState GetTextState(string levelName) => _visibility.GetTextState(levelName);
+
+        public void SetLineState(string levelName, LevelState state)
         {
-            _visibility.SetState(levelName, state);
+            _visibility.SetLineState(levelName, state);
             OnPropertyChanged(nameof(Visibility));
             VisibilityChanged?.Invoke();
         }
+
+        public void SetTextState(string levelName, LevelState state)
+        {
+            _visibility.SetTextState(levelName, state);
+            OnPropertyChanged(nameof(Visibility));
+            VisibilityChanged?.Invoke();
+        }
+
+        /// <summary>Returns all line/text elements that are not Visible, for the Restore panel.</summary>
+        public List<NonVisibleItem> GetNonVisibleItems()
+            => _visibility.States
+                .Where(kv => kv.Value != LevelState.Visible)
+                .Select(kv =>
+                {
+                    var sep   = kv.Key.LastIndexOf('|');
+                    var name  = sep >= 0 ? kv.Key.Substring(0, sep) : kv.Key;
+                    var kind  = sep >= 0 ? kv.Key.Substring(sep + 1) : "line";
+                    return new NonVisibleItem(name, kind, kv.Value);
+                })
+                .OrderBy(x => x.LevelName).ThenBy(x => x.Kind)
+                .ToList();
     }
 }
 

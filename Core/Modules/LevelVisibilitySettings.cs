@@ -4,7 +4,7 @@ using Newtonsoft.Json;
 namespace Pulse.Core.Modules
 {
     /// <summary>
-    /// Defines the visibility state of a single level line in the diagram panel.
+    /// Defines the visibility state of a single level element (line or text label).
     /// </summary>
     public enum LevelState
     {
@@ -14,25 +14,33 @@ namespace Pulse.Core.Modules
     }
 
     /// <summary>
-    /// Persisted diagram display preferences: maps level name → visibility state.
-    /// Serialised to Revit Extensible Storage so choices survive file close/reopen.
+    /// Persisted diagram display preferences.
+    /// Keys are stored as "LevelName|line" or "LevelName|text".
+    /// Absence of a key means Visible.
     /// </summary>
     public class LevelVisibilitySettings
     {
         [JsonProperty("states")]
         public Dictionary<string, LevelState> States { get; set; } = new Dictionary<string, LevelState>();
 
-        /// <summary>Returns the current state for <paramref name="levelName"/>; defaults to Visible.</summary>
-        public LevelState GetState(string levelName)
-            => States.TryGetValue(levelName, out var s) ? s : LevelState.Visible;
+        public LevelState GetLineState(string levelName)
+            => States.TryGetValue(levelName + "|line", out var s) ? s : LevelState.Visible;
 
-        /// <summary>Sets the state for <paramref name="levelName"/>.</summary>
-        public void SetState(string levelName, LevelState state)
+        public LevelState GetTextState(string levelName)
+            => States.TryGetValue(levelName + "|text", out var s) ? s : LevelState.Visible;
+
+        public void SetLineState(string levelName, LevelState state)
+            => SetKey(levelName + "|line", state);
+
+        public void SetTextState(string levelName, LevelState state)
+            => SetKey(levelName + "|text", state);
+
+        private void SetKey(string key, LevelState state)
         {
             if (state == LevelState.Visible)
-                States.Remove(levelName);   // keep dict minimal — absence means Visible
+                States.Remove(key);
             else
-                States[levelName] = state;
+                States[key] = state;
         }
     }
 }
