@@ -4,21 +4,12 @@ using System.Windows.Media;
 
 namespace Pulse.UI.Controls
 {
-    /// <summary>
-    /// Speedometer-style semicircular gauge.
-    /// Shows a value/maximum ratio as a coloured arc:
-    ///   green (< 70 %)  ->  yellow (< 90 %)  ->  red (>= 90 %)
-    /// Layout: label at top, thin arc ring, combined "V / M unit" text, percentage below.
-    /// </summary>
     public partial class GaugeControl : System.Windows.Controls.UserControl
     {
-        // -- Geometry constants -----------------------------------------------
-        private const double Cx     = 70;
-        private const double Cy     = 78;
-        private const double OuterR = 58;
-        private const double InnerR = 22;
-
-        // -- Dependency Properties --------------------------------------------
+        // Arc center and radius (to stroke centerline). StrokeThickness=12 in XAML.
+        private const double Cx = 70;
+        private const double Cy = 70;
+        private const double R  = 52;
 
         public static readonly DependencyProperty ValueProperty =
             DependencyProperty.Register(nameof(Value), typeof(double), typeof(GaugeControl),
@@ -36,31 +27,10 @@ namespace Pulse.UI.Controls
             DependencyProperty.Register(nameof(Unit), typeof(string), typeof(GaugeControl),
                 new PropertyMetadata(string.Empty, OnGaugeDataChanged));
 
-        public double Value
-        {
-            get => (double)GetValue(ValueProperty);
-            set => SetValue(ValueProperty, value);
-        }
-
-        public double Maximum
-        {
-            get => (double)GetValue(MaximumProperty);
-            set => SetValue(MaximumProperty, value);
-        }
-
-        public string Label
-        {
-            get => (string)GetValue(LabelProperty);
-            set => SetValue(LabelProperty, value);
-        }
-
-        public string Unit
-        {
-            get => (string)GetValue(UnitProperty);
-            set => SetValue(UnitProperty, value);
-        }
-
-        // -- Constructor ------------------------------------------------------
+        public double Value   { get => (double)GetValue(ValueProperty);  set => SetValue(ValueProperty, value); }
+        public double Maximum { get => (double)GetValue(MaximumProperty); set => SetValue(MaximumProperty, value); }
+        public string Label   { get => (string)GetValue(LabelProperty);  set => SetValue(LabelProperty, value); }
+        public string Unit    { get => (string)GetValue(UnitProperty);   set => SetValue(UnitProperty, value); }
 
         public GaugeControl()
         {
@@ -68,24 +38,44 @@ namespace Pulse.UI.Controls
             Loaded += (_, __) => Refresh();
         }
 
-        // -- Change callback --------------------------------------------------
-
         private static void OnGaugeDataChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
             => ((GaugeControl)d).Refresh();
 
-        // -- Core refresh -----------------------------------------------------
-
         private void Refresh()
         {
-            double ratio = Maximum > 0 ? Math.Min(Value / Maximum, 1.2) : 0;
-            double clampedRatio = Math.Min(ratio, 1.0);
+            double ratio = Maximum > 0 ? Math.Min(Value / Maximum, 1.0) : 0;
 
-            UpdateArc(clampedRatio);
+            DrawBackgroundArc();
+            DrawValueArc(ratio);
             UpdateColor(ratio);
             UpdateTexts(ratio);
         }
 
-        private void UpdateArc(double ratio)
+        // Draw the full 180-degree background arc (open stroked path, no fill).
+        // Uses 0.9999*PI to avoid the degenerate case where start==end for exactly 180 degrees.
+        private void DrawBackgroundArc()
+        {
+            double theta = 0.9999 * Math.PI;
+            var geo = new StreamGeometry();
+            using (var ctx = geo.Open())
+            {
+                double sx = Cx - R;
+                double sy = Cy;
+                double ex = Cx - R * Math.Cos(theta);
+                double ey = Cy - R * Math.Sin(theta);   // sin is positive => Y goes up
+
+                ctx.BeginFigure(new Point(sx, sy), isFilled: false, isClosed: false);
+                ctx.ArcTo(new Point(ex, ey),
+                    new Size(R, R), 0,
+                    isLargeArc: true, sweepDirection: SweepDirection.Clockwise,
+                    isStroked: true, isSmoothJoin: true);
+            }
+            geo.Freeze();
+            BackTrackPath.Data = geo;
+        }
+
+        // Draw the value arc from the left endpoint sweeping clockwise (over the top) by ratio*PI.
+        private void DrawValueArc(double ratio)
         {
             if (ratio <= 0.005)
             {
@@ -95,34 +85,21 @@ namespace Pulse.UI.Controls
 
             double theta = ratio * Math.PI;
 
-            double ox0 = Cx - OuterR;
-            double oy0 = Cy;
-            double ox1 = Cx - OuterR * Math.Cos(theta);
-            double oy1 = Cy - OuterR * Math.Sin(theta);
+            double sx = Cx - R;
+            double sy = Cy;
+            double ex = Cx - R * Math.Cos(theta);
+            double ey = Cy - R * Math.Sin(theta);   // negative screen-Y = up
 
-            double ix0 = Cx - InnerR;
-            double iy0 = Cy;
-            double ix1 = Cx - InnerR * Math.Cos(theta);
-            double iy1 = Cy - InnerR * Math.Sin(theta);
-
-            bool largeArc = ratio > 0.5;
+            bool largeArc = theta > Math.PI / 2;
 
             var geo = new StreamGeometry();
             using (var ctx = geo.Open())
             {
-                ctx.BeginFigure(new Point(ox0, oy0), isFilled: true, isClosed: true);
-                // Clockwise in screen coords (Y-down) sweeps upward over the top
-                ctx.ArcTo(new Point(ox1, oy1),
-                    new Size(OuterR, OuterR), 0,
+                ctx.BeginFigure(new Point(sx, sy), isFilled: false, isClosed: false);
+                ctx.ArcTo(new Point(ex, ey),
+                    new Size(R, R), 0,
                     largeArc, SweepDirection.Clockwise,
-                    isStroked: false, isSmoothJoin: true);
-
-                ctx.LineTo(new Point(ix1, iy1), isStroked: false, isSmoothJoin: true);
-                // Inner arc goes back right-to-left, counterclockwise (also upward)
-                ctx.ArcTo(new Point(ix0, iy0),
-                    new Size(InnerR, InnerR), 0,
-                    largeArc, SweepDirection.Counterclockwise,
-                    isStroked: false, isSmoothJoin: true);
+                    isStroked: true, isSmoothJoin: true);
             }
             geo.Freeze();
             ValueArcPath.Data = geo;
@@ -130,26 +107,19 @@ namespace Pulse.UI.Controls
 
         private void UpdateColor(double ratio)
         {
-            Color fill;
-            if (ratio < 0.70)
-                fill = Color.FromRgb(0x4C, 0xAF, 0x50); // green
-            else if (ratio < 0.90)
-                fill = Color.FromRgb(0xFF, 0xC1, 0x07); // amber
-            else
-                fill = Color.FromRgb(0xF4, 0x43, 0x36); // red
-
-            ValueArcPath.Fill = new SolidColorBrush(fill);
+            Color c;
+            if (ratio < 0.70)      c = Color.FromRgb(0x4C, 0xAF, 0x50); // green
+            else if (ratio < 0.90) c = Color.FromRgb(0xFF, 0xC1, 0x07); // amber
+            else                   c = Color.FromRgb(0xF4, 0x43, 0x36); // red
+            ValueArcPath.Stroke = new SolidColorBrush(c);
         }
 
         private void UpdateTexts(double ratio)
         {
-            string unit  = Unit  ?? string.Empty;
-            string label = Label ?? string.Empty;
-
-            ValueText.Text   = FormatNumber(Value) + " / " + FormatNumber(Maximum) + " " + unit;
+            ValueText.Text   = FormatNumber(Value) + " / " + FormatNumber(Maximum) + " " + (Unit ?? string.Empty);
             int pct          = Maximum > 0 ? (int)Math.Round(Value / Maximum * 100) : 0;
             PercentText.Text = pct + "%";
-            LabelText.Text   = label;
+            LabelText.Text   = Label ?? string.Empty;
         }
 
         private static string FormatNumber(double v)

@@ -13,35 +13,41 @@
         Layout: label at top, thin arc ring, combined "V / M unit" text centered inside arc, percentage below.
     -->
     <Viewbox Stretch="Uniform">
-        <Canvas Width="140" Height="90">
+        <Canvas Width="140" Height="100">
 
-            <!-- Gauge label (e.g. "Controller Load") — top of gauge -->
+            <!-- Gauge label — sits above the arc -->
             <TextBlock x:Name="LabelText"
-                       Canvas.Left="0" Canvas.Top="4"
+                       Canvas.Left="0" Canvas.Top="2"
                        Width="140" TextAlignment="Center"
                        FontSize="9" Opacity="0.45"
                        Foreground="White"
                        TextOptions.TextFormattingMode="Display"/>
 
-            <!-- Static background track: full 180° ring going UP over the top -->
-            <!-- outer: sweep=1 (clockwise/up), inner: sweep=0 (CCW/up, right-to-left) -->
+            <!-- Background track arc (full 180°) — geometry set in code-behind -->
             <Path x:Name="BackTrackPath"
-                  Data="M 12,78 A 58,58 0 1 1 128,78 L 92,78 A 22,22 0 1 0 48,78 Z"
-                  Fill="#55FFFFFF"/>
+                  StrokeThickness="12"
+                  Stroke="#55FFFFFF"
+                  StrokeStartLineCap="Flat"
+                  StrokeEndLineCap="Flat"
+                  Fill="Transparent"/>
 
-            <!-- Value arc: geometry replaced in code-behind -->
-            <Path x:Name="ValueArcPath"/>
+            <!-- Value arc — stroked, no fill, geometry + color set in code-behind -->
+            <Path x:Name="ValueArcPath"
+                  StrokeThickness="12"
+                  StrokeStartLineCap="Flat"
+                  StrokeEndLineCap="Flat"
+                  Fill="Transparent"/>
 
-            <!-- Combined "value / max unit" — large bold, centered inside the arc -->
+            <!-- Combined "value / max unit" — below the arc -->
             <TextBlock x:Name="ValueText"
-                       Canvas.Left="0" Canvas.Top="42"
+                       Canvas.Left="0" Canvas.Top="74"
                        Width="140" TextAlignment="Center"
-                       FontSize="14" FontWeight="Bold"
+                       FontSize="13" FontWeight="Bold"
                        Foreground="White"/>
 
-            <!-- Percentage below the value text -->
+            <!-- Percentage -->
             <TextBlock x:Name="PercentText"
-                       Canvas.Left="0" Canvas.Top="59"
+                       Canvas.Left="0" Canvas.Top="89"
                        Width="140" TextAlignment="Center"
                        FontSize="9" Opacity="0.50"
                        Foreground="White"/>
