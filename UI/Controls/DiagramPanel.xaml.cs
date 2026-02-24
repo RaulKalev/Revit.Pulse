@@ -699,9 +699,29 @@ namespace Pulse.UI.Controls
                             bool flipped  = _currentVm.IsLoopFlipped(panel.Name, loopInfo.Name);
                             bool selected = _currentVm.SelectedLoopKey == loopKey;
 
-                            var wireBrush = selected
-                                ? new SolidColorBrush(Color.FromArgb(0xFF, 0x4F, 0xC3, 0xF7))
-                                : strokeBrush;
+                            // Resolve wire color: selected → accent blue; wire color → wire hex; default → dim white
+                            Brush wireBrush;
+                            if (selected)
+                            {
+                                wireBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x4F, 0xC3, 0xF7));
+                            }
+                            else
+                            {
+                                string wireHex = _currentVm.GetLoopWireColor(panel.Name, loopInfo.Name);
+                                if (!string.IsNullOrEmpty(wireHex))
+                                {
+                                    try
+                                    {
+                                        var wc = (Color)System.Windows.Media.ColorConverter.ConvertFromString(wireHex);
+                                        wireBrush = new SolidColorBrush(Color.FromArgb(0xDD, wc.R, wc.G, wc.B));
+                                    }
+                                    catch { wireBrush = strokeBrush; }
+                                }
+                                else
+                                {
+                                    wireBrush = strokeBrush;
+                                }
+                            }
 
                             double laneX     = rectLeft + slotWire * (li + 0.5);
                             string elevKeyStr = Math.Round(maj.Elevation, 3).ToString("F3");

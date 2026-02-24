@@ -287,6 +287,25 @@ namespace Pulse.UI.ViewModels
             return names;
         }
 
+        /// <summary>
+        /// Returns the hex color string (e.g. "#FF0000") of the wire assigned to the given loop,
+        /// or null if no wire is assigned or the wire has no color set.
+        /// </summary>
+        public string GetLoopWireColor(string panelName, string loopName)
+        {
+            string wireName = GetLoopWire(panelName, loopName);
+            if (string.IsNullOrEmpty(wireName)) return null;
+
+            var store = DeviceConfigService.Load();
+            if (store.Wires == null) return null;
+
+            foreach (var w in store.Wires)
+                if (string.Equals(w.Name, wireName, StringComparison.OrdinalIgnoreCase))
+                    return string.IsNullOrWhiteSpace(w.Color) ? null : w.Color;
+
+            return null;
+        }
+
         // ── Visibility preferences ────────────────────────────────────────
 
         private LevelVisibilitySettings _visibility = new LevelVisibilitySettings();
