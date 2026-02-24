@@ -40,6 +40,11 @@ namespace Pulse.UI.Controls
             DataContextChanged += OnDataContextChanged;
             Loaded += (_, __) => ApplyState();
             LevelPopup.Closed += (_, __) => ClearHighlight();
+            LoopPopup.Closed  += (_, __) =>
+            {
+                if (_currentVm != null) _currentVm.SelectedLoopKey = null;
+                DrawLevels();
+            };
         }
 
         // ── Toggle ────────────────────────────────────────────────────────
@@ -498,10 +503,10 @@ namespace Pulse.UI.Controls
                             double pitch = span / (maj.TotalDevices + 1);
                             for (int di = 0; di < maj.TotalDevices; di++)
                             {
-                                // flipped → circles go left from laneX; normal → right from wireLeft
+                                // Circles travel along the top wire: from farEdge toward laneX
                                 double devX = flipped
-                                    ? laneX - pitch * (di + 1)
-                                    : wireLeft + pitch * (di + 1);
+                                    ? farEdge - pitch * (di + 1)  // right edge → left toward laneX
+                                    : wireLeft + pitch * (di + 1); // left edge → right toward laneX
                                 var circle  = new Ellipse
                                 {
                                     Width = circR * 2, Height = circR * 2,
@@ -528,10 +533,15 @@ namespace Pulse.UI.Controls
             UpdateRestoreButton();
         }
 
-        // ── Loop flip ─────────────────────────────────────────────────────
+        // ── Loop popup ────────────────────────────────────────────────────
 
-        private void FlipLoopButton_Click(object sender, RoutedEventArgs e)
-            => _currentVm?.FlipSelectedLoop();
+        private string _popupLoopKey; // "panelName::loopName" open in LoopPopup
+
+        private void LoopPopupFlip_Click(object sender, RoutedEventArgs e)
+        {
+            LoopPopup.IsOpen = false;
+            _currentVm?.FlipSelectedLoop();
+        }
 
         // ── Level context popup ───────────────────────────────────────────
 
@@ -542,12 +552,26 @@ namespace Pulse.UI.Controls
             var tag = (e.OriginalSource as FrameworkElement)?.Tag as string;
             if (string.IsNullOrEmpty(tag)) return;
 
-            // ── Loop wire selection ───────────────────────────────────────
+            // ── Loop wire click → show loop popup ─────────────────────────
             if (tag.StartsWith("loop::", StringComparison.Ordinal))
             {
-                string loopKey = tag.Substring(6); // "panelName::loopName"
-                _currentVm.SelectedLoopKey = (_currentVm.SelectedLoopKey == loopKey) ? null : loopKey;
+                _popupLoopKey = tag.Substring(6); // "panelName::loopName"
+                _currentVm.SelectedLoopKey = _popupLoopKey;
                 DrawLevels();
+
+                bool isFlipped = _currentVm.IsLoopFlipped(
+                    _popupLoopKey.Substring(0, _popupLoopKey.IndexOf("::", StringComparison.Ordinal)),
+                    _popupLoopKey.Substring(_popupLoopKey.IndexOf("::", StringComparison.Ordinal) + 2));
+
+                // Parse a friendly display name from "panelName::loopName"
+                int dbl = _popupLoopKey.IndexOf("::", StringComparison.Ordinal);
+                string loopDisplay = dbl >= 0 ? _popupLoopKey.Substring(dbl + 2) : _popupLoopKey;
+                LoopPopupTitle.Text = loopDisplay;
+                LoopPopupFlipButton.Content = MakeButtonContent(
+                    PackIconKind.SwapHorizontal,
+                    isFlipped ? "Flip to left side" : "Flip to right side");
+
+                LoopPopup.IsOpen = true;
                 e.Handled = true;
                 return;
             }

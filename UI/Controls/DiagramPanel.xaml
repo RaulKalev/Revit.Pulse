@@ -63,17 +63,7 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Flip selected loop wire to the other side of the panel -->
-                    <Button x:Name="FlipLoopButton"
-                            DockPanel.Dock="Right"
-                            Style="{StaticResource PulseActionButtonStyle}"
-                            Width="24" Height="24"
-                            IsEnabled="{Binding IsFlipEnabled, FallbackValue=False}"
-                            ToolTip="Flip selected loop to other side"
-                            Click="FlipLoopButton_Click">
-                        <materialDesign:PackIcon Kind="SwapHorizontal"
-                                                 Width="14" Height="14"/>
-                    </Button>
+
 
                     <!-- Diagram icon + title — hidden when collapsed -->
                     <StackPanel x:Name="HeaderTitleStack"
@@ -118,6 +108,36 @@
                 <Canvas x:Name="DiagramCanvas"
                         ClipToBounds="True"
                         MouseLeftButtonUp="DiagramCanvas_MouseLeftButtonUp"/>
+
+                <!-- Loop context popup — appears when clicking a loop wire -->
+                <Popup x:Name="LoopPopup"
+                       StaysOpen="False"
+                       AllowsTransparency="True"
+                       PopupAnimation="Fade"
+                       Placement="MousePoint">
+                    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            MinWidth="150">
+                        <StackPanel>
+                            <TextBlock x:Name="LoopPopupTitle"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Opacity="0.55"
+                                       Padding="10,7,10,4"
+                                       Foreground="{DynamicResource ForegroundBrush}"/>
+                            <Separator Margin="0,2,0,2"
+                                       Background="{DynamicResource BorderBrush}"/>
+                            <Button x:Name="LoopPopupFlipButton"
+                                    Click="LoopPopupFlip_Click"
+                                    Style="{StaticResource PulseActionButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Padding="10,5,10,7"
+                                    FontSize="11"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
 
                 <!-- Level context popup — appears at mouse position on click -->
                 <Popup x:Name="LevelPopup"
