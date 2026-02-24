@@ -232,7 +232,6 @@ namespace Pulse.UI.Controls
             double h = DiagramContent.ActualHeight;
             if (w < 1 || h < 1) return;
 
-            DiagramCanvas.Width  = w;
             DiagramCanvas.Height = h;
 
             var allLevels = _currentVm.Levels.OrderBy(l => l.Elevation).ToList();
@@ -250,6 +249,44 @@ namespace Pulse.UI.Controls
             if (range < 0.001) range = 1.0;
 
             double drawH = h - MarginTop - MarginBottom;
+
+            // ── Pre-pass: compute required canvas width to accommodate all loop extents ──
+            // Right-side (flipped) loops grow outward from laneX and can exceed w.
+            double totalW = w;
+            foreach (var panelPre in _currentVm.Panels)
+            {
+                if (!panelPre.Elevation.HasValue) continue;
+                int lcPre = Math.Min(
+                    panelPre.ConfigLoopCount > 0 ? panelPre.ConfigLoopCount : panelPre.LoopInfos.Count,
+                    16);
+                if (lcPre == 0) continue;
+                const double lsWPre  = 200.0 - 52.0; // leftSecW
+                const double rWPre   = 10.0;          // wireRight
+                double slWPre  = lsWPre / lcPre;
+                double rLPre   = (w - 200.0) / 2.0;
+                for (int liPre = 0; liPre < Math.Min(panelPre.LoopInfos.Count, lcPre); liPre++)
+                {
+                    var infPre = panelPre.LoopInfos[liPre];
+                    if (infPre.Levels == null || infPre.Levels.Count == 0) continue;
+                    bool flPre = _currentVm.IsLoopFlipped(panelPre.Name, infPre.Name);
+                    int  totPre = infPre.Levels.Sum(ld => ld.DeviceCount);
+                    if (totPre == 0) continue;
+                    int  wcPre  = _currentVm.GetLoopWireCount(panelPre.Name, infPre.Name);
+                    int  mprPre = (int)Math.Ceiling((double)totPre / wcPre);
+                    double lxPre = rLPre + slWPre * (liPre + 0.5);
+                    double bePre = flPre ? (w - rWPre) : 10.0; // wireLeft = 10
+                    double s0Pre = Math.Abs(lxPre - bePre);
+                    double dsPre = (_canvasSettings.DeviceSpacingPx > 0)
+                        ? _canvasSettings.DeviceSpacingPx
+                        : (mprPre > 0 ? s0Pre / (mprPre + 1) : s0Pre);
+                    double fePre = flPre
+                        ? lxPre + dsPre * (mprPre + 1)
+                        : lxPre - dsPre * (mprPre + 1);
+                    double neededW = flPre ? fePre + rWPre : w; // right-side extends canvas
+                    totalW = Math.Max(totalW, neededW);
+                }
+            }
+            DiagramCanvas.Width = totalW;
 
             // Cache for move-mode Y↔elevation conversion
             _drawMinElev = minElev;
@@ -276,7 +313,7 @@ namespace Pulse.UI.Controls
                         var hitLine = new Line
                         {
                             X1              = 8,
-                            X2              = w - 4,
+                            X2              = totalW - 4,
                             Y1              = y,
                             Y2              = y,
                             Stroke          = Brushes.Transparent,
@@ -295,7 +332,7 @@ namespace Pulse.UI.Controls
                     var line = new Line
                     {
                         X1               = 8,
-                        X2               = w - 4,
+                        X2               = totalW - 4,
                         Y1               = y,
                         Y2               = y,
                         Stroke           = lineVisualBrush,

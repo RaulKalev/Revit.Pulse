@@ -121,7 +121,7 @@
             <!-- ── Content area — level diagram drawn in code-behind ── -->
             <Grid x:Name="DiagramContent"
                   Grid.Row="1"
-                  ClipToBounds="True"
+                  ClipToBounds="False"
                   Focusable="True"
                   Background="{DynamicResource PrimaryBackgroundBrush}"
                   SizeChanged="DiagramContent_SizeChanged"
@@ -133,7 +133,7 @@
                   MouseDown="DiagramContent_MouseDown">
 
                 <Canvas x:Name="DiagramCanvas"
-                        ClipToBounds="True"
+                        ClipToBounds="False"
                         MouseLeftButtonUp="DiagramCanvas_MouseLeftButtonUp"/>
 
                 <!-- Loop context popup — appears when clicking a loop wire -->
