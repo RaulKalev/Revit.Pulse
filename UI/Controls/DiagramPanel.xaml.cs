@@ -763,6 +763,16 @@ namespace Pulse.UI.Controls
 
                         const double wireRight = 10.0; // right margin (mirror of wireLeft)
 
+                        // Pass 2.5: pre-compute effective height for every loop so the Y-placement
+                        // pass has all heights available without revisiting GetLoopWireCount twice.
+                        double wireSpacingGlobal = _canvasSettings.WireSpacingPx;
+                        var loopEffH = new Dictionary<int, double>();
+                        foreach (var kvp in loopMajority)
+                        {
+                            int wc2 = _currentVm.GetLoopWireCount(panel.Name, panel.LoopInfos[kvp.Key].Name);
+                            loopEffH[kvp.Key] = wireSpacingGlobal * (wc2 - 1);
+                        }
+
                         // Pass 3: draw one closed rectangle per loop, evenly spaced within zone
                         for (int li = 0; li < panel.LoopInfos.Count; li++)
                         {
@@ -812,30 +822,41 @@ namespace Pulse.UI.Controls
                                 .DefaultIfEmpty(MarginTop)
                                 .Max();
 
-                            // Number of horizontal wires — must be known before Y placement
-                            // so that multi-row loops are centered correctly.
+                            // Per-loop wire geometry (height pre-computed in pass 2.5)
                             int    wireCount      = _currentVm.GetLoopWireCount(panel.Name, loopInfo.Name);
-                            double wireSpacing    = _canvasSettings.WireSpacingPx;
-                            double effectiveLoopH = wireSpacing * (wireCount - 1);
-
-                            // Loops must stay above the panel rect when on its floor level
-                            double effectiveLevelY = Math.Min(levelY, rectTop - effectiveLoopH - 2);
-                            double zoneAvail       = effectiveLevelY - zoneTopY;
-                            if (zoneAvail < effectiveLoopH + 4) continue; // zone too tight
+                            double wireSpacing    = wireSpacingGlobal;
+                            double effectiveLoopH = loopEffH.TryGetValue(li, out var _leh) ? _leh : wireSpacing * (wireCount - 1);
 
                             var sideList = sideLevelMap.TryGetValue(sideKey, out var sl2)
                                 ? sl2 : new List<int>();
                             int n    = Math.Max(sideList.Count, 1);
-                            int rank = sideList.IndexOf(li);
+                            int rank = sideList.IndexOf(li);  // 0 = Loop 1 = bottom
                             if (rank < 0) rank = 0;
 
-                            // Center-based even spacing: distribute loop centers evenly in the zone.
-                            // Each center is at zoneTopY + pitch*(rank+1), then topY = center - loopH/2.
-                            // This ensures multi-row loops are visually balanced just like single-row ones.
-                            double pitch   = zoneAvail / (n + 1);
-                            double centerY = zoneTopY + pitch * (rank + 1);
-                            double topY    = centerY - effectiveLoopH / 2.0;
-                            double botY    = topY + effectiveLoopH;
+                            // Use the tallest loop in the group so effectiveLevelY is consistent
+                            // for all loops sharing the same zone.
+                            double maxGroupH = sideList.Count > 0
+                                ? sideList.Max(idx => loopEffH.TryGetValue(idx, out var _h) ? _h : 0)
+                                : effectiveLoopH;
+
+                            // Loops must stay above the panel rect when on its floor level
+                            double effectiveLevelY = Math.Min(levelY, rectTop - maxGroupH - 2);
+                            double zoneAvail       = effectiveLevelY - zoneTopY;
+                            if (zoneAvail < effectiveLoopH + 4) continue; // zone too tight
+
+                            // Gap-based bottom-up placement:
+                            // rank 0 → bottommost (Loop 1), rank n-1 → topmost
+                            // Equal gap between every pair of adjacent boxes and at both ends.
+                            double totalBoxH = sideList.Sum(idx => loopEffH.TryGetValue(idx, out var _lh) ? _lh : 0);
+                            double gap = Math.Max(2.0, (zoneAvail - totalBoxH) / (n + 1));
+
+                            // Sum heights of all loops ranked below this one
+                            double heightsBelow = 0;
+                            for (int r = 0; r < rank; r++)
+                                heightsBelow += loopEffH.TryGetValue(sideList[r], out var _lb) ? _lb : 0;
+
+                            double botY = effectiveLevelY - gap * (rank + 1) - heightsBelow;
+                            double topY = botY - effectiveLoopH;
 
                             // ── Compute farEdge — stretch outward if devices overflow ──────────
                             int    total     = maj.TotalDevices;
