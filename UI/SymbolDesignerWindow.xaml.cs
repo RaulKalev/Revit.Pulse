@@ -1911,6 +1911,18 @@ namespace Pulse.UI
 
         // ─── Color swatch click handlers ──────────────────────────────────────
 
+        private void StrokeColorButton_Click(object sender, RoutedEventArgs e)
+        {
+            StrokePickerPopup.IsOpen = !StrokePickerPopup.IsOpen;
+            if (StrokePickerPopup.IsOpen) FillPickerPopup.IsOpen = false;
+        }
+
+        private void FillColorButton_Click(object sender, RoutedEventArgs e)
+        {
+            FillPickerPopup.IsOpen = !FillPickerPopup.IsOpen;
+            if (FillPickerPopup.IsOpen) StrokePickerPopup.IsOpen = false;
+        }
+
         private void StrokeSwatch_Click(object sender, RoutedEventArgs e)
         {
             if (!(sender is Button btn && btn.Tag is string hex)) return;

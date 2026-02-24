@@ -152,6 +152,90 @@
                 <Setter Property="Foreground" Value="{DynamicResource IconForegroundBrush}" />
                 <Setter Property="Margin"     Value="0,8,0,3" />
             </Style>
+
+            <!-- ── Color picker trigger button (looks like a swatch, opens popup) -->
+            <Style x:Key="ColorPickerTriggerStyle" TargetType="{x:Type Button}">
+                <Setter Property="OverridesDefaultStyle" Value="True" />
+                <Setter Property="Cursor"                Value="Hand" />
+                <Setter Property="Padding"               Value="0" />
+                <Setter Property="ToolTip"               Value="Open color picker" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Button}">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="3">
+                                <materialDesign:PackIcon x:Name="Ico"
+                                                         Kind="Eyedropper"
+                                                         Width="12" Height="12"
+                                                         HorizontalAlignment="Center"
+                                                         VerticalAlignment="Center"
+                                                         Foreground="White"
+                                                         Opacity="0" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="White" />
+                                    <Setter TargetName="Bd" Property="BorderThickness" Value="2" />
+                                    <Setter TargetName="Ico" Property="Opacity" Value="0.8" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ── Slider for color picker RGB channels ───────────────────── -->
+            <Style x:Key="RgbSliderStyle" TargetType="{x:Type Slider}">
+                <Setter Property="OverridesDefaultStyle" Value="True" />
+                <Setter Property="Minimum"               Value="0" />
+                <Setter Property="Maximum"               Value="255" />
+                <Setter Property="SmallChange"           Value="1" />
+                <Setter Property="LargeChange"           Value="16" />
+                <Setter Property="Height"                Value="16" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Slider}">
+                            <Grid VerticalAlignment="Center">
+                                <Track x:Name="PART_Track">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="{x:Static Slider.DecreaseLarge}" Focusable="False">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Border Height="4" Background="{DynamicResource AccentBrush}" CornerRadius="2,0,0,2" />
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="{x:Static Slider.IncreaseLarge}" Focusable="False">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Border Height="4" Background="{DynamicResource BorderBrush}" CornerRadius="0,2,2,0" />
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.IncreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb>
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Ellipse Width="12" Height="12"
+                                                             Fill="{DynamicResource AccentBrush}"
+                                                             Stroke="{DynamicResource ForegroundBrush}"
+                                                             StrokeThickness="1" />
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
@@ -627,14 +711,88 @@
                                              Text="{Binding StrokeColor, UpdateSourceTrigger=PropertyChanged}"
                                              FontFamily="Consolas"
                                              Margin="0,0,4,0" />
-                                    <Border Grid.Column="1"
+                                    <Button x:Name="StrokeColorButton"
+                                            Grid.Column="1"
                                             Width="22" Height="22"
-                                            CornerRadius="3"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource ColorPickerTriggerStyle}"
                                             BorderBrush="{DynamicResource BorderBrush}"
                                             BorderThickness="1"
                                             Background="{Binding StrokeColor, Converter={StaticResource HexToBrush}}"
-                                            VerticalAlignment="Center" />
+                                            Click="StrokeColorButton_Click" />
                                 </Grid>
+
+                                <!-- Stroke color picker popup -->
+                                <Popup x:Name="StrokePickerPopup"
+                                       PlacementTarget="{Binding ElementName=StrokeColorButton}"
+                                       Placement="Left"
+                                       HorizontalOffset="-4"
+                                       StaysOpen="False"
+                                       AllowsTransparency="True"
+                                       PopupAnimation="Fade">
+                                    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="10"
+                                            Width="170">
+                                        <StackPanel>
+                                            <!-- Large live color preview -->
+                                            <Border Height="28" CornerRadius="4" Margin="0,0,0,8"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                    Background="{Binding StrokeColor, Converter={StaticResource HexToBrush}}" />
+                                            <!-- R row -->
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="14" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="28" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="R" Foreground="#FFCC4444" FontSize="10" FontWeight="Bold"
+                                                           VerticalAlignment="Center" />
+                                                <Slider Grid.Column="1" Style="{StaticResource RgbSliderStyle}"
+                                                        Value="{Binding StrokeR}" Margin="3,0" />
+                                                <TextBlock Grid.Column="2" Text="{Binding StrokeR}" FontSize="10"
+                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                           VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <!-- G row -->
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="14" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="28" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="G" Foreground="#FF44CC44" FontSize="10" FontWeight="Bold"
+                                                           VerticalAlignment="Center" />
+                                                <Slider Grid.Column="1" Style="{StaticResource RgbSliderStyle}"
+                                                        Value="{Binding StrokeG}" Margin="3,0" />
+                                                <TextBlock Grid.Column="2" Text="{Binding StrokeG}" FontSize="10"
+                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                           VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <!-- B row -->
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="14" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="28" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="B" Foreground="#FF4488FF" FontSize="10" FontWeight="Bold"
+                                                           VerticalAlignment="Center" />
+                                                <Slider Grid.Column="1" Style="{StaticResource RgbSliderStyle}"
+                                                        Value="{Binding StrokeB}" Margin="3,0" />
+                                                <TextBlock Grid.Column="2" Text="{Binding StrokeB}" FontSize="10"
+                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                           VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <!-- Hex entry -->
+                                            <TextBox Text="{Binding StrokeColor, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource PropTextBoxStyle}"
+                                                     FontFamily="Consolas" />
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
 
                                 <!-- Stroke thickness -->
                                 <TextBlock Text="THICKNESS (mm)" Style="{StaticResource SectionLabelStyle}" />
@@ -698,15 +856,89 @@
                                              Text="{Binding FillColor, UpdateSourceTrigger=PropertyChanged}"
                                              FontFamily="Consolas"
                                              Margin="0,0,4,0" />
-                                    <Border Grid.Column="1"
+                                    <Button x:Name="FillColorButton"
+                                            Grid.Column="1"
                                             Width="22" Height="22"
-                                            CornerRadius="3"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource ColorPickerTriggerStyle}"
                                             BorderBrush="{DynamicResource BorderBrush}"
                                             BorderThickness="1"
                                             Background="{Binding FillColor, Converter={StaticResource HexToBrush}}"
-                                            Visibility="{Binding IsFilled, Converter={StaticResource BoolToVis}}"
-                                            VerticalAlignment="Center" />
+                                            Click="FillColorButton_Click" />
                                 </Grid>
+
+                                <!-- Fill color picker popup -->
+                                <Popup x:Name="FillPickerPopup"
+                                       PlacementTarget="{Binding ElementName=FillColorButton}"
+                                       Placement="Left"
+                                       HorizontalOffset="-4"
+                                       StaysOpen="False"
+                                       AllowsTransparency="True"
+                                       PopupAnimation="Fade"
+                                       Visibility="{Binding IsFilled, Converter={StaticResource BoolToVis}}">
+                                    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="6"
+                                            Padding="10"
+                                            Width="170">
+                                        <StackPanel>
+                                            <!-- Large live color preview -->
+                                            <Border Height="28" CornerRadius="4" Margin="0,0,0,8"
+                                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                                    Background="{Binding FillColor, Converter={StaticResource HexToBrush}}" />
+                                            <!-- R row -->
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="14" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="28" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="R" Foreground="#FFCC4444" FontSize="10" FontWeight="Bold"
+                                                           VerticalAlignment="Center" />
+                                                <Slider Grid.Column="1" Style="{StaticResource RgbSliderStyle}"
+                                                        Value="{Binding FillR}" Margin="3,0" />
+                                                <TextBlock Grid.Column="2" Text="{Binding FillR}" FontSize="10"
+                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                           VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <!-- G row -->
+                                            <Grid Margin="0,0,0,4">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="14" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="28" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="G" Foreground="#FF44CC44" FontSize="10" FontWeight="Bold"
+                                                           VerticalAlignment="Center" />
+                                                <Slider Grid.Column="1" Style="{StaticResource RgbSliderStyle}"
+                                                        Value="{Binding FillG}" Margin="3,0" />
+                                                <TextBlock Grid.Column="2" Text="{Binding FillG}" FontSize="10"
+                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                           VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <!-- B row -->
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="14" />
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="28" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Text="B" Foreground="#FF4488FF" FontSize="10" FontWeight="Bold"
+                                                           VerticalAlignment="Center" />
+                                                <Slider Grid.Column="1" Style="{StaticResource RgbSliderStyle}"
+                                                        Value="{Binding FillB}" Margin="3,0" />
+                                                <TextBlock Grid.Column="2" Text="{Binding FillB}" FontSize="10"
+                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                           VerticalAlignment="Center" HorizontalAlignment="Right" />
+                                            </Grid>
+                                            <!-- Hex entry -->
+                                            <TextBox Text="{Binding FillColor, UpdateSourceTrigger=PropertyChanged}"
+                                                     Style="{StaticResource PropTextBoxStyle}"
+                                                     FontFamily="Consolas" />
+                                        </StackPanel>
+                                    </Border>
+                                </Popup>
 
                                 <!-- Close path (Polyline only) -->
                                 <TextBlock Text="POLYLINE OPTIONS" Style="{StaticResource SectionLabelStyle}" />

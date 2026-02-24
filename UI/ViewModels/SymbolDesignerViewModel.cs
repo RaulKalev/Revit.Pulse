@@ -111,7 +111,15 @@ namespace Pulse.UI.ViewModels
         public string StrokeColor
         {
             get => _strokeColor;
-            set => SetField(ref _strokeColor, value);
+            set
+            {
+                if (SetField(ref _strokeColor, value))
+                {
+                    OnPropertyChanged(nameof(StrokeR));
+                    OnPropertyChanged(nameof(StrokeG));
+                    OnPropertyChanged(nameof(StrokeB));
+                }
+            }
         }
 
         private double _strokeThicknessMm = 0.5;
@@ -132,7 +140,83 @@ namespace Pulse.UI.ViewModels
         public string FillColor
         {
             get => _fillColor;
-            set => SetField(ref _fillColor, value);
+            set
+            {
+                if (SetField(ref _fillColor, value))
+                {
+                    OnPropertyChanged(nameof(FillR));
+                    OnPropertyChanged(nameof(FillG));
+                    OnPropertyChanged(nameof(FillB));
+                }
+            }
+        }
+
+        // ─── Color picker RGB components ──────────────────────────────────────
+
+        /// <summary>Red component (0-255) of StrokeColor, synced bidirectionally.</summary>
+        public int StrokeR
+        {
+            get { var c = TryParseHex(_strokeColor); return c?.R ?? 0; }
+            set => ApplyColorComponent(ref _strokeColor, nameof(StrokeColor), nameof(StrokeR), r: value);
+        }
+
+        /// <summary>Green component (0-255) of StrokeColor, synced bidirectionally.</summary>
+        public int StrokeG
+        {
+            get { var c = TryParseHex(_strokeColor); return c?.G ?? 0; }
+            set => ApplyColorComponent(ref _strokeColor, nameof(StrokeColor), nameof(StrokeG), g: value);
+        }
+
+        /// <summary>Blue component (0-255) of StrokeColor, synced bidirectionally.</summary>
+        public int StrokeB
+        {
+            get { var c = TryParseHex(_strokeColor); return c?.B ?? 0; }
+            set => ApplyColorComponent(ref _strokeColor, nameof(StrokeColor), nameof(StrokeB), b: value);
+        }
+
+        /// <summary>Red component (0-255) of FillColor, synced bidirectionally.</summary>
+        public int FillR
+        {
+            get { var c = TryParseHex(_fillColor); return c?.R ?? 0; }
+            set => ApplyColorComponent(ref _fillColor, nameof(FillColor), nameof(FillR), r: value);
+        }
+
+        /// <summary>Green component (0-255) of FillColor, synced bidirectionally.</summary>
+        public int FillG
+        {
+            get { var c = TryParseHex(_fillColor); return c?.G ?? 0; }
+            set => ApplyColorComponent(ref _fillColor, nameof(FillColor), nameof(FillG), g: value);
+        }
+
+        /// <summary>Blue component (0-255) of FillColor, synced bidirectionally.</summary>
+        public int FillB
+        {
+            get { var c = TryParseHex(_fillColor); return c?.B ?? 0; }
+            set => ApplyColorComponent(ref _fillColor, nameof(FillColor), nameof(FillB), b: value);
+        }
+
+        private void ApplyColorComponent(ref string field, string hexPropName, string componentPropName,
+            int? r = null, int? g = null, int? b = null)
+        {
+            var c = TryParseHex(field);
+            int nr = Math.Max(0, Math.Min(255, r ?? c?.R ?? 0));
+            int ng = Math.Max(0, Math.Min(255, g ?? c?.G ?? 0));
+            int nb = Math.Max(0, Math.Min(255, b ?? c?.B ?? 0));
+            var newHex = $"#{nr:X2}{ng:X2}{nb:X2}";
+            if (field == newHex) return;
+            field = newHex;
+            OnPropertyChanged(hexPropName);
+            OnPropertyChanged(componentPropName);
+        }
+
+        private static (byte R, byte G, byte B)? TryParseHex(string hex)
+        {
+            if (string.IsNullOrEmpty(hex)) return null;
+            var h = hex.TrimStart('#');
+            if (h.Length == 6 &&
+                uint.TryParse(h, System.Globalization.NumberStyles.HexNumber, null, out uint val))
+                return ((byte)(val >> 16), (byte)((val >> 8) & 0xFF), (byte)(val & 0xFF));
+            return null;
         }
 
         private bool _isClosedPath;
