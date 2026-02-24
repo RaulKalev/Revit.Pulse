@@ -43,7 +43,9 @@ namespace Pulse.UI.Controls
             LoopPopup.Closed  += (_, __) =>
             {
                 if (_currentVm != null) _currentVm.SelectedLoopKey = null;
-                DrawLevels();
+                // Don't call DrawLevels here — FlipStateChanged/AddLine already triggers it.
+                // Only redraw if no action was taken (plain close/dismiss).
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
             };
         }
 
@@ -487,25 +489,29 @@ namespace Pulse.UI.Controls
                             // Even spacing: distribute loops from effectiveLevelY upward
                             double pitch = zoneAvail / (n + 1);
                             double topY  = effectiveLevelY - pitch * (rank + 1);
-                            double botY  = topY + loopH;
+
+                            // Number of horizontal wires (default 2 = top + bottom)
+                            int    wireCount    = _currentVm.GetLoopWireCount(panel.Name, loopInfo.Name);
+                            const double wireSpacing = 13.0;
+                            double effectiveLoopH    = wireSpacing * (wireCount - 1);
+                            double botY    = topY + effectiveLoopH;
                             double farEdge = flipped ? (w - wireRight) : wireLeft;
 
-                            // ── Vertical spine ────────────────────────────────────
+                            // ── Vertical spine (panel top → first wire) ───────────
                             Line(wireBrush, laneX, rectTop, laneX, topY);
-                            // ── Top wire (with devices) ───────────────────────────
-                            Line(wireBrush, farEdge, topY, laneX, topY);
-                            // ── Far vertical ──────────────────────────────────────
+                            // ── Far vertical (spans full loop height) ─────────────
                             Line(wireBrush, farEdge, topY, farEdge, botY);
-                            // ── Bottom wire ───────────────────────────────────────
-                            Line(wireBrush, farEdge, botY, laneX, botY);
+                            // ── All horizontal wires ──────────────────────────────
+                            for (int wi = 0; wi < wireCount; wi++)
+                                Line(wireBrush, farEdge, topY + wi * wireSpacing, laneX, topY + wi * wireSpacing);
 
-                            // ── Transparent hit-test rectangle ────────────────────
+                            // ── Hit-test rectangle (full loop height) ─────────────
                             double hitX = Math.Min(laneX, farEdge);
                             double hitW = Math.Abs(laneX - farEdge);
                             var hitRect = new System.Windows.Shapes.Rectangle
                             {
                                 Width  = Math.Max(hitW, 8),
-                                Height = loopH + 4,
+                                Height = effectiveLoopH + 4,
                                 Fill   = Brushes.Transparent,
                                 Tag    = "loop::" + loopKey,
                                 Cursor = Cursors.Hand
@@ -516,23 +522,31 @@ namespace Pulse.UI.Controls
 
                             if (maj.TotalDevices <= 0) continue;
 
-                            // ── Device circles evenly along the top wire ──────────
-                            double span  = Math.Abs(laneX - farEdge);
-                            double cpitch = span / (maj.TotalDevices + 1);
-                            for (int di = 0; di < maj.TotalDevices; di++)
+                            // ── Devices distributed evenly across all wires ───────
+                            double span     = Math.Abs(laneX - farEdge);
+                            int devRemain   = maj.TotalDevices;
+                            for (int wi = 0; wi < wireCount; wi++)
                             {
-                                double devX = flipped
-                                    ? farEdge - cpitch * (di + 1)
-                                    : wireLeft + cpitch * (di + 1);
-                                var circle = new Ellipse
+                                // Ceiling-divide remaining devices among remaining wires
+                                int wireDevs = (devRemain + (wireCount - wi) - 1) / (wireCount - wi);
+                                double wY    = topY + wi * wireSpacing;
+                                double cp    = span / (wireDevs + 1);
+                                for (int di = 0; di < wireDevs; di++)
                                 {
-                                    Width = circR * 2, Height = circR * 2,
-                                    Stroke = circleStroke, StrokeThickness = 1,
-                                    Fill = circleFill, IsHitTestVisible = false
-                                };
-                                Canvas.SetLeft(circle, devX - circR);
-                                Canvas.SetTop(circle,  topY - circR);
-                                DiagramCanvas.Children.Add(circle);
+                                    double devX = flipped
+                                        ? farEdge - cp * (di + 1)
+                                        : wireLeft + cp * (di + 1);
+                                    var circle = new Ellipse
+                                    {
+                                        Width = circR * 2, Height = circR * 2,
+                                        Stroke = circleStroke, StrokeThickness = 1,
+                                        Fill = circleFill, IsHitTestVisible = false
+                                    };
+                                    Canvas.SetLeft(circle, devX - circR);
+                                    Canvas.SetTop(circle,  wY  - circR);
+                                    DiagramCanvas.Children.Add(circle);
+                                }
+                                devRemain -= wireDevs;
                             }
                         }
 
@@ -562,14 +576,14 @@ namespace Pulse.UI.Controls
 
         private void LoopPopupAddLine_Click(object sender, RoutedEventArgs e)
         {
+            _currentVm?.AddLineToSelectedLoop(); // act before close so SelectedLoopKey is still set
             LoopPopup.IsOpen = false;
-            _currentVm?.AddLineToSelectedLoop();
         }
 
         private void LoopPopupRemoveLine_Click(object sender, RoutedEventArgs e)
         {
-            LoopPopup.IsOpen = false;
             _currentVm?.RemoveLineFromSelectedLoop();
+            LoopPopup.IsOpen = false;
         }
 
         // ── Level context popup ───────────────────────────────────────────
