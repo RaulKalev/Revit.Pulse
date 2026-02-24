@@ -401,18 +401,21 @@ namespace Pulse.UI.Controls
                     // ── Loop spines and device circles ───────────────────────────
                     if (loopCount > 0 && panel.LoopInfos.Count > 0)
                     {
-                        double slotWire   = rectW / loopCount;
-                        const double circR     = 3.0;
-                        const double circPitch = circR * 2 + 3; // 9 px per device
+                        double slotWire          = rectW / loopCount;
+                        const double circR       = 3.0;
+                        const double stubLen     = 6.0;  // vertical stub above horizontal wire
+                        const double wireAlpha   = 0x88;
 
                         for (int li = 0; li < panel.LoopInfos.Count; li++)
                         {
                             var loopInfo = panel.LoopInfos[li];
                             if (loopInfo.Levels == null || loopInfo.Levels.Count == 0) continue;
 
-                            double laneX = rectLeft + slotWire * (li + 0.5);
+                            double laneX  = rectLeft + slotWire * (li + 0.5);
+                            double wireL  = laneX - slotWire / 2.0 + 3;
+                            double wireR  = laneX + slotWire / 2.0 - 3;
 
-                            // Map each device-level elevation → canvas Y (closest level in yLookup)
+                            // Map each device-level elevation → canvas Y (snap to nearest visible level)
                             var levelPoints = new List<(double Y, int Count)>();
                             foreach (var ld in loopInfo.Levels)
                             {
@@ -423,36 +426,59 @@ namespace Pulse.UI.Controls
                             }
                             if (levelPoints.Count == 0) continue;
 
-                            // Spine: panel top → topmost device level (smallest Y = highest on canvas)
                             double spineTop = levelPoints.Min(lp => lp.Y);
+
+                            // ── Vertical spine from panel header up through all level segments ──
                             DiagramCanvas.Children.Add(new Line
                             {
                                 X1 = laneX, Y1 = rectTop,
                                 X2 = laneX, Y2 = spineTop,
-                                Stroke           = new SolidColorBrush(Color.FromArgb(0x88, 0xFF, 0xFF, 0xFF)),
-                                StrokeThickness  = 1,
-                                IsHitTestVisible = false
+                                Stroke          = new SolidColorBrush(Color.FromArgb((byte)wireAlpha, 0xFF, 0xFF, 0xFF)),
+                                StrokeThickness = 1, IsHitTestVisible = false
                             });
 
-                            // Device circles on the spine at each level — multiple devices spread vertically
                             foreach (var (lvlY, devCount) in levelPoints)
                             {
-                                double totalSpan = (devCount - 1) * circPitch;
-                                double startY    = lvlY - totalSpan / 2.0;
+                                // ── Horizontal wire at this level ──
+                                DiagramCanvas.Children.Add(new Line
+                                {
+                                    X1 = wireL, Y1 = lvlY,
+                                    X2 = wireR, Y2 = lvlY,
+                                    Stroke          = new SolidColorBrush(Color.FromArgb((byte)wireAlpha, 0xFF, 0xFF, 0xFF)),
+                                    StrokeThickness = 1, IsHitTestVisible = false
+                                });
+
+                                if (devCount <= 0) continue;
+
+                                // Devices evenly distributed along the horizontal wire
+                                double span  = wireR - wireL;
+                                double pitch = devCount > 1 ? span / (devCount + 1) : 0;
                                 for (int di = 0; di < devCount; di++)
                                 {
-                                    double devY = startY + di * circPitch;
+                                    double devX = devCount > 1
+                                        ? wireL + pitch * (di + 1)
+                                        : laneX;
+
+                                    // Short vertical stub going up from the wire
+                                    DiagramCanvas.Children.Add(new Line
+                                    {
+                                        X1 = devX, Y1 = lvlY,
+                                        X2 = devX, Y2 = lvlY - stubLen,
+                                        Stroke          = new SolidColorBrush(Color.FromArgb((byte)wireAlpha, 0xFF, 0xFF, 0xFF)),
+                                        StrokeThickness = 1, IsHitTestVisible = false
+                                    });
+
+                                    // Circle at top of stub
                                     var circle = new Ellipse
                                     {
-                                        Width            = circR * 2,
-                                        Height           = circR * 2,
-                                        Stroke           = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
-                                        StrokeThickness  = 1,
-                                        Fill             = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
+                                        Width           = circR * 2, Height = circR * 2,
+                                        Stroke          = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF)),
+                                        StrokeThickness = 1,
+                                        Fill            = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
                                         IsHitTestVisible = false
                                     };
-                                    Canvas.SetLeft(circle, laneX - circR);
-                                    Canvas.SetTop(circle,  devY  - circR);
+                                    Canvas.SetLeft(circle, devX - circR);
+                                    Canvas.SetTop(circle,  lvlY - stubLen - circR * 2);
                                     DiagramCanvas.Children.Add(circle);
                                 }
                             }
