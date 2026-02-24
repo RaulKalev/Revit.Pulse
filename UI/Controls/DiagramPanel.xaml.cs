@@ -350,18 +350,22 @@ namespace Pulse.UI.Controls
                     // ── Rotated loop name labels (bottom-to-top, in body) ─
                     if (loopCount > 0 && bodyH > 8)
                     {
-                        double slotW2        = (rectW - 8.0) / loopCount;
-                        double labelAvailH   = bodyH - 4;      // visual height of each label
-                        const double lblFont = 7.0;
-                        double approxTextH   = lblFont * 1.35; // ~9.5 px — visual width of label
+                        double slotW2       = (rectW - 8.0) / loopCount;
+                        const double lblFont    = 7.0;
+                        const double rotLblH    = 50.0;  // fixed visual height (px) from separator downward
+                        double approxTextH  = lblFont * 1.35; // ~9.5 px visual width after rotation
 
                         for (int li = 0; li < loopCount; li++)
                         {
                             double cx2 = rectLeft + 4.0 + slotW2 * (li + 0.5);
 
-                            string fullLabel = li < panel.LoopNames.Count
-                                ? panel.LoopNames[li]
-                                : $"Loop {li + 1}";
+                            // Always "Loop X" — add prefix when the model name is a bare number/string
+                            string rawName   = li < panel.LoopNames.Count ? panel.LoopNames[li] : $"{li + 1}";
+                            string fullLabel = rawName.StartsWith("Loop ", StringComparison.OrdinalIgnoreCase)
+                                ? rawName
+                                : $"Loop {rawName}";
+
+                            double lw = Math.Min(rotLblH, bodyH - 4);
 
                             var rotLabel = new TextBlock
                             {
@@ -369,18 +373,15 @@ namespace Pulse.UI.Controls
                                 FontSize         = lblFont,
                                 Foreground       = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
                                 IsHitTestVisible = false,
-                                Width            = labelAvailH,
+                                Width            = lw,
                                 TextTrimming     = TextTrimming.CharacterEllipsis
                             };
 
-                            // RenderTransform -90° around (0,0): visual bounds are
-                            //   left = L, right = L+H,  top = T-W, bottom = T
-                            // Want visual centered at cx2, visual top at bodyTop+2:
-                            //   L = cx2 - approxTextH/2
-                            //   T = (bodyTop + 2) + labelAvailH
+                            // -90° rotation: visual top = Canvas.Top - Width, visual bottom = Canvas.Top
+                            // Set visual top = bodyTop + 2 (directly below separator)
                             rotLabel.RenderTransform = new System.Windows.Media.RotateTransform(-90);
                             Canvas.SetLeft(rotLabel, cx2 - approxTextH / 2.0);
-                            Canvas.SetTop(rotLabel,  bodyTop + 2 + labelAvailH);
+                            Canvas.SetTop(rotLabel,  bodyTop + 2 + lw);
                             DiagramCanvas.Children.Add(rotLabel);
                         }
                     }
