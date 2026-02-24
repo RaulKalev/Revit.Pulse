@@ -1,0 +1,105 @@
+<UserControl
+    x:Class="Pulse.UI.Controls.DiagramPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+    mc:Ignorable="d"
+    Width="300">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/DarkTheme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/ElementStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Border Style="{DynamicResource CardBorderStyle}" Padding="0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="32"/>   <!-- Header -->
+                <RowDefinition Height="*"/>    <!-- Content -->
+            </Grid.RowDefinitions>
+
+            <!-- ── Header ── -->
+            <Border Grid.Row="0"
+                    Background="{DynamicResource SecondaryBackgroundBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="6,6,0,0">
+                <DockPanel Margin="8,0,4,0" VerticalAlignment="Center">
+
+                    <!-- Toggle button — right-docked so title stays left-aligned -->
+                    <Button x:Name="ToggleButton"
+                            DockPanel.Dock="Right"
+                            Style="{StaticResource PulseActionButtonStyle}"
+                            Width="24" Height="24"
+                            ToolTip="Toggle diagram panel"
+                            Click="ToggleButton_Click">
+                        <materialDesign:PackIcon x:Name="ToggleIcon"
+                                                 Kind="ChevronRight"
+                                                 Width="14" Height="14"/>
+                    </Button>
+
+                    <!-- Diagram icon + title — hidden when collapsed -->
+                    <StackPanel x:Name="HeaderTitleStack"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center">
+                        <materialDesign:PackIcon Kind="VectorPolyline"
+                                                 Width="14" Height="14"
+                                                 Foreground="{DynamicResource IconForegroundBrush}"
+                                                 VerticalAlignment="Center"
+                                                 Margin="0,0,6,0"/>
+                        <TextBlock Text="Diagram"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource ForegroundBrush}"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                </DockPanel>
+            </Border>
+
+            <!-- ── Rotated tab label shown only when collapsed ── -->
+            <Grid Grid.Row="0" Grid.RowSpan="2"
+                  x:Name="CollapsedLabel"
+                  Visibility="Collapsed">
+                <TextBlock Text="DIAGRAM"
+                           FontSize="10" FontWeight="SemiBold"
+                           Foreground="{DynamicResource ForegroundBrush}"
+                           Opacity="0.55"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center">
+                    <TextBlock.LayoutTransform>
+                        <RotateTransform Angle="90"/>
+                    </TextBlock.LayoutTransform>
+                </TextBlock>
+            </Grid>
+
+            <!-- ── Content area (empty — diagram canvas goes here later) ── -->
+            <Grid x:Name="DiagramContent"
+                  Grid.Row="1"
+                  Background="{DynamicResource PrimaryBackgroundBrush}">
+
+                <!-- Placeholder -->
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <materialDesign:PackIcon Kind="VectorPolyline"
+                                             Width="40" Height="40"
+                                             HorizontalAlignment="Center"
+                                             Foreground="{DynamicResource IconForegroundBrush}"
+                                             Opacity="0.2"/>
+                    <TextBlock Text="Diagram"
+                               FontSize="11"
+                               HorizontalAlignment="Center"
+                               Foreground="{DynamicResource IconForegroundBrush}"
+                               Opacity="0.3"
+                               Margin="0,8,0,0"/>
+                </StackPanel>
+
+            </Grid>
+
+        </Grid>
+    </Border>
+</UserControl>

@@ -9,7 +9,7 @@
     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     Title="Pulse"
-    Width="900"
+    Width="1200"
     Height="650"
     MinWidth="700"
     MinHeight="500"
@@ -141,18 +141,20 @@
                     </DockPanel>
                 </Border>
 
-                <!-- Row 2: Main Content (Topology + Inspector) -->
+                <!-- Row 2: Main Content (Topology + Inspector + Diagram) -->
                 <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="250" />     <!-- Topology -->
-                        <ColumnDefinition Width="5" />                     <!-- Splitter -->
+                        <ColumnDefinition Width="1" />                     <!-- Splitter -->
                         <ColumnDefinition Width="280" MinWidth="200" />   <!-- Inspector -->
+                        <ColumnDefinition Width="1" />                     <!-- Splitter -->
+                        <ColumnDefinition Width="Auto" />                  <!-- Diagram (self-sizing) -->
                     </Grid.ColumnDefinitions>
 
                     <!-- Topology Panel -->
                     <controls:TopologyView Grid.Column="0" DataContext="{Binding Topology}" Margin="4"/>
 
-                    <!-- GridSplitter -->
+                    <!-- GridSplitter (Topology | Inspector) -->
                     <GridSplitter Grid.Column="1"
                                   Width="1"
                                   HorizontalAlignment="Stretch"
@@ -161,6 +163,16 @@
 
                     <!-- Inspector Panel -->
                     <controls:InspectorPanel Grid.Column="2" DataContext="{Binding Inspector}" Margin="4"/>
+
+                    <!-- GridSplitter (Inspector | Diagram) -->
+                    <GridSplitter Grid.Column="3"
+                                  Width="1"
+                                  HorizontalAlignment="Stretch"
+                                  Background="{DynamicResource BorderBrush}"
+                                  Cursor="SizeWE"/>
+
+                    <!-- Diagram Panel -->
+                    <controls:DiagramPanel Grid.Column="4" Margin="4"/>
                 </Grid>
 
                 <!-- Row 3: Status Strip -->
