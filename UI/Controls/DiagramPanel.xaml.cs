@@ -446,7 +446,8 @@ namespace Pulse.UI.Controls
                             var loopsHere = levelLoopMap[key];
                             int rank      = loopsHere.IndexOf(li);
                             double topY   = levelY - loopH - rank * (loopH + loopGap);
-                            topY          = Math.Min(topY, rectTop - loopH - 2); // clamp above panel
+                            // Clamp above panel: include rank so every loop keeps its unique offset
+                            topY          = Math.Min(topY, rectTop - loopH - 2 - rank * (loopH + loopGap));
 
                             double botY = topY + loopH;
 
