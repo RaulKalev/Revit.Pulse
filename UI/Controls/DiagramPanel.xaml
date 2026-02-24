@@ -84,7 +84,45 @@
                   SizeChanged="DiagramContent_SizeChanged">
 
                 <Canvas x:Name="DiagramCanvas"
-                        ClipToBounds="True"/>
+                        ClipToBounds="True"
+                        MouseLeftButtonDown="DiagramCanvas_MouseLeftButtonDown"/>
+
+                <!-- Level context popup — appears at mouse position on click -->
+                <Popup x:Name="LevelPopup"
+                       StaysOpen="False"
+                       AllowsTransparency="True"
+                       PopupAnimation="Fade"
+                       Placement="MousePoint">
+                    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            MinWidth="140">
+                        <StackPanel>
+                            <TextBlock x:Name="PopupLevelName"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Opacity="0.55"
+                                       Padding="10,7,10,4"
+                                       Foreground="{DynamicResource ForegroundBrush}"/>
+                            <Separator Margin="0,2,0,2"
+                                       Background="{DynamicResource BorderBrush}"/>
+                            <Button x:Name="PopupVisibilityButton"
+                                    Click="PopupVisibility_Click"
+                                    Style="{StaticResource PulseActionButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Padding="10,5,10,5"
+                                    FontSize="11"/>
+                            <Button x:Name="PopupDeleteButton"
+                                    Click="PopupDelete_Click"
+                                    Style="{StaticResource PulseActionButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Padding="10,5,10,7"
+                                    FontSize="11"/>
+                        </StackPanel>
+                    </Border>
+                </Popup>
 
             </Grid>
 

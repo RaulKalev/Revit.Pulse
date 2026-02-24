@@ -44,6 +44,8 @@ namespace Pulse.UI.ViewModels
         private readonly ExternalEvent _saveSettingsEvent;
         private readonly WriteParameterHandler _writeParamHandler;
         private readonly ExternalEvent _writeParamEvent;
+        private readonly SaveDiagramSettingsHandler _saveDiagramHandler;
+        private readonly ExternalEvent _saveDiagramEvent;
 
         // Child ViewModels
         public TopologyViewModel Topology { get; }
@@ -157,6 +159,16 @@ namespace Pulse.UI.ViewModels
 
             _writeParamHandler = new WriteParameterHandler();
             _writeParamEvent   = ExternalEvent.Create(_writeParamHandler);
+
+            _saveDiagramHandler = new SaveDiagramSettingsHandler();
+            _saveDiagramEvent   = ExternalEvent.Create(_saveDiagramHandler);
+
+            // Wire diagram visibility saves
+            Diagram.VisibilityChanged = () =>
+            {
+                _saveDiagramHandler.Settings = Diagram.Visibility;
+                _saveDiagramEvent.Raise();
+            };
 
             // Create commands
             RefreshCommand = new RelayCommand(ExecuteRefresh, () => !IsLoading);
@@ -390,11 +402,14 @@ namespace Pulse.UI.ViewModels
             try
             {
                 var service = new ExtensibleStorageService(doc);
+
                 var allSettings = service.ReadSettings();
                 if (allSettings != null && allSettings.TryGetValue(_activeModule.ModuleId, out var stored))
-                {
                     _activeSettings = stored;
-                }
+
+                var diagramSettings = service.ReadDiagramSettings();
+                if (diagramSettings != null)
+                    Diagram.LoadVisibility(diagramSettings);
             }
             catch
             {

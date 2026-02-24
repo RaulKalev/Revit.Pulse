@@ -5,6 +5,7 @@ using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.ExtensibleStorage;
 using Newtonsoft.Json;
 using Pulse.Core.Logging;
+using Pulse.Core.Modules;
 using Pulse.Core.Settings;
 
 namespace Pulse.Revit.Storage
@@ -184,13 +185,89 @@ namespace Pulse.Revit.Storage
         /// </summary>
         private string UpgradeSettingsJson(string json, int fromVersion)
         {
-            // Future migration logic goes here.
-            // Example:
-            // if (fromVersion < 2) { json = MigrateV1ToV2(json); }
-            // if (fromVersion < 3) { json = MigrateV2ToV3(json); }
-
             _logger.Info($"Settings JSON upgraded from version {fromVersion} to {SchemaDefinitions.ModuleSettingsSchemaVersion}.");
             return json;
+        }
+
+        // ─── Diagram settings ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Read per-project diagram display preferences (level visibility states) from Extensible Storage.
+        /// Returns null if nothing has been saved yet.
+        /// </summary>
+        public LevelVisibilitySettings ReadDiagramSettings()
+        {
+            try
+            {
+                var dataStorage = FindDataStorage();
+                if (dataStorage == null) return null;
+
+                var schema = GetOrCreateDiagramSchema();
+                var entity = dataStorage.GetEntity(schema);
+                if (entity == null || !entity.IsValid()) return null;
+
+                string json = entity.Get<string>(SchemaDefinitions.DiagramSettingsJsonField);
+                if (string.IsNullOrWhiteSpace(json)) return null;
+
+                return JsonConvert.DeserializeObject<LevelVisibilitySettings>(json);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Failed to read diagram settings from Extensible Storage.", ex);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Write diagram display preferences to Extensible Storage.
+        /// Must be called from within a Revit API context (ExternalEvent).
+        /// </summary>
+        public bool WriteDiagramSettings(LevelVisibilitySettings settings)
+        {
+            try
+            {
+                string json = JsonConvert.SerializeObject(settings, Formatting.None);
+                var schema = GetOrCreateDiagramSchema();
+
+                using (var tx = new Transaction(_doc, "Pulse: Save Diagram Settings"))
+                {
+                    tx.Start();
+                    var dataStorage = FindDataStorage() ?? CreateDataStorage();
+                    var entity = new Entity(schema);
+                    entity.Set(SchemaDefinitions.DiagramSchemaVersionField, SchemaDefinitions.DiagramSettingsSchemaVersion);
+                    entity.Set(SchemaDefinitions.DiagramSettingsJsonField, json);
+                    dataStorage.SetEntity(entity);
+                    tx.Commit();
+                }
+
+                _logger.Info("Saved diagram settings to Extensible Storage.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Failed to write diagram settings to Extensible Storage.", ex);
+                return false;
+            }
+        }
+
+        private static Schema GetOrCreateDiagramSchema()
+        {
+            var schema = Schema.Lookup(SchemaDefinitions.DiagramSettingsSchemaGuid);
+            if (schema != null) return schema;
+
+            var builder = new SchemaBuilder(SchemaDefinitions.DiagramSettingsSchemaGuid);
+            builder.SetSchemaName("PulseDiagramSettings");
+            builder.SetDocumentation("Stores Pulse diagram display preferences such as level line visibility.");
+            builder.SetReadAccessLevel(AccessLevel.Public);
+            builder.SetWriteAccessLevel(AccessLevel.Public);
+
+            builder.AddSimpleField(SchemaDefinitions.DiagramSchemaVersionField, typeof(int))
+                .SetDocumentation("Schema version for upgrade compatibility.");
+
+            builder.AddSimpleField(SchemaDefinitions.DiagramSettingsJsonField, typeof(string))
+                .SetDocumentation("JSON blob containing diagram display preferences.");
+
+            return builder.Finish();
         }
     }
 }

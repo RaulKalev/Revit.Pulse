@@ -29,5 +29,23 @@ namespace Pulse.Revit.Storage
         /// Used to locate the storage element in the document.
         /// </summary>
         public const string DataStorageName = "PulseSettings";
+
+        // ─── Diagram settings schema ─────────────────────────────────────────────
+
+        /// <summary>
+        /// Schema for storing diagram display preferences (level line visibility).
+        /// Stored as a second entity on the same DataStorage element.
+        /// NEVER change this GUID — create a new version instead.
+        /// </summary>
+        public static readonly Guid DiagramSettingsSchemaGuid = new Guid("B8F4C2D3-5E6A-7B8C-9D0E-1F2A3B4C5D6E");
+
+        /// <summary>Current version of the Diagram settings schema.</summary>
+        public const int DiagramSettingsSchemaVersion = 1;
+
+        /// <summary>Field name for the JSON blob storing diagram display preferences.</summary>
+        public const string DiagramSettingsJsonField = "DiagramSettingsJson";
+
+        /// <summary>Field name for the diagram schema version integer.</summary>
+        public const string DiagramSchemaVersionField = "DiagramSchemaVersion";
     }
 }

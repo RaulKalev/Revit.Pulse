@@ -2,10 +2,13 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using MaterialDesignThemes.Wpf;
+using Pulse.Core.Modules;
 using Pulse.UI.ViewModels;
 
 namespace Pulse.UI.Controls
@@ -18,6 +21,9 @@ namespace Pulse.UI.Controls
         private const double MarginBottom   = 16;
 
         private bool _isExpanded = false; // starts collapsed
+
+        // The level name the popup is currently targeting
+        private string _popupTargetLevel;
 
         public DiagramPanel()
         {
@@ -36,7 +42,6 @@ namespace Pulse.UI.Controls
 
         private void ApplyState()
         {
-            // Resize the parent ColumnDefinition rather than the UserControl itself
             SetParentColumnWidth(_isExpanded ? ExpandedWidth : CollapsedWidth);
 
             if (_isExpanded)
@@ -46,7 +51,6 @@ namespace Pulse.UI.Controls
                 CollapsedLabel.Visibility   = Visibility.Collapsed;
                 ToggleIcon.Kind             = PackIconKind.ChevronRight;
 
-                // Layout hasn't run yet — defer the draw until after measure/arrange
                 Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
             }
             else
@@ -58,7 +62,6 @@ namespace Pulse.UI.Controls
             }
         }
 
-        /// <summary>Set the Width of the ColumnDefinition this panel sits in.</summary>
         private void SetParentColumnWidth(double width)
         {
             if (Parent is Grid parentGrid)
@@ -109,17 +112,33 @@ namespace Pulse.UI.Controls
             DiagramCanvas.Width  = w;
             DiagramCanvas.Height = h;
 
-            var levels = _currentVm.Levels.OrderBy(l => l.Elevation).ToList();
-            double minElev = levels.First().Elevation;
-            double maxElev = levels.Last().Elevation;
+            var allLevels = _currentVm.Levels.OrderBy(l => l.Elevation).ToList();
+
+            // Deleted levels are excluded from min/max so they don't affect spacing.
+            // Hidden levels are included in the range but not drawn.
+            var rangelevels = allLevels
+                .Where(l => _currentVm.GetLevelState(l.Name) != LevelState.Deleted)
+                .ToList();
+
+            if (rangelevels.Count == 0) return;
+
+            double minElev = rangelevels.First().Elevation;
+            double maxElev = rangelevels.Last().Elevation;
             double range   = maxElev - minElev;
             if (range < 0.001) range = 1.0;
 
             double drawH = h - MarginTop - MarginBottom;
 
-            for (int i = 0; i < levels.Count; i++)
+            // Build an ordered list of visible/hidden levels for rendering
+            for (int i = 0; i < rangelevels.Count; i++)
             {
-                double t = range > 0.001 ? (levels[i].Elevation - minElev) / range : 0.5;
+                var level = rangelevels[i];
+                var state = _currentVm.GetLevelState(level.Name);
+
+                // Hidden levels are in the range but not drawn
+                if (state == LevelState.Hidden) continue;
+
+                double t = (level.Elevation - minElev) / range;
                 double y = MarginTop + (1.0 - t) * drawH;
 
                 // Dashed line — long, gap, short, gap  (10:4:4:4)
@@ -131,43 +150,142 @@ namespace Pulse.UI.Controls
                     Y2              = y,
                     Stroke          = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
                     StrokeThickness = 1,
-                    StrokeDashArray = new DoubleCollection { 10, 4, 4, 4 }
+                    StrokeDashArray = new DoubleCollection { 10, 4, 4, 4 },
+                    Tag             = level.Name,
+                    Cursor          = Cursors.Hand
                 };
                 DiagramCanvas.Children.Add(line);
 
                 // Current level name — above the line, right-aligned
                 var nameLabel = new TextBlock
                 {
-                    Text          = levels[i].Name,
+                    Text          = level.Name,
                     FontSize      = 9,
                     FontWeight    = FontWeights.SemiBold,
                     Foreground    = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
                     Width         = w - 16,
                     TextAlignment = TextAlignment.Right,
-                    TextTrimming  = TextTrimming.CharacterEllipsis
+                    TextTrimming  = TextTrimming.CharacterEllipsis,
+                    Tag           = level.Name,
+                    Cursor        = Cursors.Hand
                 };
                 Canvas.SetLeft(nameLabel, 8);
                 Canvas.SetTop(nameLabel, y - 13);
                 DiagramCanvas.Children.Add(nameLabel);
 
-                // Previous (lower) level name — below this line, right-aligned, same gap
+                // Previous (lower) level name — below this line, right-aligned, same gap.
+                // Walk backwards through rangelevels to find the closest visible lower level.
                 if (i > 0)
                 {
-                    var prevLabel = new TextBlock
+                    string prevName = null;
+                    for (int p = i - 1; p >= 0; p--)
                     {
-                        Text          = levels[i - 1].Name,
-                        FontSize      = 9,
-                        FontWeight    = FontWeights.SemiBold,
-                        Foreground    = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
-                        Width         = w - 16,
-                        TextAlignment = TextAlignment.Right,
-                        TextTrimming  = TextTrimming.CharacterEllipsis
-                    };
-                    Canvas.SetLeft(prevLabel, 8);
-                    Canvas.SetTop(prevLabel, y + 2);
-                    DiagramCanvas.Children.Add(prevLabel);
+                        if (_currentVm.GetLevelState(rangelevels[p].Name) == LevelState.Visible)
+                        {
+                            prevName = rangelevels[p].Name;
+                            break;
+                        }
+                    }
+
+                    if (prevName != null)
+                    {
+                        var prevLabel = new TextBlock
+                        {
+                            Text          = prevName,
+                            FontSize      = 9,
+                            FontWeight    = FontWeights.SemiBold,
+                            Foreground    = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
+                            Width         = w - 16,
+                            TextAlignment = TextAlignment.Right,
+                            TextTrimming  = TextTrimming.CharacterEllipsis,
+                            Tag           = prevName,
+                            Cursor        = Cursors.Hand
+                        };
+                        Canvas.SetLeft(prevLabel, 8);
+                        Canvas.SetTop(prevLabel, y + 2);
+                        DiagramCanvas.Children.Add(prevLabel);
+                    }
                 }
             }
+        }
+
+        // ── Popup ─────────────────────────────────────────────────────────
+
+        private void DiagramCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (_currentVm == null) return;
+
+            // Walk up from the clicked element to find one with a level-name Tag
+            var hit = e.OriginalSource as FrameworkElement;
+            string levelName = null;
+            while (hit != null && hit != DiagramCanvas)
+            {
+                if (hit.Tag is string s && !string.IsNullOrEmpty(s))
+                {
+                    levelName = s;
+                    break;
+                }
+                hit = hit.Parent as FrameworkElement ?? (hit as FrameworkElement);
+                // prevent looping on non-visual-tree parents
+                if (hit is Canvas) break;
+                hit = VisualTreeHelper.GetParent(hit) as FrameworkElement;
+            }
+
+            if (levelName == null) return;
+
+            _popupTargetLevel = levelName;
+            ConfigurePopup(levelName, _currentVm.GetLevelState(levelName));
+            LevelPopup.IsOpen = true;
+            e.Handled = true;
+        }
+
+        private void ConfigurePopup(string levelName, LevelState state)
+        {
+            PopupLevelName.Text = levelName;
+
+            switch (state)
+            {
+                case LevelState.Visible:
+                    PopupVisibilityButton.Content    = "Hide line";
+                    PopupVisibilityButton.Visibility = Visibility.Visible;
+                    PopupDeleteButton.Content        = "Delete line";
+                    PopupDeleteButton.Visibility     = Visibility.Visible;
+                    break;
+
+                case LevelState.Hidden:
+                    PopupVisibilityButton.Content    = "Show line";
+                    PopupVisibilityButton.Visibility = Visibility.Visible;
+                    PopupDeleteButton.Content        = "Delete line";
+                    PopupDeleteButton.Visibility     = Visibility.Visible;
+                    break;
+
+                case LevelState.Deleted:
+                    PopupVisibilityButton.Content    = "Restore line";
+                    PopupVisibilityButton.Visibility = Visibility.Visible;
+                    PopupDeleteButton.Visibility     = Visibility.Collapsed;
+                    break;
+            }
+        }
+
+        private void PopupVisibility_Click(object sender, RoutedEventArgs e)
+        {
+            LevelPopup.IsOpen = false;
+            if (_currentVm == null || _popupTargetLevel == null) return;
+
+            var current = _currentVm.GetLevelState(_popupTargetLevel);
+            var next    = (current == LevelState.Visible) ? LevelState.Hidden : LevelState.Visible;
+
+            _currentVm.SetLevelState(_popupTargetLevel, next);
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
+        }
+
+        private void PopupDelete_Click(object sender, RoutedEventArgs e)
+        {
+            LevelPopup.IsOpen = false;
+            if (_currentVm == null || _popupTargetLevel == null) return;
+
+            _currentVm.SetLevelState(_popupTargetLevel, LevelState.Deleted);
+            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
         }
     }
 }
