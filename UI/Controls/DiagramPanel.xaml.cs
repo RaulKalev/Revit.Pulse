@@ -24,6 +24,14 @@ namespace Pulse.UI.Controls
 
         private bool _isExpanded = false;
 
+        // ── Zoom ─────────────────────────────────────────────────────────
+        private const double ZoomMin  = 0.15;
+        private const double ZoomMax  = 6.0;
+        private const double ZoomStep = 0.12;   // fractional step per wheel tick
+        private double _zoom = 1.0;
+        private readonly ScaleTransform     _zoomST = new ScaleTransform(1, 1);
+        private readonly TranslateTransform _zoomTT = new TranslateTransform(0, 0);
+
         // Popup target: level name + kind ("line" | "text-above" | "text-below")
         private string _popupTargetLevel;
         private string _popupTargetKind;
@@ -39,6 +47,12 @@ namespace Pulse.UI.Controls
             InitializeComponent();
             DataContextChanged += OnDataContextChanged;
             Loaded += (_, __) => ApplyState();
+
+            // Apply the zoom transform group to the canvas once on construction.
+            var tg = new TransformGroup();
+            tg.Children.Add(_zoomST);
+            tg.Children.Add(_zoomTT);
+            DiagramCanvas.RenderTransform = tg;
             LevelPopup.Closed += (_, __) => ClearHighlight();
             LoopPopup.Closed  += (_, __) =>
             {
@@ -121,6 +135,44 @@ namespace Pulse.UI.Controls
 
         private void DiagramContent_SizeChanged(object sender, SizeChangedEventArgs e)
             => DrawLevels();
+
+        // ── Zoom handlers ─────────────────────────────────────────────────
+
+        private void DiagramContent_PreviewMouseWheel(object sender, MouseWheelEventArgs e)
+        {
+            if (!Keyboard.IsKeyDown(Key.LeftCtrl) && !Keyboard.IsKeyDown(Key.RightCtrl)) return;
+
+            // Mouse position relative to DiagramContent (the viewport)
+            Point mouse = e.GetPosition(DiagramContent);
+
+            double oldZoom = _zoom;
+            double delta   = e.Delta > 0 ? ZoomStep : -ZoomStep;
+            _zoom = Math.Max(ZoomMin, Math.Min(ZoomMax, _zoom + _zoom * delta));
+
+            // Zoom towards the cursor:
+            // new_translate = mouse - (mouse - old_translate) * (new_zoom / old_zoom)
+            double ratio    = _zoom / oldZoom;
+            _zoomST.ScaleX  = _zoom;
+            _zoomST.ScaleY  = _zoom;
+            _zoomTT.X       = mouse.X - (mouse.X - _zoomTT.X) * ratio;
+            _zoomTT.Y       = mouse.Y - (mouse.Y - _zoomTT.Y) * ratio;
+
+            e.Handled = true;
+        }
+
+        private void DiagramContent_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            // Middle-button double-click → reset zoom
+            if (e.ChangedButton == MouseButton.Middle && e.ClickCount == 2)
+            {
+                _zoom       = 1.0;
+                _zoomST.ScaleX = 1.0;
+                _zoomST.ScaleY = 1.0;
+                _zoomTT.X   = 0.0;
+                _zoomTT.Y   = 0.0;
+                e.Handled   = true;
+            }
+        }
 
         // ── Drawing ───────────────────────────────────────────────────────
 
