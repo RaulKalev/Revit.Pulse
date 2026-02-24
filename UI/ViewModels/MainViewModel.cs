@@ -262,6 +262,11 @@ namespace Pulse.UI.ViewModels
         {
             _currentData = data;
 
+            // Reload topology assignments from Extensible Storage (the handler reads them
+            // on the Revit API thread during Execute so they are fresh here).
+            if (_collectHandler.RefreshedAssignments != null)
+                _topologyAssignments = _collectHandler.RefreshedAssignments;
+
             // Update statistics
             TotalDevices = data.Devices.Count;
             TotalWarnings = data.WarningCount;

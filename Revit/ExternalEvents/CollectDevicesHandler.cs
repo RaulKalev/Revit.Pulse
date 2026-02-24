@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Autodesk.Revit.UI;
 using Pulse.Core.Modules;
 using Pulse.Core.Settings;
+using Pulse.Revit.Storage;
 
 namespace Pulse.Revit.ExternalEvents
 {
@@ -35,6 +36,13 @@ namespace Pulse.Revit.ExternalEvents
         /// </summary>
         public Action<Exception> OnError { get; set; }
 
+        /// <summary>
+        /// Populated during Execute() with the latest topology assignments read from
+        /// Extensible Storage on the Revit API thread, so the UI thread can consume them
+        /// in OnCompleted without needing a second ES round-trip.
+        /// </summary>
+        public TopologyAssignmentsStore RefreshedAssignments { get; private set; }
+
         public void Execute(UIApplication app)
         {
             try
@@ -61,6 +69,10 @@ namespace Pulse.Revit.ExternalEvents
                 // Collect project levels for the diagram
                 var levels = context.GetLevels();
                 data.Levels.AddRange(levels);
+
+                // Re-read topology assignments (symbol mappings, rank overrides, etc.)
+                // while we are already on the Revit API thread.
+                RefreshedAssignments = new ExtensibleStorageService(doc).ReadTopologyAssignments();
 
                 // Return results to the UI
                 OnCompleted?.Invoke(data);

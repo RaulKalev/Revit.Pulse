@@ -228,6 +228,11 @@ namespace Pulse.UI.Controls
             _visualElements.Clear();
             DiagramCanvas.Children.Clear();
 
+            // Reload symbol library and canvas settings on each draw so that changes
+            // made since the last refresh (new symbols, mapping edits) are always reflected.
+            _symbolLibrary  = CustomSymbolLibraryService.Load();
+            _canvasSettings = DiagramCanvasSettingsService.Load();
+
             if (_currentVm == null || _currentVm.Levels.Count == 0) return;
 
             double w = DiagramContent.ActualWidth;
