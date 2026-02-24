@@ -404,7 +404,7 @@
                                     Height="{Binding CanvasHeightPx}"
                                     ClipToBounds="True"
                                     Background="Transparent"
-                                    Cursor="Crosshair"
+                                    Cursor="Cross"
                                     MouseMove="DrawingCanvas_MouseMove"
                                     MouseDown="DrawingCanvas_MouseDown"
                                     MouseUp="DrawingCanvas_MouseUp"
