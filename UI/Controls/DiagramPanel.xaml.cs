@@ -412,7 +412,6 @@ namespace Pulse.UI.Controls
                         double slotWire        = rectW / loopCount;
                         const double circR     = 3.5;
                         const double loopH     = 16.0;  // height of each closed-loop rectangle
-                        const double loopGap   = 5.0;   // gap between stacked loops at same level
                         const double wireLeft  = 10.0;  // left margin for loop wires
                         var strokeBrush = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF));
                         var circleFill  = new SolidColorBrush(Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF));
@@ -429,19 +428,23 @@ namespace Pulse.UI.Controls
                             loopMajority[li2] = (majority.Elevation, totalDevs);
                         }
 
-                        // Pass 2: stagger map — which loops share the same majority level
-                        var levelLoopMap = new Dictionary<double, List<int>>();
+                        // Pass 2: per-side stagger maps — key = "elevKey|L" or "elevKey|R"
+                        // Loops are bucketed by (majority elevation, side) independently.
+                        var sideLevelMap = new Dictionary<string, List<int>>();
                         foreach (var kvp in loopMajority)
                         {
-                            double key = Math.Round(kvp.Value.Elevation, 3);
-                            if (!levelLoopMap.TryGetValue(key, out var lst))
-                                levelLoopMap[key] = lst = new List<int>();
-                            lst.Add(kvp.Key);
+                            var loopInfo2 = panel.LoopInfos[kvp.Key];
+                            bool flip2    = _currentVm.IsLoopFlipped(panel.Name, loopInfo2.Name);
+                            string side2  = flip2 ? "R" : "L";
+                            string sKey   = Math.Round(kvp.Value.Elevation, 3).ToString("F3") + "|" + side2;
+                            if (!sideLevelMap.TryGetValue(sKey, out var sl))
+                                sideLevelMap[sKey] = sl = new List<int>();
+                            sl.Add(kvp.Key);
                         }
 
                         const double wireRight = 10.0; // right margin (mirror of wireLeft)
 
-                        // Pass 3: draw one closed rectangle per loop at its majority level
+                        // Pass 3: draw one closed rectangle per loop, evenly spaced within zone
                         for (int li = 0; li < panel.LoopInfos.Count; li++)
                         {
                             if (!loopMajority.TryGetValue(li, out var maj)) continue;
@@ -451,25 +454,40 @@ namespace Pulse.UI.Controls
                             bool flipped  = _currentVm.IsLoopFlipped(panel.Name, loopInfo.Name);
                             bool selected = _currentVm.SelectedLoopKey == loopKey;
 
-                            // Selected loops use a brighter accent stroke
                             var wireBrush = selected
-                                ? new SolidColorBrush(Color.FromArgb(0xFF, 0x4F, 0xC3, 0xF7)) // blue
+                                ? new SolidColorBrush(Color.FromArgb(0xFF, 0x4F, 0xC3, 0xF7))
                                 : strokeBrush;
 
-                            double laneX = rectLeft + slotWire * (li + 0.5);
-                            double key   = Math.Round(maj.Elevation, 3);
+                            double laneX     = rectLeft + slotWire * (li + 0.5);
+                            string elevKeyStr = Math.Round(maj.Elevation, 3).ToString("F3");
+                            string sideKey   = elevKeyStr + "|" + (flipped ? "R" : "L");
 
                             var closest  = yLookup
                                 .OrderBy(e2 => Math.Abs(e2.Elevation - maj.Elevation)).First();
                             double levelY = closest.Y;
 
-                            var loopsHere = levelLoopMap[key];
-                            int rank      = loopsHere.IndexOf(li);
-                            double topY   = levelY - loopH - rank * (loopH + loopGap);
-                            // Clamp above panel: include rank so every loop keeps its unique offset
-                            topY          = Math.Min(topY, rectTop - loopH - 2 - rank * (loopH + loopGap));
+                            // Zone ceiling = Y of the next level line above (smaller Y = higher up)
+                            double zoneTopY = yLookup
+                                .Where(e2 => e2.Y < levelY - 1)
+                                .Select(e2 => e2.Y)
+                                .DefaultIfEmpty(MarginTop)
+                                .Max();
 
-                            double botY    = topY + loopH;
+                            // Loops must stay above the panel rect when on its floor level
+                            double effectiveLevelY = Math.Min(levelY, rectTop - loopH - 2);
+                            double zoneAvail       = effectiveLevelY - zoneTopY;
+                            if (zoneAvail < loopH + 4) continue; // zone too tight
+
+                            var sideList = sideLevelMap.TryGetValue(sideKey, out var sl2)
+                                ? sl2 : new List<int>();
+                            int n    = Math.Max(sideList.Count, 1);
+                            int rank = sideList.IndexOf(li);
+                            if (rank < 0) rank = 0;
+
+                            // Even spacing: distribute loops from effectiveLevelY upward
+                            double pitch = zoneAvail / (n + 1);
+                            double topY  = effectiveLevelY - pitch * (rank + 1);
+                            double botY  = topY + loopH;
                             double farEdge = flipped ? (w - wireRight) : wireLeft;
 
                             // ── Vertical spine ────────────────────────────────────
@@ -481,7 +499,7 @@ namespace Pulse.UI.Controls
                             // ── Bottom wire ───────────────────────────────────────
                             Line(wireBrush, farEdge, botY, laneX, botY);
 
-                            // ── Transparent hit-test rectangle for click-to-select
+                            // ── Transparent hit-test rectangle ────────────────────
                             double hitX = Math.Min(laneX, farEdge);
                             double hitW = Math.Abs(laneX - farEdge);
                             var hitRect = new System.Windows.Shapes.Rectangle
@@ -500,14 +518,13 @@ namespace Pulse.UI.Controls
 
                             // ── Device circles evenly along the top wire ──────────
                             double span  = Math.Abs(laneX - farEdge);
-                            double pitch = span / (maj.TotalDevices + 1);
+                            double cpitch = span / (maj.TotalDevices + 1);
                             for (int di = 0; di < maj.TotalDevices; di++)
                             {
-                                // Circles travel along the top wire: from farEdge toward laneX
                                 double devX = flipped
-                                    ? farEdge - pitch * (di + 1)  // right edge → left toward laneX
-                                    : wireLeft + pitch * (di + 1); // left edge → right toward laneX
-                                var circle  = new Ellipse
+                                    ? farEdge - cpitch * (di + 1)
+                                    : wireLeft + cpitch * (di + 1);
+                                var circle = new Ellipse
                                 {
                                     Width = circR * 2, Height = circR * 2,
                                     Stroke = circleStroke, StrokeThickness = 1,
