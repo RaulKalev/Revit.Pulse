@@ -85,7 +85,7 @@
 
                 <Canvas x:Name="DiagramCanvas"
                         ClipToBounds="True"
-                        MouseLeftButtonDown="DiagramCanvas_MouseLeftButtonDown"/>
+                        MouseLeftButtonUp="DiagramCanvas_MouseLeftButtonUp"/>
 
                 <!-- Level context popup — appears at mouse position on click -->
                 <Popup x:Name="LevelPopup"

@@ -141,18 +141,31 @@ namespace Pulse.UI.Controls
                 double t = (level.Elevation - minElev) / range;
                 double y = MarginTop + (1.0 - t) * drawH;
 
-                // Dashed line — long, gap, short, gap  (10:4:4:4)
-                var line = new Line
+                // Invisible wide line for easy hit-testing (sits behind the visual line)
+                var hitLine = new Line
                 {
                     X1              = 8,
                     X2              = w - 4,
                     Y1              = y,
                     Y2              = y,
-                    Stroke          = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
-                    StrokeThickness = 1,
-                    StrokeDashArray = new DoubleCollection { 10, 4, 4, 4 },
+                    Stroke          = Brushes.Transparent,
+                    StrokeThickness = 10,
                     Tag             = level.Name,
                     Cursor          = Cursors.Hand
+                };
+                DiagramCanvas.Children.Add(hitLine);
+
+                // Dashed line — long, gap, short, gap  (10:4:4:4)
+                var line = new Line
+                {
+                    X1                  = 8,
+                    X2                  = w - 4,
+                    Y1                  = y,
+                    Y2                  = y,
+                    Stroke              = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
+                    StrokeThickness     = 1,
+                    StrokeDashArray     = new DoubleCollection { 10, 4, 4, 4 },
+                    IsHitTestVisible    = false   // hit-test handled by hitLine above
                 };
                 DiagramCanvas.Children.Add(line);
 
@@ -211,27 +224,14 @@ namespace Pulse.UI.Controls
 
         // ── Popup ─────────────────────────────────────────────────────────
 
-        private void DiagramCanvas_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        private void DiagramCanvas_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
             if (_currentVm == null) return;
 
-            // Walk up from the clicked element to find one with a level-name Tag
-            var hit = e.OriginalSource as FrameworkElement;
-            string levelName = null;
-            while (hit != null && hit != DiagramCanvas)
-            {
-                if (hit.Tag is string s && !string.IsNullOrEmpty(s))
-                {
-                    levelName = s;
-                    break;
-                }
-                hit = hit.Parent as FrameworkElement ?? (hit as FrameworkElement);
-                // prevent looping on non-visual-tree parents
-                if (hit is Canvas) break;
-                hit = VisualTreeHelper.GetParent(hit) as FrameworkElement;
-            }
-
-            if (levelName == null) return;
+            // All clickable elements (hit-area lines, text labels) carry the level name as Tag.
+            // Check OriginalSource directly — no tree walk needed.
+            var levelName = (e.OriginalSource as FrameworkElement)?.Tag as string;
+            if (string.IsNullOrEmpty(levelName)) return;
 
             _popupTargetLevel = levelName;
             ConfigurePopup(levelName, _currentVm.GetLevelState(levelName));
