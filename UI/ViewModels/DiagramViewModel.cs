@@ -64,6 +64,25 @@ namespace Pulse.UI.ViewModels
                 Levels.Add(level);
         }
 
+        /// <summary>Apply saved elevation overrides (drag-to-move) from the config store.</summary>
+        public void LoadLevelElevationOffsets(DeviceConfigStore store)
+        {
+            if (store?.LevelElevationOffsets == null) return;
+            foreach (var level in Levels)
+            {
+                if (store.LevelElevationOffsets.TryGetValue(level.Name, out double elev))
+                    level.Elevation = elev;
+            }
+        }
+
+        /// <summary>Persist the new elevation for one level immediately.</summary>
+        public void PersistLevelElevationOffset(string levelName, double elevation)
+        {
+            var store = DeviceConfigService.Load();
+            store.LevelElevationOffsets[levelName] = elevation;
+            DeviceConfigService.Save(store);
+        }
+
         // ── Panels ────────────────────────────────────────────────────────
 
         public ObservableCollection<PanelInfo> Panels { get; } = new ObservableCollection<PanelInfo>();

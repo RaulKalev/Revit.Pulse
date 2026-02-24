@@ -1026,11 +1026,12 @@ namespace Pulse.UI.Controls
             _moveOriginalElev = lev.Elevation;
             _inMoveMode       = true;
             DiagramContent.Cursor = Cursors.SizeNS;
+            DiagramContent.CaptureMouse();
             DiagramContent.Focus();
             DrawLevels();
         }
 
-        private void DiagramCanvas_MouseMove(object sender, MouseEventArgs e)
+        private void DiagramContent_MouseMove(object sender, MouseEventArgs e)
         {
             if (!_inMoveMode || _movingLevel == null || _drawRange < 0.001) return;
 
@@ -1086,7 +1087,10 @@ namespace Pulse.UI.Controls
             _inMoveMode = false;
             if (!commit && _movingLevel != null)
                 _movingLevel.Elevation = _moveOriginalElev;
-            _movingLevel          = null;
+            else if (commit && _movingLevel != null)
+                _currentVm?.PersistLevelElevationOffset(_movingLevel.Name, _movingLevel.Elevation);
+            _movingLevel = null;
+            DiagramContent.ReleaseMouseCapture();
             DiagramContent.Cursor = Cursors.Arrow;
             DrawLevels();
         }

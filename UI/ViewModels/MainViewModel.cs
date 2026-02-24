@@ -247,6 +247,7 @@ namespace Pulse.UI.ViewModels
             // Update diagram levels and panels
             Diagram.LoadLevels(data.Levels);
             var diagramConfigStore = DeviceConfigService.Load();
+            Diagram.LoadLevelElevationOffsets(diagramConfigStore);
             Diagram.LoadPanels(data.Panels, data.Loops, diagramConfigStore);
             Diagram.LoadFlipStates(diagramConfigStore);
             Diagram.LoadLoopExtraLines(diagramConfigStore);

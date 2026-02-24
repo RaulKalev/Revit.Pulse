@@ -103,15 +103,17 @@
             <Grid x:Name="DiagramContent"
                   Grid.Row="1"
                   ClipToBounds="True"
+                  Focusable="True"
                   Background="{DynamicResource PrimaryBackgroundBrush}"
                   SizeChanged="DiagramContent_SizeChanged"
                   PreviewMouseWheel="DiagramContent_PreviewMouseWheel"
+                  PreviewKeyDown="DiagramContent_PreviewKeyDown"
+                  MouseMove="DiagramContent_MouseMove"
                   MouseDown="DiagramContent_MouseDown">
 
                 <Canvas x:Name="DiagramCanvas"
                         ClipToBounds="True"
-                        MouseLeftButtonUp="DiagramCanvas_MouseLeftButtonUp"
-                        MouseMove="DiagramCanvas_MouseMove"/>
+                        MouseLeftButtonUp="DiagramCanvas_MouseLeftButtonUp"/>
 
                 <!-- Loop context popup — appears when clicking a loop wire -->
                 <Popup x:Name="LoopPopup"

@@ -106,5 +106,9 @@ namespace Pulse.Core.Settings
         /// <summary>"panelName::loopName" → number of extra horizontal lines added (total wires = 2 + value).</summary>
         [JsonProperty("loopExtraLines")]
         public Dictionary<string, int> LoopExtraLines { get; set; } = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Level name → overridden elevation (Revit feet), set by Move mode in the diagram.</summary>
+        [JsonProperty("levelElevationOffsets")]
+        public Dictionary<string, double> LevelElevationOffsets { get; set; } = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
     }
 }
