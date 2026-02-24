@@ -172,6 +172,7 @@
                     <GridSplitter Grid.Column="1"
                                   Width="1"
                                   HorizontalAlignment="Stretch"
+                                  VerticalAlignment="Stretch"
                                   Background="{DynamicResource BorderBrush}"
                                   Cursor="SizeWE"/>
 

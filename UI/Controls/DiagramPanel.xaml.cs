@@ -270,13 +270,12 @@ namespace Pulse.UI.Controls
             if (el is Line ln)
             {
                 _selectedOriginalBrush = ln.Stroke;
-                ln.Stroke          = AccentBrush;
-                ln.StrokeThickness = 2;
+                ln.Stroke              = AccentBrush;
             }
             else if (el is TextBlock tb)
             {
                 _selectedOriginalBrush = tb.Foreground;
-                tb.Foreground = AccentBrush;
+                tb.Foreground          = AccentBrush;
             }
             _selectedVisual = el;
         }
@@ -285,14 +284,9 @@ namespace Pulse.UI.Controls
         {
             if (_selectedVisual == null) return;
             if (_selectedVisual is Line ln)
-            {
                 ln.Stroke          = _selectedOriginalBrush;
-                ln.StrokeThickness = 1;
-            }
             else if (_selectedVisual is TextBlock tb)
-            {
-                tb.Foreground = _selectedOriginalBrush;
-            }
+                tb.Foreground      = _selectedOriginalBrush;
             _selectedVisual        = null;
             _selectedOriginalBrush = null;
         }
