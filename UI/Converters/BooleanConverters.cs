@@ -2,9 +2,30 @@ using System;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
+using System.Windows.Media;
 
 namespace Pulse.UI.Converters
 {
+    /// <summary>Converts a hex colour string (e.g. "#FF0000") to a <see cref="SolidColorBrush"/>.
+    /// Returns <see cref="DependencyProperty.UnsetValue"/> when the string is null/empty or unparseable.</summary>
+    public class ColorHexToBrushConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            var hex = value as string;
+            if (string.IsNullOrWhiteSpace(hex)) return DependencyProperty.UnsetValue;
+            try
+            {
+                var color = (Color)ColorConverter.ConvertFromString(hex);
+                return new SolidColorBrush(color);
+            }
+            catch { return DependencyProperty.UnsetValue; }
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
     /// <summary>Inverts a boolean value.</summary>
     public class InverseBooleanConverter : IValueConverter
     {

@@ -5,6 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ui="clr-namespace:Pulse.UI"
+    xmlns:converters="clr-namespace:Pulse.UI.Converters"
     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
     Title="Pulse — Device Configurator"
     Width="720"
@@ -133,12 +134,10 @@
                 <Setter Property="BorderBrush"  Value="#FF0078D7" />
             </Style>
 
-            <!-- Dark CheckBox style for wire form -->
-            <Style x:Key="DarkCheckBoxStyle" TargetType="CheckBox">
-                <Setter Property="Foreground"    Value="{DynamicResource ForegroundBrush}" />
-                <Setter Property="FontSize"      Value="12" />
-                <Setter Property="VerticalContentAlignment" Value="Center" />
-            </Style>
+            <!-- Dark CheckBox style removed — shielding now uses PulseToggleButtonStyle -->
+            <converters:ColorHexToBrushConverter x:Key="ColorHexToBrush"/>
+            <converters:InverseBoolToVisibilityConverter x:Key="InvBoolToVis"/>
+            <BooleanToVisibilityConverter x:Key="BoolToVis2"/>
 
         </ResourceDictionary>
     </Window.Resources>
@@ -752,26 +751,91 @@
                                 <!-- Color -->
                                 <TextBlock Text="COLOR" Style="{StaticResource FieldLabelStyle}"
                                            Margin="0,0,0,4"/>
-                                <TextBlock Text="Cable colour or colour code (e.g. &quot;Red/Black&quot;, &quot;Grey&quot;)."
+                                <TextBlock Text="Click the swatch to open the colour picker, or type a hex code (e.g. &quot;#FF0000&quot;)."
                                            FontSize="10"
                                            Foreground="{DynamicResource IconForegroundBrush}"
                                            TextWrapping="Wrap"
                                            Margin="0,0,0,5"/>
-                                <TextBox Text="{Binding SelectedWire.Color, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource DarkTextBoxStyle}"
-                                         Margin="0,0,0,14"/>
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <!-- Colour swatch button -->
+                                    <Button Grid.Column="0"
+                                            Click="ColorSwatch_Click"
+                                            Style="{StaticResource PulseActionButtonStyle}"
+                                            Width="32" Height="32"
+                                            Padding="3"
+                                            ToolTip="Click to open colour picker">
+                                        <Border Width="22" Height="22" CornerRadius="4"
+                                                BorderThickness="1"
+                                                BorderBrush="{DynamicResource BorderBrush}">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="{DynamicResource SecondaryBackgroundBrush}"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SelectedWire.Color}" Value="{x:Null}">
+                                                            <Setter Property="Background" Value="{DynamicResource SecondaryBackgroundBrush}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <Border.Background>
+                                                <Binding Path="SelectedWire.Color"
+                                                         Converter="{StaticResource ColorHexToBrush}"
+                                                         FallbackValue="{x:Null}"/>
+                                            </Border.Background>
+                                        </Border>
+                                    </Button>
+                                    <!-- Hex code TextBox -->
+                                    <TextBox Grid.Column="2"
+                                             Text="{Binding SelectedWire.Color, UpdateSourceTrigger=PropertyChanged}"
+                                             Style="{StaticResource DarkTextBoxStyle}"
+                                             VerticalAlignment="Center"
+                                             materialDesign:HintAssist.Hint="#RRGGBB"/>
+                                </Grid>
 
-                                <!-- Shielding + Fire Resistance checkboxes -->
+                                <!-- Cable Properties heading -->
                                 <TextBlock Text="CABLE PROPERTIES" Style="{StaticResource FieldLabelStyle}"
-                                           Margin="0,0,0,8"/>
-                                <CheckBox IsChecked="{Binding SelectedWire.HasShielding, Mode=TwoWay}"
-                                          Style="{StaticResource DarkCheckBoxStyle}"
-                                          Content="Shielded / Screened"
-                                          Margin="0,0,0,8"/>
-                                <CheckBox IsChecked="{Binding SelectedWire.IsFireResistant, Mode=TwoWay}"
-                                          Style="{StaticResource DarkCheckBoxStyle}"
-                                          Content="Fire Resistant"
-                                          Margin="0,0,0,8"/>
+                                           Margin="0,0,0,10"/>
+
+                                <!-- Shielding toggle -->
+                                <ToggleButton x:Name="ShieldingToggle"
+                                              IsChecked="{Binding SelectedWire.HasShielding, Mode=TwoWay}"
+                                              Style="{StaticResource PulseToggleButtonStyle}"
+                                              HorizontalAlignment="Left"
+                                              Margin="0,0,0,12">
+                                    <Grid>
+                                        <!-- Off state -->
+                                        <StackPanel Orientation="Horizontal"
+                                                    Visibility="{Binding IsChecked, ElementName=ShieldingToggle, Converter={StaticResource InvBoolToVis}}">
+                                            <materialDesign:PackIcon Kind="ShieldOffOutline" Width="14" Height="14"
+                                                                     VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Shielding: Off" FontSize="11" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                        <!-- On state -->
+                                        <StackPanel Orientation="Horizontal"
+                                                    Visibility="{Binding IsChecked, ElementName=ShieldingToggle, Converter={StaticResource BoolToVis2}}">
+                                            <materialDesign:PackIcon Kind="ShieldCheck" Width="14" Height="14"
+                                                                     VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text="Shielding: On" FontSize="11" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </ToggleButton>
+
+                                <!-- Fire Resistance -->
+                                <TextBlock Text="FIRE RESISTANCE" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,4"/>
+                                <TextBlock Text="Fire-resistance designation, e.g. &quot;FP200&quot;, &quot;E30&quot;, &quot;MICC&quot;. Leave blank if not rated."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedWire.FireResistance, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,8"/>
 
                             </StackPanel>
                         </StackPanel>

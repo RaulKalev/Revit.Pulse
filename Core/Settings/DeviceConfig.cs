@@ -103,9 +103,9 @@ namespace Pulse.Core.Settings
         [JsonProperty("hasShielding")]
         public bool HasShielding { get; set; }
 
-        /// <summary>Whether the cable is rated fire-resistant (e.g. FP200, MICC).</summary>
-        [JsonProperty("isFireResistant")]
-        public bool IsFireResistant { get; set; }
+        /// <summary>Fire-resistance designation (e.g. "FP200", "E30") or empty when not rated.</summary>
+        [JsonProperty("fireResistance")]
+        public string FireResistance { get; set; } = string.Empty;
     }
 
     /// <summary>

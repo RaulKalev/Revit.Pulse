@@ -179,11 +179,11 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _hasShielding, value);
         }
 
-        private bool _isFireResistant;
-        public bool IsFireResistant
+        private string _fireResistance;
+        public string FireResistance
         {
-            get => _isFireResistant;
-            set => SetField(ref _isFireResistant, value);
+            get => _fireResistance;
+            set => SetField(ref _fireResistance, value);
         }
 
         public WireConfigViewModel(WireConfig model)
@@ -195,7 +195,7 @@ namespace Pulse.UI.ViewModels
             _coreSizeMm2 = model.CoreSizeMm2;
             _color = model.Color;
             _hasShielding = model.HasShielding;
-            _isFireResistant = model.IsFireResistant;
+            _fireResistance = model.FireResistance;
         }
 
         public WireConfig ToModel() => new WireConfig
@@ -206,7 +206,7 @@ namespace Pulse.UI.ViewModels
             CoreSizeMm2 = CoreSizeMm2,
             Color = Color ?? string.Empty,
             HasShielding = HasShielding,
-            IsFireResistant = IsFireResistant
+            FireResistance = FireResistance ?? string.Empty
         };
     }
 
