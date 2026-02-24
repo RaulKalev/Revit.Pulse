@@ -122,7 +122,7 @@ namespace Pulse.UI.Controls
                 double t = range > 0.001 ? (levels[i].Elevation - minElev) / range : 0.5;
                 double y = MarginTop + (1.0 - t) * drawH;
 
-                // Dashed line — long-dash pattern matching reference
+                // Dashed line — long, gap, short, gap  (10:4:4:4)
                 var line = new Line
                 {
                     X1              = 8,
@@ -131,38 +131,40 @@ namespace Pulse.UI.Controls
                     Y2              = y,
                     Stroke          = new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
                     StrokeThickness = 1,
-                    StrokeDashArray = new DoubleCollection { 12, 4 }
+                    StrokeDashArray = new DoubleCollection { 10, 4, 4, 4 }
                 };
                 DiagramCanvas.Children.Add(line);
 
-                // Current level name — above the line
+                // Current level name — above the line, right-aligned
                 var nameLabel = new TextBlock
                 {
-                    Text         = levels[i].Name,
-                    FontSize     = 9,
-                    FontWeight   = FontWeights.SemiBold,
-                    Foreground   = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
-                    MaxWidth     = w - 12,
-                    TextTrimming = TextTrimming.CharacterEllipsis
+                    Text          = levels[i].Name,
+                    FontSize      = 9,
+                    FontWeight    = FontWeights.SemiBold,
+                    Foreground    = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
+                    Width         = w - 16,
+                    TextAlignment = TextAlignment.Right,
+                    TextTrimming  = TextTrimming.CharacterEllipsis
                 };
                 Canvas.SetLeft(nameLabel, 8);
                 Canvas.SetTop(nameLabel, y - 13);
                 DiagramCanvas.Children.Add(nameLabel);
 
-                // Previous (lower) level name — below this line
+                // Previous (lower) level name — below this line, right-aligned, same gap
                 if (i > 0)
                 {
                     var prevLabel = new TextBlock
                     {
-                        Text         = levels[i - 1].Name,
-                        FontSize     = 9,
-                        FontWeight   = FontWeights.SemiBold,
-                        Foreground   = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
-                        MaxWidth     = w - 12,
-                        TextTrimming = TextTrimming.CharacterEllipsis
+                        Text          = levels[i - 1].Name,
+                        FontSize      = 9,
+                        FontWeight    = FontWeights.SemiBold,
+                        Foreground    = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
+                        Width         = w - 16,
+                        TextAlignment = TextAlignment.Right,
+                        TextTrimming  = TextTrimming.CharacterEllipsis
                     };
                     Canvas.SetLeft(prevLabel, 8);
-                    Canvas.SetTop(prevLabel, y + 3);
+                    Canvas.SetTop(prevLabel, y + 2);
                     DiagramCanvas.Children.Add(prevLabel);
                 }
             }
