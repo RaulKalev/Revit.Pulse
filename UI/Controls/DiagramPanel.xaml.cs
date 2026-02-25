@@ -114,7 +114,7 @@ namespace Pulse.UI.Controls
         {
             InitializeComponent();
             DataContextChanged += OnDataContextChanged;
-            Loaded += (_, __) => ApplyState();
+            Loaded += (_, __) => { ApplyState(); LoadPaperSizes(); };
 
             // Apply the zoom transform group to the canvas once on construction.
             var tg = new TransformGroup();
@@ -1813,6 +1813,28 @@ namespace Pulse.UI.Controls
             if (_currentVm == null) { RestoreButton.Visibility = Visibility.Collapsed; return; }
             RestoreButton.Visibility = _currentVm.GetNonVisibleItems().Count > 0
                 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        // ── Paper size selector ─────────────────────────────────────────
+
+        private void LoadPaperSizes()
+        {
+            var sizes = DeviceConfigService.Load().PaperSizes;
+            PaperSizeCombo.ItemsSource = sizes;
+
+            if (!string.IsNullOrEmpty(_canvasSettings.SelectedPaperSizeId))
+                PaperSizeCombo.SelectedValue = _canvasSettings.SelectedPaperSizeId;
+            else if (sizes.Count > 0)
+                PaperSizeCombo.SelectedIndex = 0;
+        }
+
+        private void PaperSizeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (PaperSizeCombo.SelectedItem is PaperSizeConfig selected)
+            {
+                _canvasSettings.SelectedPaperSizeId = selected.Id;
+                DiagramCanvasSettingsService.Save(_canvasSettings);
+            }
         }
 
         // ── Canvas settings popup ───────────────────────────────────────

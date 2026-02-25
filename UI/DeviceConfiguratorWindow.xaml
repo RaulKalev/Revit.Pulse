@@ -238,6 +238,23 @@
                                 </Button.Style>
                                 <TextBlock Text="Wire" FontSize="11" FontWeight="SemiBold" />
                             </Button>
+
+                            <!-- Paper Sizes tab -->
+                            <Button Command="{Binding SelectPaperSizesTabCommand}" Padding="10,8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
+                                        <Setter Property="Padding" Value="10,8"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPaperSizesTabActive}" Value="True">
+                                                <Setter Property="Foreground"  Value="{DynamicResource ForegroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="#FF0078D7" />
+                                                <Setter Property="BorderThickness" Value="0,0,0,2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <TextBlock Text="Paper" FontSize="11" FontWeight="SemiBold" />
+                            </Button>
                         </StackPanel>
 
                         <!-- Separator line -->
@@ -333,6 +350,36 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
 
+                        <!-- Item list — Paper Sizes -->
+                        <ListBox Grid.Row="2"
+                                 ItemsSource="{Binding PaperSizes}"
+                                 SelectedItem="{Binding SelectedPaperSize, Mode=TwoWay}"
+                                 ItemContainerStyle="{StaticResource DarkListBoxItemStyle}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 Visibility="{Binding IsPaperSizesTabActive, Converter={StaticResource BoolToVis}}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource ForegroundBrush}" />
+                                        <TextBlock FontSize="10"
+                                                   Foreground="{DynamicResource IconForegroundBrush}"
+                                                   Opacity="0.7"
+                                                   Margin="0,1,0,0">
+                                            <Run Text="{Binding WidthMm, Mode=OneWay}" />
+                                            <Run Text=" × " />
+                                            <Run Text="{Binding HeightMm, Mode=OneWay}" />
+                                            <Run Text=" mm" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
                         <!-- Add / Remove buttons -->
                         <Border Grid.Row="3"
                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -399,6 +446,27 @@
                                         Command="{Binding RemoveWireCommand}"
                                         ToolTip="Remove selected wire type"
                                         Visibility="{Binding IsWiresTabActive, Converter={StaticResource BoolToVis}}">
+                                    <materialDesign:PackIcon Kind="Delete" Width="13" Height="13" VerticalAlignment="Center"/>
+                                </Button>
+
+                                <!-- Add Paper Size -->
+                                <Button Style="{StaticResource PulseActionButtonStyle}"
+                                        Command="{Binding AddPaperSizeCommand}"
+                                        ToolTip="Add new paper size"
+                                        Visibility="{Binding IsPaperSizesTabActive, Converter={StaticResource BoolToVis}}"
+                                        Margin="0,0,4,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Plus" Width="13" Height="13"
+                                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBlock Text="Add Size" FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Remove Paper Size -->
+                                <Button Style="{StaticResource NegativeActionButtonStyle}"
+                                        Command="{Binding RemovePaperSizeCommand}"
+                                        ToolTip="Remove selected paper size"
+                                        Visibility="{Binding IsPaperSizesTabActive, Converter={StaticResource BoolToVis}}">
                                     <materialDesign:PackIcon Kind="Delete" Width="13" Height="13" VerticalAlignment="Center"/>
                                 </Button>
                             </StackPanel>
@@ -836,6 +904,101 @@
                                 <TextBox Text="{Binding SelectedWire.FireResistance, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource DarkTextBoxStyle}"
                                          Margin="0,0,0,8"/>
+
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- ══════════════════════════════════ -->
+                        <!--  PAPER SIZES FORM                  -->
+                        <!-- ══════════════════════════════════ -->
+                        <StackPanel Visibility="{Binding IsPaperSizesTabActive, Converter={StaticResource BoolToVis}}">
+
+                            <!-- Empty state -->
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Margin="0,60,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedPaperSize}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <materialDesign:PackIcon Kind="FileDocumentOutline" Width="40" Height="40"
+                                                         HorizontalAlignment="Center"
+                                                         Foreground="{DynamicResource IconForegroundBrush}"
+                                                         Opacity="0.35"/>
+                                <TextBlock Text="No paper size selected"
+                                           FontSize="13"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.6"
+                                           Margin="0,10,0,4"/>
+                                <TextBlock Text="Add a paper size or select one from the list"
+                                           FontSize="10"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.4"/>
+                            </StackPanel>
+
+                            <!-- Edit form -->
+                            <StackPanel>
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedPaperSize}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- Section heading -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <materialDesign:PackIcon Kind="FileDocumentOutline" Width="18" Height="18"
+                                                             Foreground="#FF0078D7" VerticalAlignment="Center"
+                                                             Margin="0,0,8,0"/>
+                                    <TextBlock Text="Paper Size Configuration"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,16"/>
+
+                                <!-- Name -->
+                                <TextBlock Text="NAME" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                                <TextBlock Text="Descriptive name shown in the canvas paper-size selector (e.g. &quot;A3 Landscape&quot;)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPaperSize.Name, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Width + Height (side by side) -->
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="WIDTH (mm)" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SelectedPaperSize.WidthMm, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="HEIGHT (mm)" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SelectedPaperSize.HeightMm, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                </Grid>
 
                             </StackPanel>
                         </StackPanel>

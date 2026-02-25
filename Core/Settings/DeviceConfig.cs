@@ -110,6 +110,26 @@ namespace Pulse.Core.Settings
     }
 
     /// <summary>
+    /// A named paper size (width and height in millimetres) used for diagram exports/printing.
+    /// </summary>
+    public class PaperSizeConfig
+    {
+        [JsonProperty("id")]
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+
+        [JsonProperty("name")]
+        public string Name { get; set; } = "A4";
+
+        /// <summary>Paper width in millimetres (long edge for landscape).</summary>
+        [JsonProperty("widthMm")]
+        public double WidthMm { get; set; } = 297.0;
+
+        /// <summary>Paper height in millimetres (short edge for landscape).</summary>
+        [JsonProperty("heightMm")]
+        public double HeightMm { get; set; } = 210.0;
+    }
+
+    /// <summary>
     /// Root object persisted to the local JSON file.
     /// Contains the device library: control-panel types, loop-module types, and wire types.
     ///
@@ -138,5 +158,9 @@ namespace Pulse.Core.Settings
         /// </summary>
         [JsonProperty("moduleSettings")]
         public Dictionary<string, ModuleSettings> ModuleSettings { get; set; } = new Dictionary<string, ModuleSettings>();
+
+        /// <summary>User-defined paper sizes available in the diagram canvas paper-size selector.</summary>
+        [JsonProperty("paperSizes")]
+        public List<PaperSizeConfig> PaperSizes { get; set; } = new List<PaperSizeConfig>();
     }
 }

@@ -84,6 +84,13 @@ namespace Pulse.Core.Settings
         [JsonProperty("panelSettings")]
         public Dictionary<string, PanelDiagramSettings> PanelSettings { get; set; }
             = new Dictionary<string, PanelDiagramSettings>();
+
+        /// <summary>
+        /// ID of the <see cref="PaperSizeConfig"/> currently selected in the diagram canvas.
+        /// Empty string means no paper size is selected.
+        /// </summary>
+        [JsonProperty("selectedPaperSizeId")]
+        public string SelectedPaperSizeId { get; set; } = string.Empty;
     }
 
     /// <summary>

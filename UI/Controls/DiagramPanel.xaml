@@ -82,6 +82,21 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- Paper size selector — to the left of Settings -->
+                    <ComboBox x:Name="PaperSizeCombo"
+                              DockPanel.Dock="Right"
+                              Width="100"
+                              Height="22"
+                              Margin="0,0,4,0"
+                              FontSize="10"
+                              DisplayMemberPath="Name"
+                              SelectedValuePath="Id"
+                              ToolTip="Select paper size"
+                              Foreground="{DynamicResource ForegroundBrush}"
+                              Background="{DynamicResource SecondaryBackgroundBrush}"
+                              BorderBrush="{DynamicResource BorderBrush}"
+                              SelectionChanged="PaperSizeCombo_SelectionChanged"/>
+
 
 
                     <!-- Diagram icon + title — hidden when collapsed -->

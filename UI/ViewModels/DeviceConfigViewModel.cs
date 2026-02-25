@@ -210,6 +210,52 @@ namespace Pulse.UI.ViewModels
         };
     }
 
+    /// <summary>
+    /// Editable ViewModel for a single <see cref="PaperSizeConfig"/>.
+    /// </summary>
+    public class PaperSizeConfigViewModel : ViewModelBase
+    {
+        public string Id { get; }
+
+        private string _name;
+        public string Name
+        {
+            get => _name;
+            set => SetField(ref _name, value);
+        }
+
+        private double _widthMm;
+        public double WidthMm
+        {
+            get => _widthMm;
+            set => SetField(ref _widthMm, value);
+        }
+
+        private double _heightMm;
+        public double HeightMm
+        {
+            get => _heightMm;
+            set => SetField(ref _heightMm, value);
+        }
+
+        public PaperSizeConfigViewModel(PaperSizeConfig model)
+        {
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            Id = model.Id;
+            _name = model.Name;
+            _widthMm = model.WidthMm;
+            _heightMm = model.HeightMm;
+        }
+
+        public PaperSizeConfig ToModel() => new PaperSizeConfig
+        {
+            Id = Id,
+            Name = Name ?? string.Empty,
+            WidthMm = WidthMm,
+            HeightMm = HeightMm
+        };
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Root DeviceConfigViewModel
     // ─────────────────────────────────────────────────────────────────────────
@@ -229,6 +275,9 @@ namespace Pulse.UI.ViewModels
 
         public ObservableCollection<WireConfigViewModel> Wires { get; }
             = new ObservableCollection<WireConfigViewModel>();
+
+        public ObservableCollection<PaperSizeConfigViewModel> PaperSizes { get; }
+            = new ObservableCollection<PaperSizeConfigViewModel>();
 
         // ─── Selection ───────────────────────────────────────────────────────
         private ControlPanelConfigViewModel _selectedPanel;
@@ -252,6 +301,13 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _selectedWire, value);
         }
 
+        private PaperSizeConfigViewModel _selectedPaperSize;
+        public PaperSizeConfigViewModel SelectedPaperSize
+        {
+            get => _selectedPaperSize;
+            set => SetField(ref _selectedPaperSize, value);
+        }
+
         // ─── Tab state ───────────────────────────────────────────────────────
         private int _activeTab;
         /// <summary>0 = Control Panels, 1 = Loop Modules, 2 = Wires.</summary>
@@ -265,6 +321,7 @@ namespace Pulse.UI.ViewModels
                     OnPropertyChanged(nameof(IsPanelsTabActive));
                     OnPropertyChanged(nameof(IsLoopModulesTabActive));
                     OnPropertyChanged(nameof(IsWiresTabActive));
+                    OnPropertyChanged(nameof(IsPaperSizesTabActive));
                 }
             }
         }
@@ -272,11 +329,13 @@ namespace Pulse.UI.ViewModels
         public bool IsPanelsTabActive      => _activeTab == 0;
         public bool IsLoopModulesTabActive => _activeTab == 1;
         public bool IsWiresTabActive       => _activeTab == 2;
+        public bool IsPaperSizesTabActive  => _activeTab == 3;
 
         // ─── Commands ────────────────────────────────────────────────────────
         public ICommand SelectPanelsTabCommand { get; }
         public ICommand SelectLoopModulesTabCommand { get; }
         public ICommand SelectWiresTabCommand { get; }
+        public ICommand SelectPaperSizesTabCommand { get; }
 
         public ICommand AddPanelCommand { get; }
         public ICommand RemovePanelCommand { get; }
@@ -284,6 +343,9 @@ namespace Pulse.UI.ViewModels
         public ICommand RemoveLoopModuleCommand { get; }
         public ICommand AddWireCommand { get; }
         public ICommand RemoveWireCommand { get; }
+
+        public ICommand AddPaperSizeCommand { get; }
+        public ICommand RemovePaperSizeCommand { get; }
 
         public ICommand SaveCommand { get; }
         public ICommand CancelCommand { get; }
@@ -306,10 +368,14 @@ namespace Pulse.UI.ViewModels
             foreach (var w in store.Wires)
                 Wires.Add(new WireConfigViewModel(w));
 
+            foreach (var ps in store.PaperSizes)
+                PaperSizes.Add(new PaperSizeConfigViewModel(ps));
+
             // Tab commands
             SelectPanelsTabCommand      = new RelayCommand(_ => ActiveTab = 0);
             SelectLoopModulesTabCommand = new RelayCommand(_ => ActiveTab = 1);
             SelectWiresTabCommand       = new RelayCommand(_ => ActiveTab = 2);
+            SelectPaperSizesTabCommand  = new RelayCommand(_ => ActiveTab = 3);
 
             // Panel CRUD
             AddPanelCommand = new RelayCommand(_ =>
@@ -359,14 +425,31 @@ namespace Pulse.UI.ViewModels
                 SelectedWire = Wires.Count > 0 ? Wires[0] : null;
             });
 
+            // Paper size CRUD
+            AddPaperSizeCommand = new RelayCommand(_ =>
+            {
+                var vm = new PaperSizeConfigViewModel(new PaperSizeConfig
+                    { Name = $"Paper Size {PaperSizes.Count + 1}" });
+                PaperSizes.Add(vm);
+                SelectedPaperSize = vm;
+            });
+
+            RemovePaperSizeCommand = new RelayCommand(_ =>
+            {
+                if (SelectedPaperSize == null) return;
+                PaperSizes.Remove(SelectedPaperSize);
+                SelectedPaperSize = PaperSizes.Count > 0 ? PaperSizes[0] : null;
+            });
+
             // Save / Cancel
             SaveCommand   = new RelayCommand(_ => ExecuteSave());
             CancelCommand = new RelayCommand(_ => Cancelled?.Invoke());
 
             // Select first items
-            if (Panels.Count > 0)     SelectedPanel     = Panels[0];
+            if (Panels.Count > 0)      SelectedPanel      = Panels[0];
             if (LoopModules.Count > 0) SelectedLoopModule = LoopModules[0];
             if (Wires.Count > 0)       SelectedWire       = Wires[0];
+            if (PaperSizes.Count > 0)  SelectedPaperSize  = PaperSizes[0];
         }
 
         // ─── Helpers ─────────────────────────────────────────────────────────
@@ -388,6 +471,10 @@ namespace Pulse.UI.ViewModels
             store.Wires.Clear();
             foreach (var vm in Wires)
                 store.Wires.Add(vm.ToModel());
+
+            store.PaperSizes.Clear();
+            foreach (var vm in PaperSizes)
+                store.PaperSizes.Add(vm.ToModel());
 
             DeviceConfigService.Save(store);
             Saved?.Invoke();
