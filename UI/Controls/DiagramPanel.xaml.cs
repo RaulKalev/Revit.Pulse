@@ -513,9 +513,11 @@ namespace Pulse.UI.Controls
                                 && !string.IsNullOrWhiteSpace(panelCfg.OutputLabels[pi]))
                                 preLabeledCount++;
 
-                    double belowPanelH = panelCfg.OutCount == 0 ? 0.0
-                                       : preLabeledCount == 0   ? 14.0
-                                       : 14.0 + 8.0 + (preLabeledCount - 1) * 12.0;
+                    // Only the lower half of cells (7px) hangs below the panel edge;
+                    // lines start from there.
+                    double belowPanelH = panelCfg.OutCount == 0  ? 0.0
+                                       : preLabeledCount == 0    ? 7.0
+                                       : 7.0 + 8.0 + (preLabeledCount - 1) * 12.0;
 
                     double rectTop  = zoneBottom - 10.0 - belowPanelH - rectH;
 
@@ -773,7 +775,7 @@ namespace Pulse.UI.Controls
                     const double outCellW  = 11.0;
                     const double outCellH  = 14.0;
                     double outStartX       = rectLeft + 4;
-                    double outY            = rectTop + rectH;  // flush with panel bottom
+                    double outY            = rectTop + rectH - outCellH / 2.0;  // centre of boxes on panel bottom edge
 
                     for (int oi = 0; oi < outCount; oi++)
                     {
@@ -789,17 +791,24 @@ namespace Pulse.UI.Controls
                         Canvas.SetTop(outRect,  outY);
                         DiagramCanvas.Children.Add(outRect);
 
+                        const double outLblFont   = 4.5;
+                        const double outLblLineH  = outLblFont * 1.55;  // approx rendered line height
+                        double       outLblWidth  = outCellH - 2;        // text Width = visual span along cell height
                         var outLbl = new TextBlock
                         {
-                            Text = $"Out{oi + 1}",
-                            FontSize = 4.5, Foreground = panelDim,
+                            Text             = $"Out{oi + 1}",
+                            FontSize         = outLblFont,
+                            Foreground       = panelStroke,
                             IsHitTestVisible = false,
-                            Width = outCellH - 2,
-                            TextTrimming = TextTrimming.CharacterEllipsis
+                            Width            = outLblWidth,
+                            TextTrimming     = TextTrimming.CharacterEllipsis
                         };
                         outLbl.RenderTransform = new System.Windows.Media.RotateTransform(-90);
-                        Canvas.SetLeft(outLbl, ocx + outCellW / 2.0 - 3.5);
-                        Canvas.SetTop(outLbl,  outY + outCellH - 1);
+                        // After -90° rotation: visual X span = outLblWidth, visual Y span = outLblLineH
+                        // Centre horizontally in cell: SetLeft = ocx + (outCellW - outLblWidth)/2
+                        // Centre vertically in cell:   SetTop  = outY + outCellH/2 + outLblLineH/2
+                        Canvas.SetLeft(outLbl, ocx + (outCellW - outLblWidth) / 2.0);
+                        Canvas.SetTop(outLbl,  outY + outCellH / 2.0 + outLblLineH / 2.0);
                         DiagramCanvas.Children.Add(outLbl);
                     }
 
