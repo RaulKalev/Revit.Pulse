@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
 using Pulse.Core.Graph;
+using Pulse.Core.Graph.Canvas;
 using Pulse.Core.Modules;
 using Pulse.Core.Settings;
 
@@ -12,9 +13,20 @@ namespace Pulse.UI.ViewModels
     /// <summary>
     /// ViewModel for the topology tree view.
     /// Displays the hierarchical Panel -> Loop -> Device structure.
+    ///
+    /// Internally holds a <see cref="CanvasGraphModel"/> built from <see cref="ModuleData"/>
+    /// during each refresh.  The TreeView is a projection of this internal model.
+    /// A future visual canvas can consume the same <see cref="CanvasGraph"/> directly.
     /// </summary>
     public class TopologyViewModel : ViewModelBase
     {
+        /// <summary>
+        /// Internal canvas graph model rebuilt on every refresh.
+        /// Consumed by the TreeView projection (this class) and, in the future,
+        /// by a visual canvas renderer.
+        /// </summary>
+        public CanvasGraphModel CanvasGraph { get; private set; } = CanvasGraphModel.Empty;
+
         /// <summary>
         /// Root-level nodes displayed in the TreeView (typically panels).
         /// </summary>
@@ -98,6 +110,9 @@ namespace Pulse.UI.ViewModels
         {
             RootNodes.Clear();
             _allNodes.Clear();
+
+            // Rebuild internal canvas graph model (consumed by future canvas renderer)
+            CanvasGraph = CanvasGraphBuilder.Build(data);
 
             if (data == null) return;
 

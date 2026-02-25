@@ -255,6 +255,42 @@ exists so a future layout engine can separate positioning from drawing.
 The scene is rebuilt via `DiagramSceneBuilder.Build(vm)` at the end of
 every `LoadPanels()` call and exposed as `DiagramViewModel.Scene`.
 
+### 5.3 Canvas Graph Model (Hybrid Canvas Readiness)
+
+The **CanvasGraphModel** (`Core/Graph/Canvas/CanvasGraphModel.cs`) is a
+topology-oriented internal model that sits between `ModuleData` and the
+presentation layer.  It is built once per refresh by `CanvasGraphBuilder.Build()`.
+
+```
+ModuleData → CanvasGraphBuilder.Build() → CanvasGraphModel
+                                              │
+                    ┌─────────────────────────┼───────────────────────┐
+                    ▼                         ▼                       ▼
+          TopologyViewModel           (future) CanvasRenderer    CanvasOverlay list
+          (TreeView projection)       (visual drag/drop)         (warnings, capacity)
+```
+
+The TreeView remains the **only** active renderer.  `TopologyViewModel`
+holds a `CanvasGraph` property that is rebuilt on every
+`LoadFromModuleData()` call.
+
+#### Canvas Graph Types
+
+| Type | Description |
+|------|-------------|
+| `CanvasGraphModel` | Root: panels, zones, overlays, node index |
+| `PanelAnchor` | Panel with elevation, warning count, child loops |
+| `LoopAnchor` | Loop with device count, warning count, device clusters |
+| `ZoneAnchor` | Zone with device count, warning count |
+| `DeviceCluster` | Devices at one elevation |
+| `DeviceChip` | Single device: address, type, Revit id, warning count |
+| `CanvasOverlay` | Warning / capacity / info annotation |
+| `CanvasOverlayKind` | Enum: Warning, CapacityGauge, Info |
+
+This model contains **no pixel positions or layout** — it is a pure
+data graph.  A future layout engine will assign positions for the visual
+canvas while the TreeView projection ignores them.
+
 ---
 
 ## 6. Settings Persistence
