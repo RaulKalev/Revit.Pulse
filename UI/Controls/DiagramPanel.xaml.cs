@@ -1104,7 +1104,7 @@ namespace Pulse.UI.Controls
                                         const double labelPadV     = 0.8;   // top/bottom padding (→ visual width contribution)
                                         const double borderThick   = 0.75;
                                         // Explicit fixed height = narrower visual width after rotation.
-                                        const double labelBorderH  = labelFontSize + labelPadV * 2 + borderThick * 2 + 2.5;
+                                        const double labelBorderH  = labelFontSize + labelPadV * 2 + borderThick * 2 + 0.5;
                                         // Natural width drives visual height; approx from text + h-padding + border.
                                         const double labelW        = 30.0;
                                         double labelOffset = _canvasSettings.LabelOffsetPx;
