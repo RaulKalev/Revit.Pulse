@@ -431,6 +431,8 @@ namespace Pulse.UI.Controls
             double effectiveW  = hasPaper ? pW - marginLeftPx - marginRightPx : w - drawLeft - 8.0;
             double laneCenterX = drawLeft + effectiveW / 2.0;
             double totalW      = hasPaper ? pLeft + pW + pLeft : w;
+            // Pre-estimated right bound used inside the pre-pass (drawRight is declared after this loop).
+            double drawRightPre = hasPaper ? pLeft + pW - marginRightPx : totalW - 4.0;
             foreach (var panelPre in _currentVm.Panels)
             {
                 if (!panelPre.Elevation.HasValue) continue;
@@ -439,29 +441,22 @@ namespace Pulse.UI.Controls
                     16);
                 if (lcPre == 0) continue;
                 const double lsWPre  = 200.0 - 52.0; // leftSecW
-                const double rWPre   = 10.0;          // wireRight
                 double slWPre  = lsWPre / lcPre;
                 double rLPre   = laneCenterX - 100.0;
                 for (int liPre = 0; liPre < Math.Min(panelPre.LoopInfos.Count, lcPre); liPre++)
                 {
                     var infPre = panelPre.LoopInfos[liPre];
                     if (infPre.Levels == null || infPre.Levels.Count == 0) continue;
-                    bool flPre = _currentVm.IsLoopFlipped(panelPre.Name, infPre.Name);
                     int  totPre = infPre.DeviceTypesByAddress.Count;
                     if (totPre == 0) continue;
                     int  wcPre  = _currentVm.GetLoopWireCount(panelPre.Name, infPre.Name);
                     int  mprPre = (int)Math.Ceiling((double)totPre / wcPre);
                     double lxPre = rLPre + slWPre * (liPre + 0.5);
-                    double bePre = flPre ? (totalW - rWPre) : drawLeft;
-                    double s0Pre = Math.Abs(lxPre - bePre);
                     double dsPre = (_canvasSettings.DeviceSpacingPx > 0)
                         ? _canvasSettings.DeviceSpacingPx
-                        : (mprPre > 0 ? s0Pre / (mprPre + 1) : s0Pre);
-                    double fePre = flPre
-                        ? lxPre + dsPre * (mprPre + 1)
-                        : lxPre - dsPre * (mprPre + 1);
-                    double neededW = flPre ? fePre + rWPre : totalW;
-                    totalW = Math.Max(totalW, neededW);
+                        : (mprPre > 0 ? (drawRightPre - lxPre) / (mprPre + 1) : drawRightPre - lxPre);
+                    double fePre   = lxPre + dsPre * (mprPre + 1);
+                    totalW = Math.Max(totalW, fePre + 10.0);
                 }
             }
             DiagramCanvas.Width = totalW;
@@ -1163,12 +1158,10 @@ namespace Pulse.UI.Controls
                             double botY = effectiveLevelY - gap * (rank + 1) - heightsBelow;
                             double topY = botY - effectiveLoopH;
 
-                            // ── Compute farEdge — stretch outward if devices overflow ──────────
-                            // Use the address-ordered list count as the authoritative total.
+                            // ── Compute farEdge — always extends rightward from laneX ──────────
                             int    total     = loopInfo.DeviceTypesByAddress.Count;
                             int    maxPerRow = total > 0 ? (int)Math.Ceiling((double)total / wireCount) : 0;
-                            double baseEdge  = flipped ? wireRight : wireLeft;
-                            double span0     = Math.Abs(laneX - baseEdge);
+                            double span0     = drawRight - laneX;
 
                             // Device spacing: fixed setting or auto-fit to default span
                             double deviceSpacing = (_canvasSettings.DeviceSpacingPx > 0 && total > 0)
@@ -1194,101 +1187,118 @@ namespace Pulse.UI.Controls
                                 compressedMaxPerRow = wireSlotsByWi.Max(s => s?.Count ?? 0);
                             }
 
-                            // farEdge = one deviceSpacing past the last visible column.
-                            double farEdge = baseEdge;
+                            // farEdge = one deviceSpacing past the last visible column (always right of laneX).
+                            double farEdge = laneX;
                             if (total > 0)
                             {
                                 double requiredReach = deviceSpacing *
                                     ((showRep ? compressedMaxPerRow : maxPerRow) + 1);
-                                farEdge = flipped
-                                    ? laneX + requiredReach
-                                    : laneX - requiredReach;
+                                farEdge = laneX + requiredReach;
                             }
 
-                            // ── Vertical spine (panel top → first wire) ───────────
-                            Line(wireBrush, laneX, rectTop, laneX, topY);
-                            // ── Far vertical (spans full loop height) ─────────────
-                            Line(wireBrush, farEdge, topY, farEdge, botY);
-                            // ── All horizontal wires (with repetition gaps where needed) ──────
+                            // ── Serpentine: left spine + horizontal wires + right pair connectors ──
+                            // wireYs[0]=bottom row (botY), wireYs[wc-1]=top row (topY)
+                            double[] wireYs = new double[wireCount];
+                            for (int wi = 0; wi < wireCount; wi++)
+                                wireYs[wi] = botY - wi * wireSpacing;
+
+                            // Left spine: panel head → topmost wire
+                            Line(wireBrush, laneX, rectTop, laneX, wireYs[wireCount - 1]);
+
+                            // Horizontal wires (even rows from bottom: L→R ascending address;
+                            //                   odd  rows: L→R but addresses reversed)
                             double gapHalf = deviceSpacing * 0.44;
                             for (int wi = 0; wi < wireCount; wi++)
                             {
-                                double wY2     = topY + wi * wireSpacing;
-                                var    slotRow = wireSlotsByWi?[wi];
+                                double wyH  = wireYs[wi];
+                                bool revWire = (wi % 2 == 1);
+                                // wireSlotsByWi[k] was built with k = wireCount-1 for bottom row
+                                var slotRow = wireSlotsByWi?[wireCount - 1 - wi];
                                 if (slotRow == null || !slotRow.Any(s => s.IsDots))
                                 {
-                                    Line(wireBrush, farEdge, wY2, laneX, wY2);
+                                    Line(wireBrush, laneX, wyH, farEdge, wyH);
                                 }
                                 else
                                 {
-                                    // Collect X-range gaps around every dots slot then draw segments
+                                    int slotCntH = slotRow.Count;
                                     var gaps = new List<(double lo, double hi)>();
-                                    for (int si = 0; si < slotRow.Count; si++)
+                                    for (int si = 0; si < slotCntH; si++)
                                     {
                                         if (!slotRow[si].IsDots) continue;
-                                        double sx = flipped
-                                            ? laneX + deviceSpacing * (si + 1)
-                                            : laneX - deviceSpacing * (si + 1);
+                                        int dispIdx = revWire ? slotCntH - 1 - si : si;
+                                        double sx = laneX + deviceSpacing * (dispIdx + 1);
                                         gaps.Add((sx - gapHalf, sx + gapHalf));
                                     }
                                     gaps.Sort((a, b) => a.lo.CompareTo(b.lo));
-                                    double wx0 = Math.Min(laneX, farEdge);
-                                    double wx1 = Math.Max(laneX, farEdge);
-                                    double cur = wx0;
+                                    double curX = laneX;
                                     foreach (var g in gaps)
                                     {
-                                        if (g.lo > cur) Line(wireBrush, cur, wY2, g.lo, wY2);
-                                        cur = Math.Max(cur, g.hi);
+                                        if (g.lo > curX) Line(wireBrush, curX, wyH, g.lo, wyH);
+                                        curX = Math.Max(curX, g.hi);
                                     }
-                                    if (cur < wx1) Line(wireBrush, cur, wY2, wx1, wY2);
+                                    if (curX < farEdge) Line(wireBrush, curX, wyH, farEdge, wyH);
                                 }
                             }
 
-                            // ── Hit-test rectangle (full loop height) ─────────────
-                            double hitX = Math.Min(laneX, farEdge);
-                            double hitW = Math.Abs(laneX - farEdge);
+                            // Right-side pair connectors: (wi=0 ↔ wi=1), (wi=2 ↔ wi=3), …
+                            for (int wi = 0; wi + 1 < wireCount; wi += 2)
+                                Line(wireBrush, farEdge, wireYs[wi], farEdge, wireYs[wi + 1]);
+
+                            // ── Hit-test rectangle ─────────────────────────────────
                             var hitRect = new System.Windows.Shapes.Rectangle
                             {
-                                Width  = Math.Max(hitW, 8),
+                                Width  = Math.Max(farEdge - laneX, 8),
                                 Height = effectiveLoopH + 4,
                                 Fill   = Brushes.Transparent,
                                 Tag    = "loop::" + loopKey,
                                 Cursor = Cursors.Hand
                             };
-                            Canvas.SetLeft(hitRect, hitX);
+                            Canvas.SetLeft(hitRect, laneX);
                             Canvas.SetTop(hitRect,  topY - 2);
                             DiagramCanvas.Children.Add(hitRect);
 
                             if (total <= 0) continue;
 
-                            // Use the address-ordered device-type list built in DiagramViewModel.
-                            // Each entry corresponds to one physical device, sorted address-ascending.
                             var flatTypes = loopInfo.DeviceTypesByAddress;
 
-                            // ── Devices: bottom wire carries the lowest addresses ──────────
-                            // wi=wireCount-1 → bottom wire (first in address order)
-                            // wi=0           → top wire (last in address order)
-                            // di=0           → innermost column
-                            // When showRep: dots slots replace compressed runs in-place.
-                            int devRemain = total;
-                            int devOffset = 0;
-                            for (int wi = wireCount - 1; wi >= 0; wi--)
+                            // ── Per-wire device allocation (bottom-up: rowFB=0=bottom) ────────
+                            int[] wdCounts = new int[wireCount];
+                            int[] wdStarts = new int[wireCount];
                             {
-                                // Ceiling-divide remaining devices among remaining wires (wi+1 left).
-                                int wireDevs = (devRemain + wi) / (wi + 1);
-                                double wY    = topY + wi * wireSpacing;
-                                var slots    = wireSlotsByWi?[wi];
-                                int slotCount = slots != null ? slots.Count : wireDevs;
+                                int rem = total;
+                                for (int wi = wireCount - 1; wi >= 0; wi--)
+                                {
+                                    int wd    = (rem + wi) / (wi + 1);
+                                    int rowFB = wireCount - 1 - wi;
+                                    wdCounts[rowFB] = wd;
+                                    rem -= wd;
+                                }
+                                int s2 = 0;
+                                for (int r = 0; r < wireCount; r++) { wdStarts[r] = s2; s2 += wdCounts[r]; }
+                            }
+
+                            // ── Device drawing ─────────────────────────────────────
+                            // rowFB=0 → bottom wire, lowest addresses, L→R ascending
+                            // rowFB=1 → next wire, L→R but address order reversed
+                            for (int rowFB = 0; rowFB < wireCount; rowFB++)
+                            {
+                                double wY      = wireYs[rowFB];
+                                int wireDevs   = wdCounts[rowFB];
+                                int wireStart  = wdStarts[rowFB];
+                                bool revRow    = (rowFB % 2 == 1);
+                                var slots      = wireSlotsByWi?[wireCount - 1 - rowFB];
+                                int slotCount  = slots != null ? slots.Count : wireDevs;
 
                                 for (int di = 0; di < slotCount; di++)
                                 {
-                                    double devX = flipped
-                                        ? laneX + deviceSpacing * (di + 1)
-                                        : laneX - deviceSpacing * (di + 1);
+                                    // All devices display left-to-right from laneX
+                                    double devX = laneX + deviceSpacing * (di + 1);
 
-                                    if (slots != null && slots[di].IsDots)
+                                    // Reversed rows: map display index to reversed slot/address
+                                    int edi = revRow && slots != null ? slotCount - 1 - di : di;
+
+                                    if (slots != null && slots[edi].IsDots)
                                     {
-                                        // ··· repetition marker: 3 small filled dots
                                         double dotR    = 1.5;
                                         double dotStep = gapHalf * 0.65;
                                         for (int d = -1; d <= 1; d++)
@@ -1299,43 +1309,41 @@ namespace Pulse.UI.Controls
                                                 Fill  = wireBrush, IsHitTestVisible = false
                                             };
                                             Canvas.SetLeft(dot, devX + d * dotStep - dotR);
-                                            Canvas.SetTop(dot,  wY - dotR);
+                                            Canvas.SetTop(dot,  wY  - dotR);
                                             DiagramCanvas.Children.Add(dot);
                                         }
                                         continue;
                                     }
 
-                                    string devType = slots != null
-                                        ? slots[di].DeviceType
-                                        : (devOffset < flatTypes.Count ? flatTypes[devOffset] : null);
-                                    if (slots == null) devOffset++;
+                                    string devType;
+                                    int    addrIdx;
+                                    if (slots != null)
+                                    {
+                                        devType = slots[edi].DeviceType;
+                                        addrIdx = slots[edi].AddressIndex;
+                                    }
+                                    else
+                                    {
+                                        int physDi = revRow ? wireDevs - 1 - di : di;
+                                        addrIdx    = wireStart + physDi;
+                                        devType    = addrIdx < flatTypes.Count ? flatTypes[addrIdx] : null;
+                                    }
 
-                                    // ── Address label (rotated, above wire) ───────────────────────
+                                    // ── Address label (rotated pill above device) ──────────────
                                     if (_canvasSettings.ShowAddressLabels)
                                     {
-                                        // In slot mode: AddressIndex was recorded in BuildCompressedRow.
-                                        // In uncompressed mode: devOffset was already incremented above.
-                                        int addrIdx = slots != null ? slots[di].AddressIndex : devOffset - 1;
                                         string devAddr = addrIdx >= 0 && addrIdx < loopInfo.DeviceAddresses.Count
                                             ? loopInfo.DeviceAddresses[addrIdx] : string.Empty;
-
-                                        // Format: zero-pad loop number (strip "Loop " prefix) + "." + address
                                         string shortLoop = loopInfo.Name.StartsWith("Loop ",
                                             StringComparison.OrdinalIgnoreCase)
                                             ? loopInfo.Name.Substring(5).Trim() : loopInfo.Name;
-                                        if (int.TryParse(shortLoop, out int ln))
-                                            shortLoop = ln.ToString("D2");
-                                        if (int.TryParse(devAddr, out int an))
-                                            devAddr = an.ToString("D3");
+                                        if (int.TryParse(shortLoop, out int ln)) shortLoop = ln.ToString("D2");
+                                        if (int.TryParse(devAddr,   out int an)) devAddr   = an.ToString("D3");
                                         string labelText = shortLoop + "." + devAddr;
 
-                                        // Pill shape: pin Height so the narrow dimension is exact and
-                                        // CornerRadius = Height/2 gives perfect rounded ends.
-                                        // Width auto-sizes to text (→ visual pill length).
-                                        // Measure() provides the actual visual length for SetTop.
                                         const double labelFontSize = 7.0;
-                                        const double labelPadH     = 2.0;   // L/R padding
-                                        const double labelPadV     = 0.8;   // T/B padding
+                                        const double labelPadH     = 2.0;
+                                        const double labelPadV     = 0.8;
                                         const double borderThick   = 0.75;
                                         const double labelBorderH  = labelFontSize + labelPadV * 2 + borderThick * 2 + 0.5;
                                         double labelOffset = _canvasSettings.LabelOffsetPx;
@@ -1358,13 +1366,8 @@ namespace Pulse.UI.Controls
                                                 VerticalAlignment = VerticalAlignment.Center
                                             }
                                         };
-
-                                        // After -90° LayoutTransform WPF reports DesiredSize in visual space:
-                                        //   DesiredSize.Width  = labelBorderH (narrow visual width)  → centre on devX
-                                        //   DesiredSize.Height = pill visual length (auto from text) → drives SetTop
                                         addrLabel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
                                         double pillVisualLen = addrLabel.DesiredSize.Height;
-
                                         double idealTop = wY - circR - labelOffset - pillVisualLen;
                                         double safeTop  = Math.Max(MarginTop - 2.0, idealTop);
                                         Canvas.SetLeft(addrLabel, devX - labelBorderH / 2.0);
@@ -1372,6 +1375,7 @@ namespace Pulse.UI.Controls
                                         DiagramCanvas.Children.Add(addrLabel);
                                     }
 
+                                    // ── Symbol / circle ────────────────────────────────────────
                                     string slotSymKey = devType != null
                                         ? _currentVm.GetDeviceTypeSymbol(devType) : null;
                                     CustomSymbolDefinition slotSym = slotSymKey != null && _symbolLibrary != null
@@ -1396,7 +1400,6 @@ namespace Pulse.UI.Controls
                                         DiagramCanvas.Children.Add(circle);
                                     }
                                 }
-                                devRemain -= wireDevs;
                             }
                         }
 
