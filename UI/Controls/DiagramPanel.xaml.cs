@@ -498,14 +498,30 @@ namespace Pulse.UI.Controls
                     double rectW    = panelFixedW;
                     double rectH    = panelFixedH;
                     double rectLeft = (w - rectW) / 2.0;          // horizontally centered
-                    double rectTop  = zoneBottom - 10.0 - rectH;  // 10 px above floor level line
+
+                    // Per-panel user settings (name, outCount, supply) — needed before rectTop
+                    var panelCfg = GetPanelCfg(panel.Name);
+
+                    // Height of everything drawn below the panel bottom edge:
+                    //   • No outputs            → 0   (10 px gap directly from panel bottom)
+                    //   • Outputs, no labels    → 14  (output cell height)
+                    //   • Outputs with N labels → 14 + 8 + (N-1)*12  (cells + L-shaped lines)
+                    int preLabeledCount = 0;
+                    if (panelCfg.OutCount > 0)
+                        for (int pi = 0; pi < panelCfg.OutCount; pi++)
+                            if (panelCfg.OutputLabels.Count > pi
+                                && !string.IsNullOrWhiteSpace(panelCfg.OutputLabels[pi]))
+                                preLabeledCount++;
+
+                    double belowPanelH = panelCfg.OutCount == 0 ? 0.0
+                                       : preLabeledCount == 0   ? 14.0
+                                       : 14.0 + 8.0 + (preLabeledCount - 1) * 12.0;
+
+                    double rectTop  = zoneBottom - 10.0 - belowPanelH - rectH;
 
                     // Left section (loops + body) and right section (power/battery)
                     const double rightSecW = 52.0;
                     double leftSecW        = rectW - rightSecW;
-
-                    // Per-panel user settings (name, outCount, supply)
-                    var panelCfg = GetPanelCfg(panel.Name);
 
                     // Common brushes
                     bool isPanelSelected = _selectedPanelName == panel.Name;
