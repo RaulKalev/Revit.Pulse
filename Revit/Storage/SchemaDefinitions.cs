@@ -14,9 +14,6 @@ namespace Pulse.Revit.Storage
     {
         // ─── Common ──────────────────────────────────────────────────────────────
 
-        /// <summary>Vendor ID written into V2 schemas to restrict write access.</summary>
-        public const string VendorId = "Pulse";
-
         /// <summary>
         /// Name of the DataStorage element that holds Pulse settings.
         /// Used to locate the storage element in the document.

@@ -346,10 +346,9 @@ namespace Pulse.Revit.Storage
 
             var builder = new SchemaBuilder(SchemaDefinitions.ModuleSettingsV2SchemaGuid);
             builder.SetSchemaName("PulseModuleSettings");
-            builder.SetDocumentation("Stores Pulse module configuration (v2 — vendor write-lock + marker).");
-            builder.SetVendorId(SchemaDefinitions.VendorId);
+            builder.SetDocumentation("Stores Pulse module configuration (v2 — marker field for ownership validation).");
             builder.SetReadAccessLevel(AccessLevel.Public);
-            builder.SetWriteAccessLevel(AccessLevel.Vendor);
+            builder.SetWriteAccessLevel(AccessLevel.Public);
 
             builder.AddSimpleField(SchemaDefinitions.SchemaVersionField, typeof(int))
                 .SetDocumentation("Schema version for upgrade compatibility.");
@@ -368,10 +367,9 @@ namespace Pulse.Revit.Storage
 
             var builder = new SchemaBuilder(SchemaDefinitions.DiagramSettingsV2SchemaGuid);
             builder.SetSchemaName("PulseDiagramSettings");
-            builder.SetDocumentation("Stores Pulse diagram display preferences (v2 — vendor write-lock + marker).");
-            builder.SetVendorId(SchemaDefinitions.VendorId);
+            builder.SetDocumentation("Stores Pulse diagram display preferences (v2 — marker field for ownership validation).");
             builder.SetReadAccessLevel(AccessLevel.Public);
-            builder.SetWriteAccessLevel(AccessLevel.Vendor);
+            builder.SetWriteAccessLevel(AccessLevel.Public);
 
             builder.AddSimpleField(SchemaDefinitions.DiagramSchemaVersionField, typeof(int))
                 .SetDocumentation("Schema version for upgrade compatibility.");
@@ -390,10 +388,9 @@ namespace Pulse.Revit.Storage
 
             var builder = new SchemaBuilder(SchemaDefinitions.TopologyAssignmentsV2SchemaGuid);
             builder.SetSchemaName("PulseTopologyAssignments");
-            builder.SetDocumentation("Stores per-document topology assignments (v2 — vendor write-lock + marker).");
-            builder.SetVendorId(SchemaDefinitions.VendorId);
+            builder.SetDocumentation("Stores per-document topology assignments (v2 — marker field for ownership validation).");
             builder.SetReadAccessLevel(AccessLevel.Public);
-            builder.SetWriteAccessLevel(AccessLevel.Vendor);
+            builder.SetWriteAccessLevel(AccessLevel.Public);
 
             builder.AddSimpleField(SchemaDefinitions.TopologyAssignmentsVersionField, typeof(int))
                 .SetDocumentation("Schema version for upgrade compatibility.");

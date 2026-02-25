@@ -157,7 +157,7 @@ Each schema has two GUIDs — **V1 (legacy)** and **V2 (current)**:
 
 V2 schemas differ from V1 in two ways:
 
-1. **Write-access**: `AccessLevel.Vendor` with `VendorId = "Pulse"` (V1 used `AccessLevel.Public`)
+1. **New GUIDs**: completely separate from V1 data to avoid cross-version corruption
 2. **Marker field**: every V2 entity contains `PulseMarker = "Pulse"`, validated on read
 
 ### 4.3 Read / Write Flow
