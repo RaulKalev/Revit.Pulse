@@ -1118,9 +1118,10 @@ namespace Pulse.UI.Controls
                                             LayoutTransform  = new System.Windows.Media.RotateTransform(-90),
                                             Child = new TextBlock
                                             {
-                                                Text       = labelText,
-                                                FontSize   = labelFontSize,
-                                                Foreground = wireBrush
+                                                Text              = labelText,
+                                                FontSize          = labelFontSize,
+                                                Foreground        = wireBrush,
+                                                VerticalAlignment = VerticalAlignment.Center
                                             }
                                         };
 
