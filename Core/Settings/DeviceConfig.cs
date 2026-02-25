@@ -127,6 +127,10 @@ namespace Pulse.Core.Settings
         /// <summary>Paper height in millimetres (short edge for landscape).</summary>
         [JsonProperty("heightMm")]
         public double HeightMm { get; set; } = 210.0;
+
+        /// <summary>Margin from paper edge to drawing area, in millimetres.</summary>
+        [JsonProperty("marginMm")]
+        public double MarginMm { get; set; } = 10.0;
     }
 
     /// <summary>

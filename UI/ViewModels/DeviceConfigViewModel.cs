@@ -238,6 +238,13 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _heightMm, value);
         }
 
+        private double _marginMm;
+        public double MarginMm
+        {
+            get => _marginMm;
+            set => SetField(ref _marginMm, value);
+        }
+
         public PaperSizeConfigViewModel(PaperSizeConfig model)
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
@@ -245,6 +252,7 @@ namespace Pulse.UI.ViewModels
             _name = model.Name;
             _widthMm = model.WidthMm;
             _heightMm = model.HeightMm;
+            _marginMm = model.MarginMm;
         }
 
         public PaperSizeConfig ToModel() => new PaperSizeConfig
@@ -252,7 +260,8 @@ namespace Pulse.UI.ViewModels
             Id = Id,
             Name = Name ?? string.Empty,
             WidthMm = WidthMm,
-            HeightMm = HeightMm
+            HeightMm = HeightMm,
+            MarginMm = MarginMm
         };
     }
 

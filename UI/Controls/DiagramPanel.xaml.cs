@@ -47,6 +47,7 @@ namespace Pulse.UI.Controls
         private double _drawMinElev;
         private double _drawRange;
         private double _drawDrawH;
+        private double _drawOriginY;
 
         // Popup target: level name + kind ("line" | "text-above" | "text-below")
         private string _popupTargetLevel;
@@ -318,11 +319,42 @@ namespace Pulse.UI.Controls
             double range   = maxElev - minElev;
             if (range < 0.001) range = 1.0;
 
-            double drawH = h - MarginTop - MarginBottom;
+            // ── 1. Paper bounds — computed first, define the drawing coordinate system ─────────────
+            // The paper fits the viewport at fitFactor preserving aspect ratio.
+            // All content (level lines, panels, devices) is confined to the paper's inner margin.
+            const double paperPad  = 10.0;
+            const double fitFactor = 0.90;
+            var paperStore = DeviceConfigService.Load();
+            var selPaper   = string.IsNullOrEmpty(_canvasSettings.SelectedPaperSizeId)
+                                 ? null
+                                 : paperStore.PaperSizes
+                                             .FirstOrDefault(p => p.Id == _canvasSettings.SelectedPaperSizeId);
+            bool   hasPaper      = selPaper != null && selPaper.WidthMm > 0 && selPaper.HeightMm > 0;
+            double pLeft = 0, pTop = 0, pW = 0, pH = 0, paperScale = 0, paperMarginPx = 0;
+            if (hasPaper)
+            {
+                double availW  = w - 2 * paperPad;
+                double availH  = h - 2 * paperPad;
+                paperScale    = Math.Min(availW * fitFactor / selPaper.WidthMm,
+                                        availH * fitFactor / selPaper.HeightMm);
+                pW            = selPaper.WidthMm  * paperScale;
+                pH            = selPaper.HeightMm * paperScale;
+                pLeft         = paperPad + (availW - pW) / 2.0;
+                pTop          = paperPad + (availH - pH) / 2.0;
+                paperMarginPx = selPaper.MarginMm * paperScale;
+            }
 
-            // ── Pre-pass: compute required canvas width to accommodate all loop extents ──
-            // Right-side (flipped) loops grow outward from laneX and can exceed w.
-            double totalW = w;
+            // Effective drawing bounds — level lines and panels must stay within these.
+            double drawLeft   = hasPaper ? pLeft + paperMarginPx : 8.0;
+            double drawTop    = hasPaper ? pTop  + paperMarginPx : MarginTop;
+            double drawBottom = hasPaper ? pTop  + pH - paperMarginPx : h - MarginBottom;
+            double drawH      = drawBottom - drawTop;
+
+            // ── 2. Pre-pass: compute required canvas width ─────────────────────────────────────────
+            // Panels are centred within the drawing area; right-flipped loops may extend beyond it.
+            double effectiveW  = hasPaper ? pW - 2.0 * paperMarginPx : w - drawLeft - 8.0;
+            double laneCenterX = drawLeft + effectiveW / 2.0;
+            double totalW      = hasPaper ? pLeft + pW + pLeft : w;
             foreach (var panelPre in _currentVm.Panels)
             {
                 if (!panelPre.Elevation.HasValue) continue;
@@ -333,7 +365,7 @@ namespace Pulse.UI.Controls
                 const double lsWPre  = 200.0 - 52.0; // leftSecW
                 const double rWPre   = 10.0;          // wireRight
                 double slWPre  = lsWPre / lcPre;
-                double rLPre   = (w - 200.0) / 2.0;
+                double rLPre   = laneCenterX - 100.0;
                 for (int liPre = 0; liPre < Math.Min(panelPre.LoopInfos.Count, lcPre); liPre++)
                 {
                     var infPre = panelPre.LoopInfos[liPre];
@@ -344,7 +376,7 @@ namespace Pulse.UI.Controls
                     int  wcPre  = _currentVm.GetLoopWireCount(panelPre.Name, infPre.Name);
                     int  mprPre = (int)Math.Ceiling((double)totPre / wcPre);
                     double lxPre = rLPre + slWPre * (liPre + 0.5);
-                    double bePre = flPre ? (w - rWPre) : 10.0; // wireLeft = 10
+                    double bePre = flPre ? (totalW - rWPre) : drawLeft;
                     double s0Pre = Math.Abs(lxPre - bePre);
                     double dsPre = (_canvasSettings.DeviceSpacingPx > 0)
                         ? _canvasSettings.DeviceSpacingPx
@@ -352,75 +384,50 @@ namespace Pulse.UI.Controls
                     double fePre = flPre
                         ? lxPre + dsPre * (mprPre + 1)
                         : lxPre - dsPre * (mprPre + 1);
-                    double neededW = flPre ? fePre + rWPre : w; // right-side extends canvas
+                    double neededW = flPre ? fePre + rWPre : totalW;
                     totalW = Math.Max(totalW, neededW);
                 }
             }
             DiagramCanvas.Width = totalW;
 
-            // ── Paper border ──────────────────────────────────────────────
-            // Draw a subtle dashed rectangle representing the selected paper
-            // size, sized to contain the level-line content area with a small
-            // margin and centred on the canvas.  It is added first so it sits
-            // behind every other canvas child.
+            // Final right draw-bound — no-paper follows expanded totalW; paper bound is fixed.
+            double drawRight = hasPaper ? pLeft + pW - paperMarginPx : totalW - 4.0;
+            effectiveW       = drawRight - drawLeft;
+
+            // ── 3. Paper border ──────────────────────────────────────────────────────────────────────
+            if (hasPaper)
             {
-                var paperStore = DeviceConfigService.Load();
-                var selPaper   = string.IsNullOrEmpty(_canvasSettings.SelectedPaperSizeId)
-                                     ? null
-                                     : paperStore.PaperSizes
-                                                 .FirstOrDefault(p => p.Id == _canvasSettings.SelectedPaperSizeId);
-                if (selPaper != null && selPaper.WidthMm > 0 && selPaper.HeightMm > 0)
+                var paperBorder = new System.Windows.Shapes.Rectangle
                 {
-                    // Use an absolute scale anchored to A4 landscape (297×210 mm),
-                    // so that A4 fills ~85% of the canvas and larger papers (A3, A2…)
-                    // appear proportionally bigger — giving a clear visual size difference
-                    // even between ISO series sheets that share the same aspect ratio.
-                    const double paperPad  = 10.0;
-                    const double anchorW   = 297.0;   // A4 landscape width  (mm)
-                    const double anchorH   = 210.0;   // A4 landscape height (mm)
-                    const double fitFactor = 0.85;
-                    double availW    = totalW - 2 * paperPad;
-                    double availH    = h      - 2 * paperPad;
-                    double baseScale = Math.Min(availW * fitFactor / anchorW,
-                                               availH * fitFactor / anchorH);
-                    double pW     = selPaper.WidthMm  * baseScale;
-                    double pH     = selPaper.HeightMm * baseScale;
-                    double pLeft  = paperPad + (availW - pW) / 2.0;
-                    double pTop   = paperPad + (availH - pH) / 2.0;
+                    Width            = pW,
+                    Height           = pH,
+                    Stroke           = new SolidColorBrush(Color.FromArgb(0x55, 0xBB, 0xBB, 0xBB)),
+                    StrokeThickness  = 1.0,
+                    StrokeDashArray  = new DoubleCollection { 6, 4 },
+                    Fill             = Brushes.Transparent,
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(paperBorder, pLeft);
+                Canvas.SetTop(paperBorder, pTop);
+                DiagramCanvas.Children.Add(paperBorder);
 
-                    // Dashed border
-                    var paperBorder = new System.Windows.Shapes.Rectangle
-                    {
-                        Width            = pW,
-                        Height           = pH,
-                        Stroke           = new SolidColorBrush(Color.FromArgb(0x55, 0xBB, 0xBB, 0xBB)),
-                        StrokeThickness  = 1.0,
-                        StrokeDashArray  = new DoubleCollection { 6, 4 },
-                        Fill             = Brushes.Transparent,
-                        IsHitTestVisible = false
-                    };
-                    Canvas.SetLeft(paperBorder, pLeft);
-                    Canvas.SetTop(paperBorder, pTop);
-                    DiagramCanvas.Children.Add(paperBorder);
-
-                    // Paper name label — top-left corner, inside the border
-                    var paperLabel = new TextBlock
-                    {
-                        Text       = selPaper.Name,
-                        FontSize   = 8,
-                        Foreground = new SolidColorBrush(Color.FromArgb(0x55, 0xBB, 0xBB, 0xBB)),
-                        IsHitTestVisible = false
-                    };
-                    Canvas.SetLeft(paperLabel, pLeft + 5);
-                    Canvas.SetTop(paperLabel,  pTop  + 3);
-                    DiagramCanvas.Children.Add(paperLabel);
-                }
+                var paperLabel = new TextBlock
+                {
+                    Text             = selPaper.Name,
+                    FontSize         = 8,
+                    Foreground       = new SolidColorBrush(Color.FromArgb(0x55, 0xBB, 0xBB, 0xBB)),
+                    IsHitTestVisible = false
+                };
+                Canvas.SetLeft(paperLabel, pLeft + 5);
+                Canvas.SetTop(paperLabel,  pTop  + 3);
+                DiagramCanvas.Children.Add(paperLabel);
             }
 
             // Cache for move-mode Y↔elevation conversion
             _drawMinElev = minElev;
             _drawRange   = range;
             _drawDrawH   = drawH;
+            _drawOriginY = drawTop;
 
             for (int i = 0; i < rangeLevels.Count; i++)
             {
@@ -428,7 +435,7 @@ namespace Pulse.UI.Controls
                 var lineState = _currentVm.GetLineState(level.Name);
 
                 double t = (level.Elevation - minElev) / range;
-                double y = MarginTop + (1.0 - t) * drawH;
+                double y = drawTop + (1.0 - t) * drawH;
 
                 // ── Line ──────────────────────────────────────────────────
                 bool isMovingLevel = _inMoveMode && _movingLevel != null
@@ -441,8 +448,8 @@ namespace Pulse.UI.Controls
                     {
                         var hitLine = new Line
                         {
-                            X1              = 8,
-                            X2              = totalW - 4,
+                            X1              = drawLeft,
+                            X2              = drawRight,
                             Y1              = y,
                             Y2              = y,
                             Stroke          = Brushes.Transparent,
@@ -460,8 +467,8 @@ namespace Pulse.UI.Controls
 
                     var line = new Line
                     {
-                        X1               = 8,
-                        X2               = totalW - 4,
+                        X1               = drawLeft,
+                        X2               = drawRight,
                         Y1               = y,
                         Y2               = y,
                         Stroke           = lineVisualBrush,
@@ -483,12 +490,13 @@ namespace Pulse.UI.Controls
                         FontSize     = 9,
                         FontWeight   = FontWeights.SemiBold,
                         Foreground   = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
-                        MaxWidth     = w - 16,
+                        MaxWidth     = effectiveW - 16,
                         TextTrimming = TextTrimming.CharacterEllipsis,
                         Tag          = level.Name + "|text-above",
                         Cursor       = Cursors.Hand
                     };
-                    Canvas.SetRight(nameLabel, 8);
+                    if (hasPaper) Canvas.SetLeft(nameLabel, drawLeft + 8);
+                    else          Canvas.SetRight(nameLabel, 8);
                     Canvas.SetTop(nameLabel, y - 13);
                     DiagramCanvas.Children.Add(nameLabel);
                     _visualElements[level.Name + "|text-above"] = nameLabel;
@@ -515,12 +523,13 @@ namespace Pulse.UI.Controls
                             FontSize     = 9,
                             FontWeight   = FontWeights.SemiBold,
                             Foreground   = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
-                            MaxWidth     = w - 16,
+                            MaxWidth     = effectiveW - 16,
                             TextTrimming = TextTrimming.CharacterEllipsis,
                             Tag          = prevName + "|text-below",
                             Cursor       = Cursors.Hand
                         };
-                        Canvas.SetRight(prevLabel, 8);
+                        if (hasPaper) Canvas.SetLeft(prevLabel, drawLeft + 8);
+                        else          Canvas.SetRight(prevLabel, 8);
                         Canvas.SetTop(prevLabel, y + 2);
                         DiagramCanvas.Children.Add(prevLabel);
                         _visualElements[prevName + "|text-below"] = prevLabel;
@@ -536,7 +545,7 @@ namespace Pulse.UI.Controls
                     .Select(l => new
                     {
                         l.Elevation,
-                        Y = MarginTop + (1.0 - (l.Elevation - minElev) / range) * drawH
+                        Y = drawTop + (1.0 - (l.Elevation - minElev) / range) * drawH
                     })
                     .ToList();
 
@@ -554,7 +563,7 @@ namespace Pulse.UI.Controls
                     if (floorEntry == null) continue;
 
                     double zoneBottom = floorEntry.Y;
-                    double zoneTop    = ceilEntry != null ? ceilEntry.Y : MarginTop;
+                    double zoneTop    = ceilEntry != null ? ceilEntry.Y : drawTop;
 
                     // Fixed panel size — does not scale with canvas
                     const double panelFixedW = 200.0;
@@ -565,7 +574,7 @@ namespace Pulse.UI.Controls
 
                     double rectW    = panelFixedW;
                     double rectH    = panelFixedH;
-                    double rectLeft = (totalW - rectW) / 2.0;          // horizontally centered on level lines
+                    double rectLeft = drawLeft + (effectiveW - rectW) / 2.0;  // centred within drawing area
 
                     // Per-panel user settings (name, outCount, supply) — needed before rectTop
                     var panelCfg = GetPanelCfg(panel.Name);
@@ -934,7 +943,7 @@ namespace Pulse.UI.Controls
                         double slotWire        = leftSecW / loopCount;
                         const double circR     = 3.5;
                         double loopH           = _canvasSettings.WireSpacingPx;
-                        const double wireLeft  = 10.0;  // left margin for loop wires
+                        double wireLeft  = drawLeft;
                         var strokeBrush = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF));
                         var circleFill  = new SolidColorBrush(Color.FromArgb(0x44, 0xFF, 0xFF, 0xFF));
                         var circleStroke= new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
@@ -964,7 +973,7 @@ namespace Pulse.UI.Controls
                             sl.Add(kvp.Key);
                         }
 
-                        const double wireRight = 10.0; // right margin (mirror of wireLeft)
+                        double wireRight = drawRight;
 
                         // Sort each side group by rank (override → natural index fallback),
                         // then build the side-group cache used by the Move Up / Move Down popup.
@@ -1039,7 +1048,7 @@ namespace Pulse.UI.Controls
                             double zoneTopY = yLookup
                                 .Where(e2 => e2.Y < levelY - 1)
                                 .Select(e2 => e2.Y)
-                                .DefaultIfEmpty(MarginTop)
+                                .DefaultIfEmpty(drawTop)
                                 .Max();
 
                             // Per-loop wire geometry (height pre-computed in pass 2.5)
@@ -1082,7 +1091,7 @@ namespace Pulse.UI.Controls
                             // Use the address-ordered list count as the authoritative total.
                             int    total     = loopInfo.DeviceTypesByAddress.Count;
                             int    maxPerRow = total > 0 ? (int)Math.Ceiling((double)total / wireCount) : 0;
-                            double baseEdge  = flipped ? (w - wireRight) : wireLeft;
+                            double baseEdge  = flipped ? wireRight : wireLeft;
                             double span0     = Math.Abs(laneX - baseEdge);
 
                             // Device spacing: fixed setting or auto-fit to default span
@@ -1808,8 +1817,8 @@ namespace Pulse.UI.Controls
             Point mouse   = e.GetPosition(DiagramContent);
             double canvasY = (mouse.Y - _zoomTT.Y) / _zoomST.ScaleY;
 
-            // Invert the draw formula:  y = MarginTop + (1 - (elev-min)/range) * drawH
-            double t       = 1.0 - (canvasY - MarginTop) / _drawDrawH;
+            // Invert the draw formula:  y = drawTop + (1 - (elev-min)/range) * drawH
+            double t       = 1.0 - (canvasY - _drawOriginY) / _drawDrawH;
             double newElev = _drawMinElev + t * _drawRange;
 
             // Clamp between immediate neighbours so the line can't jump past them
