@@ -1,9 +1,32 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 
 namespace Pulse.Core.Settings
 {
+    /// <summary>
+    /// User-editable labels and counts for a single fire-alarm panel symbol on the diagram canvas.
+    /// Keyed by panel name inside <see cref="DiagramCanvasSettings.PanelSettings"/>.
+    /// </summary>
+    public class PanelDiagramSettings
+    {
+        /// <summary>
+        /// Subtitle shown inside the panel symbol (the "Tulekahjusignalisatsiooni…" line).
+        /// Supports two display lines separated by '\n'.
+        /// </summary>
+        [JsonProperty("name")]
+        public string Name { get; set; } = "Tulekahjusignalisatsiooni keskseade\nAnaloogadresseeritav";
+
+        /// <summary>Number of output cells drawn below the panel symbol.</summary>
+        [JsonProperty("outCount")]
+        public int OutCount { get; set; } = 5;
+
+        /// <summary>Supply label drawn at the bottom-right corner of the panel symbol.</summary>
+        [JsonProperty("supply")]
+        public string Supply { get; set; } = "Toide 230V";
+    }
+
     /// <summary>
     /// Per-machine visual settings for the diagram canvas panel.
     /// Saved to %APPDATA%\Pulse\diagram-canvas-settings.json.
@@ -46,6 +69,14 @@ namespace Pulse.Core.Settings
         /// </summary>
         [JsonProperty("labelOffsetPx")]
         public double LabelOffsetPx { get; set; } = 10.0;
+
+        /// <summary>
+        /// Per-panel overrides for subtitle, output count and supply label.
+        /// Keyed by panel name.
+        /// </summary>
+        [JsonProperty("panelSettings")]
+        public Dictionary<string, PanelDiagramSettings> PanelSettings { get; set; }
+            = new Dictionary<string, PanelDiagramSettings>();
     }
 
     /// <summary>
