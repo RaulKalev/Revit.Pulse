@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Pulse.Core.Graph.Canvas;
 using Pulse.Core.Modules;
 using Pulse.Core.Settings;
 using Pulse.Core.SystemModel;
@@ -81,6 +82,21 @@ namespace Pulse.UI.ViewModels
     /// </summary>
     public class DiagramViewModel : ViewModelBase
     {
+        // ── Scene graph snapshot ─────────────────────────────────────────
+
+        /// <summary>
+        /// Logical scene graph rebuilt after each data mutation.
+        /// Contains no pixel positions — consumed by a future layout engine.
+        /// </summary>
+        public DiagramScene Scene { get; private set; } = DiagramScene.Empty;
+
+        /// <summary>Rebuild the scene graph from current state.</summary>
+        private void RebuildScene()
+        {
+            Scene = DiagramSceneBuilder.Build(this);
+            OnPropertyChanged(nameof(Scene));
+        }
+
         // ── Topology assignments store ───────────────────────────────────
 
         private TopologyAssignmentsStore _assignmentsStore = new TopologyAssignmentsStore();
@@ -210,6 +226,8 @@ namespace Pulse.UI.ViewModels
 
                 Panels.Add(new PanelInfo(p.DisplayName, p.Elevation, loopInfos, configLoopCount));
             }
+
+            RebuildScene();
         }
 
         /// <summary>
