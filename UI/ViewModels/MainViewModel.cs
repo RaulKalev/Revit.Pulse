@@ -19,10 +19,13 @@ namespace Pulse.UI.ViewModels
     /// <summary>
     /// Root ViewModel for the Pulse main window.
     /// Owns UI bindings and commands; delegates orchestration to extracted services:
-    ///   - <see cref="PulseAppController"/>      — module registry, active module, settings state
-    ///   - <see cref="RefreshPipeline"/>          — collect/build/evaluate via ExternalEvent
-    ///   - <see cref="SelectionHighlightFacade"/> — select/highlight/reset in Revit
-    ///   - <see cref="StorageFacade"/>            — safe ES and JSON persistence
+    ///   - <see cref="PulseAppController"/>               — module registry, active module, settings state
+    ///   - <see cref="RefreshPipeline"/>                   — collect/build/evaluate via ExternalEvent
+    ///   - <see cref="SelectionHighlightFacade"/>          — select/highlight/reset in Revit
+    ///   - <see cref="StorageFacade"/>                     — safe ES and JSON persistence
+    ///   - <see cref="TopologyAssignmentsService"/>        — per-document assignment lifecycle
+    ///   - <see cref="SymbolMappingOrchestrator"/>         — custom symbol library + mapping
+    ///   - <see cref="DiagramFeatureService"/>             — diagram wire orchestration
     /// </summary>
     public class MainViewModel : ViewModelBase
     {
@@ -34,11 +37,13 @@ namespace Pulse.UI.ViewModels
         private readonly SelectionHighlightFacade _selectionFacade;
         private readonly StorageFacade _storageFacade;
 
-        /// <summary>Per-document topology assignments — loaded from ES at startup and kept in sync.</summary>
-        private TopologyAssignmentsStore _topologyAssignments = new TopologyAssignmentsStore();
+        // ── Feature services ─────────────────────────────────────────────────
+        private readonly TopologyAssignmentsService _assignmentsService;
+        private readonly SymbolMappingOrchestrator _symbolOrchestrator;
+        private readonly DiagramFeatureService _diagramFeatureService;
 
-        /// <summary>Custom symbol library — loaded from %APPDATA%\Pulse\custom-symbols.json at startup.</summary>
-        private List<CustomSymbolDefinition> _symbolLibrary = CustomSymbolLibraryService.Load();
+        /// <summary>Compatibility shortcut — returns the live store from the assignments service.</summary>
+        private TopologyAssignmentsStore _topologyAssignments => _assignmentsService.Store;
 
         // Child ViewModels
         public TopologyViewModel Topology { get; }
@@ -125,7 +130,7 @@ namespace Pulse.UI.ViewModels
         internal void FlushPendingToRevit(Document doc)
         {
             if (doc == null) return;
-            _storageFacade.SyncWriteTopologyAssignments(doc, _topologyAssignments);
+            _assignmentsService.FlushToRevit(doc);
             _storageFacade.SyncWriteDiagramSettings(doc, Diagram.Visibility);
         }
 
@@ -148,6 +153,15 @@ namespace Pulse.UI.ViewModels
             _selectionFacade = new SelectionHighlightFacade();
             _storageFacade = new StorageFacade();
 
+            // ── Feature services ─────────────────────────────────────────
+            _assignmentsService = new TopologyAssignmentsService
+            {
+                SaveRequested = store => _storageFacade.SaveTopologyAssignments(store),
+                SyncWriteRequested = (doc, store) => _storageFacade.SyncWriteTopologyAssignments(doc, store)
+            };
+            _symbolOrchestrator = new SymbolMappingOrchestrator();
+            _diagramFeatureService = new DiagramFeatureService(_appController);
+
             // Create child ViewModels
             Topology = new TopologyViewModel();
             Inspector = new InspectorViewModel();
@@ -163,8 +177,7 @@ namespace Pulse.UI.ViewModels
                 _storageFacade.SaveDiagramSettings(Diagram.Visibility);
 
             // Wire topology assignment saves (panel/loop configs, flip states, etc.)
-            Action saveAssignments = () =>
-                _storageFacade.SaveTopologyAssignments(_topologyAssignments);
+            Action saveAssignments = () => _assignmentsService.RequestSave();
             Topology.AssignmentsSaveRequested = saveAssignments;
             Diagram.AssignmentsSaveRequested = saveAssignments;
 
@@ -419,7 +432,7 @@ namespace Pulse.UI.ViewModels
                     Diagram.LoadVisibility(diagramSettings);
 
                 // Load per-document topology assignments
-                _topologyAssignments = _storageFacade.ReadTopologyAssignments(doc);
+                _assignmentsService.Load(_storageFacade.ReadTopologyAssignments(doc));
                 Inspector.DeviceStore = DeviceConfigService.Load();
                 Inspector.AssignmentsStore = _topologyAssignments;
             }
@@ -444,13 +457,12 @@ namespace Pulse.UI.ViewModels
         /// <summary>Open the Symbol Mapping dialog.</summary>
         private void ExecuteOpenSymbolMapping()
         {
-            var vm = new SymbolMappingViewModel(_appController.CurrentData, _topologyAssignments.SymbolMappings, _symbolLibrary);
+            var vm = new SymbolMappingViewModel(_appController.CurrentData, _topologyAssignments.SymbolMappings, _symbolOrchestrator.MutableLibrary);
 
             vm.Saved += mappings =>
             {
-                _topologyAssignments.SymbolMappings =
-                    new Dictionary<string, string>(mappings, StringComparer.OrdinalIgnoreCase);
-                _storageFacade.SaveTopologyAssignments(_topologyAssignments);
+                _symbolOrchestrator.ApplyMappings(mappings, _topologyAssignments);
+                _assignmentsService.RequestSave();
             };
 
             var win = new SymbolMappingWindow(vm)
@@ -461,9 +473,7 @@ namespace Pulse.UI.ViewModels
             // When the user designs a new symbol, persist it to the library file
             win.SymbolCreated += definition =>
             {
-                _symbolLibrary.RemoveAll(s => s.Id == definition.Id || s.Name == definition.Name);
-                _symbolLibrary.Add(definition);
-                CustomSymbolLibraryService.Save(_symbolLibrary);
+                _symbolOrchestrator.UpsertSymbol(definition);
             };
 
             win.ShowDialog();
