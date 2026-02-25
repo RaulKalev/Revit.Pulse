@@ -238,11 +238,32 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _heightMm, value);
         }
 
-        private double _marginMm;
-        public double MarginMm
+        private double _marginLeftMm;
+        public double MarginLeftMm
         {
-            get => _marginMm;
-            set => SetField(ref _marginMm, value);
+            get => _marginLeftMm;
+            set => SetField(ref _marginLeftMm, value);
+        }
+
+        private double _marginTopMm;
+        public double MarginTopMm
+        {
+            get => _marginTopMm;
+            set => SetField(ref _marginTopMm, value);
+        }
+
+        private double _marginRightMm;
+        public double MarginRightMm
+        {
+            get => _marginRightMm;
+            set => SetField(ref _marginRightMm, value);
+        }
+
+        private double _marginBottomMm;
+        public double MarginBottomMm
+        {
+            get => _marginBottomMm;
+            set => SetField(ref _marginBottomMm, value);
         }
 
         public PaperSizeConfigViewModel(PaperSizeConfig model)
@@ -252,7 +273,10 @@ namespace Pulse.UI.ViewModels
             _name = model.Name;
             _widthMm = model.WidthMm;
             _heightMm = model.HeightMm;
-            _marginMm = model.MarginMm;
+            _marginLeftMm   = model.MarginLeftMm;
+            _marginTopMm    = model.MarginTopMm;
+            _marginRightMm  = model.MarginRightMm;
+            _marginBottomMm = model.MarginBottomMm;
         }
 
         public PaperSizeConfig ToModel() => new PaperSizeConfig
@@ -261,7 +285,10 @@ namespace Pulse.UI.ViewModels
             Name = Name ?? string.Empty,
             WidthMm = WidthMm,
             HeightMm = HeightMm,
-            MarginMm = MarginMm
+            MarginLeftMm   = MarginLeftMm,
+            MarginTopMm    = MarginTopMm,
+            MarginRightMm  = MarginRightMm,
+            MarginBottomMm = MarginBottomMm
         };
     }
 

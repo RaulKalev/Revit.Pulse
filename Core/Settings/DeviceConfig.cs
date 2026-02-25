@@ -128,9 +128,18 @@ namespace Pulse.Core.Settings
         [JsonProperty("heightMm")]
         public double HeightMm { get; set; } = 210.0;
 
-        /// <summary>Margin from paper edge to drawing area, in millimetres.</summary>
-        [JsonProperty("marginMm")]
-        public double MarginMm { get; set; } = 10.0;
+        /// <summary>Margins from paper edge to drawing area, in millimetres.</summary>
+        [JsonProperty("marginLeftMm")]
+        public double MarginLeftMm   { get; set; } = 10.0;
+
+        [JsonProperty("marginTopMm")]
+        public double MarginTopMm    { get; set; } = 10.0;
+
+        [JsonProperty("marginRightMm")]
+        public double MarginRightMm  { get; set; } = 10.0;
+
+        [JsonProperty("marginBottomMm")]
+        public double MarginBottomMm { get; set; } = 10.0;
     }
 
     /// <summary>

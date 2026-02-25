@@ -1000,11 +1000,44 @@
                                     </StackPanel>
                                 </Grid>
 
-                                <!-- Margin -->
-                                <TextBlock Text="MARGIN (mm)" Style="{StaticResource FieldLabelStyle}" Margin="0,6,0,4"/>
-                                <TextBox Text="{Binding SelectedPaperSize.MarginMm, UpdateSourceTrigger=PropertyChanged}"
-                                         Style="{StaticResource DarkTextBoxStyle}"
-                                         Margin="0,0,0,8"/>
+                                <!-- Margins (2×2 grid: Left/Top top row, Right/Bottom bottom row) -->
+                                <TextBlock Text="MARGINS (mm)" Style="{StaticResource FieldLabelStyle}" Margin="0,6,0,4"/>
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="8"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="8"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <!-- Left -->
+                                    <StackPanel Grid.Column="0" Grid.Row="0">
+                                        <TextBlock Text="LEFT" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SelectedPaperSize.MarginLeftMm, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                    <!-- Top -->
+                                    <StackPanel Grid.Column="2" Grid.Row="0">
+                                        <TextBlock Text="TOP" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SelectedPaperSize.MarginTopMm, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                    <!-- Right -->
+                                    <StackPanel Grid.Column="0" Grid.Row="2">
+                                        <TextBlock Text="RIGHT" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SelectedPaperSize.MarginRightMm, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                    <!-- Bottom -->
+                                    <StackPanel Grid.Column="2" Grid.Row="2">
+                                        <TextBlock Text="BOTTOM" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,4"/>
+                                        <TextBox Text="{Binding SelectedPaperSize.MarginBottomMm, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                </Grid>
 
                             </StackPanel>
                         </StackPanel>

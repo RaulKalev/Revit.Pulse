@@ -329,7 +329,8 @@ namespace Pulse.UI.Controls
                                  : paperStore.PaperSizes
                                              .FirstOrDefault(p => p.Id == _canvasSettings.SelectedPaperSizeId);
             bool   hasPaper      = selPaper != null && selPaper.WidthMm > 0 && selPaper.HeightMm > 0;
-            double pLeft = 0, pTop = 0, pW = 0, pH = 0, paperScale = 0, paperMarginPx = 0;
+            double pLeft = 0, pTop = 0, pW = 0, pH = 0, paperScale = 0;
+            double marginLeftPx = 0, marginTopPx = 0, marginRightPx = 0, marginBottomPx = 0;
             if (hasPaper)
             {
                 double availW  = w - 2 * paperPad;
@@ -340,24 +341,27 @@ namespace Pulse.UI.Controls
                 const double anchorW   = 297.0;   // A4 landscape width mm
                 const double anchorH   = 210.0;   // A4 landscape height mm
                 const double anchorFit = 0.85;
-                paperScale    = Math.Min(availW * anchorFit / anchorW,
-                                        availH * anchorFit / anchorH);
-                pW            = selPaper.WidthMm  * paperScale;
-                pH            = selPaper.HeightMm * paperScale;
-                pLeft         = paperPad + (availW - pW) / 2.0;
-                pTop          = paperPad + (availH - pH) / 2.0;
-                paperMarginPx = selPaper.MarginMm * paperScale;
+                paperScale       = Math.Min(availW * anchorFit / anchorW,
+                                            availH * anchorFit / anchorH);
+                pW               = selPaper.WidthMm  * paperScale;
+                pH               = selPaper.HeightMm * paperScale;
+                pLeft            = paperPad + (availW - pW) / 2.0;
+                pTop             = paperPad + (availH - pH) / 2.0;
+                marginLeftPx     = selPaper.MarginLeftMm   * paperScale;
+                marginTopPx      = selPaper.MarginTopMm    * paperScale;
+                marginRightPx    = selPaper.MarginRightMm  * paperScale;
+                marginBottomPx   = selPaper.MarginBottomMm * paperScale;
             }
 
             // Effective drawing bounds — level lines and panels must stay within these.
-            double drawLeft   = hasPaper ? pLeft + paperMarginPx : 8.0;
-            double drawTop    = hasPaper ? pTop  + paperMarginPx : MarginTop;
-            double drawBottom = hasPaper ? pTop  + pH - paperMarginPx : h - MarginBottom;
+            double drawLeft   = hasPaper ? pLeft + marginLeftPx   : 8.0;
+            double drawTop    = hasPaper ? pTop  + marginTopPx    : MarginTop;
+            double drawBottom = hasPaper ? pTop  + pH - marginBottomPx : h - MarginBottom;
             double drawH      = drawBottom - drawTop;
 
             // ── 2. Pre-pass: compute required canvas width ─────────────────────────────────────────
             // Panels are centred within the drawing area; right-flipped loops may extend beyond it.
-            double effectiveW  = hasPaper ? pW - 2.0 * paperMarginPx : w - drawLeft - 8.0;
+            double effectiveW  = hasPaper ? pW - marginLeftPx - marginRightPx : w - drawLeft - 8.0;
             double laneCenterX = drawLeft + effectiveW / 2.0;
             double totalW      = hasPaper ? pLeft + pW + pLeft : w;
             foreach (var panelPre in _currentVm.Panels)
@@ -396,7 +400,7 @@ namespace Pulse.UI.Controls
             DiagramCanvas.Width = totalW;
 
             // Final right draw-bound — no-paper follows expanded totalW; paper bound is fixed.
-            double drawRight = hasPaper ? pLeft + pW - paperMarginPx : totalW - 4.0;
+            double drawRight = hasPaper ? pLeft + pW - marginRightPx : totalW - 4.0;
             effectiveW       = drawRight - drawLeft;
 
             // ── 3. Paper border ──────────────────────────────────────────────────────────────────────
