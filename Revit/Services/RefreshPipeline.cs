@@ -3,7 +3,6 @@ using Autodesk.Revit.UI;
 using Pulse.Core.Modules;
 using Pulse.Core.Settings;
 using Pulse.Revit.ExternalEvents;
-using Pulse.Revit.Storage;
 
 namespace Pulse.Revit.Services
 {
@@ -20,12 +19,6 @@ namespace Pulse.Revit.Services
     {
         private readonly CollectDevicesHandler _handler;
         private readonly ExternalEvent _event;
-
-        /// <summary>
-        /// Topology assignments read during the last refresh (on the Revit thread).
-        /// May be null if no refresh has occurred yet.
-        /// </summary>
-        public TopologyAssignmentsStore RefreshedAssignments => _handler.RefreshedAssignments;
 
         public RefreshPipeline()
         {

@@ -216,10 +216,12 @@ namespace Pulse.UI.ViewModels
         {
             _appController.OnRefreshCompleted(data);
 
-            // Reload topology assignments from Extensible Storage (the handler reads them
-            // on the Revit API thread during Execute so they are fresh here).
-            if (_refreshPipeline.RefreshedAssignments != null)
-                _topologyAssignments = _refreshPipeline.RefreshedAssignments;
+            // NOTE: _topologyAssignments is intentionally NOT reloaded from
+            // RefreshedAssignments here. The in-memory store is the source of truth:
+            // it is loaded from ES once in LoadInitialSettings and kept up to date by
+            // every assignment mutation (panel config, loop module, wire, flip, etc.).
+            // Overwriting it from an async ES read would lose any assignments the user
+            // made between the last save event firing and this refresh completing.
 
             // Update statistics
             TotalDevices = data.Devices.Count;
