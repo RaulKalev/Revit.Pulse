@@ -279,7 +279,7 @@ namespace Pulse.UI.Controls
                     var infPre = panelPre.LoopInfos[liPre];
                     if (infPre.Levels == null || infPre.Levels.Count == 0) continue;
                     bool flPre = _currentVm.IsLoopFlipped(panelPre.Name, infPre.Name);
-                    int  totPre = infPre.Levels.Sum(ld => ld.DeviceCount);
+                    int  totPre = infPre.DeviceTypesByAddress.Count;
                     if (totPre == 0) continue;
                     int  wcPre  = _currentVm.GetLoopWireCount(panelPre.Name, infPre.Name);
                     int  mprPre = (int)Math.Ceiling((double)totPre / wcPre);
@@ -884,7 +884,8 @@ namespace Pulse.UI.Controls
                             double topY = botY - effectiveLoopH;
 
                             // ── Compute farEdge — stretch outward if devices overflow ──────────
-                            int    total     = maj.TotalDevices;
+                            // Use the address-ordered list count as the authoritative total.
+                            int    total     = loopInfo.DeviceTypesByAddress.Count;
                             int    maxPerRow = total > 0 ? (int)Math.Ceiling((double)total / wireCount) : 0;
                             double baseEdge  = flipped ? (w - wireRight) : wireLeft;
                             double span0     = Math.Abs(laneX - baseEdge);
@@ -932,34 +933,26 @@ namespace Pulse.UI.Controls
 
                             if (total <= 0) continue;
 
-                            // Build a flat, ordered list of device types for this loop
-                            var flatTypes = new List<string>(total);
-                            if (maj.TypeCounts != null)
-                            {
-                                foreach (var (dt, cnt) in maj.TypeCounts)
-                                    for (int k = 0; k < cnt; k++)
-                                        flatTypes.Add(dt);
-                            }
-                            else
-                            {
-                                for (int k = 0; k < total; k++) flatTypes.Add(null);
-                            }
+                            // Use the address-ordered device-type list built in DiagramViewModel.
+                            // Each entry corresponds to one physical device, sorted address-ascending.
+                            var flatTypes = loopInfo.DeviceTypesByAddress;
 
-                            // ── Devices: each wire row starts at laneX and grows outward ─────
-                            // Right-side (flipped):  laneX + ds*(di+1)  → grows rightward
-                            // Left-side  (normal):   laneX - ds*(di+1)  → grows leftward
-                            // Using per-row column index di (not a global offset) means column 0
-                            // lands at the same X on every wire row → true vertical alignment.
+                            // ── Devices: bottom wire carries the lowest addresses ──────────
+                            // wi=wireCount-1 → bottom wire (first in address order)
+                            // wi=0           → top wire (last in address order)
+                            // di=0           → innermost column (rightmost for left-side,
+                            //                  leftmost for right-side)
+                            // This places address 1 at bottom-right (left loops) or
+                            // bottom-left (right/flipped loops).
                             int devRemain = total;
-                            int devOffset = 0;    // tracks position in flatTypes for device-type labels
-                            for (int wi = 0; wi < wireCount; wi++)
+                            int devOffset = 0;
+                            for (int wi = wireCount - 1; wi >= 0; wi--)
                             {
-                                // Ceiling-divide remaining devices among remaining wires
-                                int wireDevs = (devRemain + (wireCount - wi) - 1) / (wireCount - wi);
+                                // Ceiling-divide remaining devices among remaining wires (wi+1 left).
+                                int wireDevs = (devRemain + wi) / (wi + 1);
                                 double wY    = topY + wi * wireSpacing;
                                 for (int di = 0; di < wireDevs; di++)
                                 {
-                                    // di is the per-row column index → same column = same X across rows
                                     double devX = flipped
                                         ? laneX + deviceSpacing * (di + 1)
                                         : laneX - deviceSpacing * (di + 1);

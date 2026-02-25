@@ -31,8 +31,19 @@ namespace Pulse.UI.ViewModels
     {
         public string Name { get; }
         public IReadOnlyList<LoopLevelInfo> Levels { get; }
-        public LoopDrawInfo(string name, IReadOnlyList<LoopLevelInfo> levels)
-        { Name = name; Levels = levels; }
+        /// <summary>
+        /// All devices on this loop across every level, sorted by numeric address ascending.
+        /// Used by the diagram canvas to draw device symbols in address order.
+        /// Each entry is the DeviceType string (may be null/empty for untyped devices).
+        /// </summary>
+        public IReadOnlyList<string> DeviceTypesByAddress { get; }
+        public LoopDrawInfo(string name, IReadOnlyList<LoopLevelInfo> levels,
+                            IReadOnlyList<string> deviceTypesByAddress)
+        {
+            Name                = name;
+            Levels              = levels;
+            DeviceTypesByAddress = deviceTypesByAddress ?? System.Array.Empty<string>();
+        }
     }
 
     public readonly struct PanelInfo
@@ -146,9 +157,19 @@ namespace Pulse.UI.ViewModels
                 var loopInfos = new List<LoopDrawInfo>();
                 foreach (var loop in sortedLoops)
                 {
-                    // Group devices by (elevation, deviceType)
+                    // Sort all devices on this loop by numeric address (ascending).
+                    var sortedDevices = loop.Devices
+                        .OrderBy(d => ParseAddress(d.Address))
+                        .ToList();
+
+                    // Build address-ordered device-type list (spans all elevations).
+                    var deviceTypesByAddress = sortedDevices
+                        .Select(d => d.DeviceType)
+                        .ToList();
+
+                    // Group devices by (elevation, deviceType) for level heat-map data.
                     var levelTypeMap = new Dictionary<double, Dictionary<string, int>>();
-                    foreach (var d in loop.Devices)
+                    foreach (var d in sortedDevices)
                     {
                         if (!d.Elevation.HasValue) continue;
                         double key = Math.Round(d.Elevation.Value, 3);
@@ -164,7 +185,7 @@ namespace Pulse.UI.ViewModels
                                      .ToList()))
                         .OrderBy(x => x.Elevation)
                         .ToList();
-                    loopInfos.Add(new LoopDrawInfo(loop.DisplayName, levelInfos));
+                    loopInfos.Add(new LoopDrawInfo(loop.DisplayName, levelInfos, deviceTypesByAddress));
                 }
 
                 int configLoopCount = 0;
@@ -192,6 +213,21 @@ namespace Pulse.UI.ViewModels
         }
 
         // ── Loop flip + selection ─────────────────────────────────────────
+
+        /// <summary>
+        /// Parses a device address string to an integer for sorting.
+        /// Non-numeric or empty addresses sort to the end.
+        /// </summary>
+        private static int ParseAddress(string addr)
+        {
+            if (string.IsNullOrWhiteSpace(addr)) return int.MaxValue;
+            string trimmed = addr.Trim();
+            if (int.TryParse(trimmed, out int n)) return n;
+            // Accept leading digit prefix (e.g. "12A")
+            int i = 0;
+            while (i < trimmed.Length && char.IsDigit(trimmed[i])) i++;
+            return (i > 0 && int.TryParse(trimmed.Substring(0, i), out int d)) ? d : int.MaxValue;
+        }
 
         private string _selectedLoopKey;
         /// <summary>"panelName::loopName" of the currently selected loop, or null.</summary>
