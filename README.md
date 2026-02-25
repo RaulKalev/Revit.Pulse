@@ -4,6 +4,10 @@
 
 Pulse is a modular Revit plugin that provides a system control center for MEP addressable systems. It replaces element-first workflows with system-first topology visualization, real-time validation, and progressive disclosure of detail.
 
+> **Architecture deep-dive →** see [ARCHITECTURE.md](ARCHITECTURE.md) for the runtime
+> pipeline, module discovery, capabilities pattern, storage hardening strategy,
+> and diagram scene graph.
+
 ---
 
 ## Architecture
@@ -25,9 +29,10 @@ Framework-agnostic contracts and models:
 | Namespace | Purpose |
 |-----------|---------|
 | `Core.Graph` | `Node` and `Edge` — topology graph primitives |
+| `Core.Graph.Canvas` | `DiagramScene` — logical scene graph for the diagram canvas |
 | `Core.SystemModel` | `ISystemEntity`, `Panel`, `Loop`, `Zone`, `AddressableDevice` |
 | `Core.Rules` | `IRule`, `RuleResult`, `Severity` — validation engine |
-| `Core.Modules` | `IModuleDefinition`, `IModuleCollector`, `ITopologyBuilder`, `IRulePack`, `ModuleData` |
+| `Core.Modules` | `IModuleDefinition`, `PulseAppController`, `ModuleCatalog`, `ModuleCapabilities` |
 | `Core.Settings` | `ModuleSettings`, `ParameterMapping` — configurable parameter names |
 | `Core.Logging` | `ILogger` abstraction |
 
@@ -37,10 +42,13 @@ Revit API integration:
 
 | Component | Purpose |
 |-----------|---------|
+| `RefreshPipeline` | Owns `CollectDevicesHandler` + `ExternalEvent` for the refresh cycle |
+| `SelectionHighlightFacade` | Owns select, override, and reset handlers |
+| `StorageFacade` | Read/write helpers for ES and JSON persistence |
 | `RevitCollectorService` | Implements `ICollectorContext` — extracts elements and parameters |
 | `SelectionService` | Selects elements in the Revit model |
 | `TemporaryOverrideService` | Applies/resets graphic overrides to highlight elements |
-| `ExtensibleStorageService` | Reads/writes module settings to Revit Extensible Storage |
+| `ExtensibleStorageService` | Reads/writes module settings to Revit Extensible Storage (V2 hardened) |
 | `ExternalEvent handlers` | `CollectDevicesHandler`, `SelectElementHandler`, `TemporaryOverrideHandler`, `ResetOverridesHandler` |
 
 All Revit write operations use `ExternalEvent` to ensure they run on the Revit API thread.
@@ -78,12 +86,14 @@ First implemented module:
 1. Create a new folder under `Modules/` (e.g., `Modules/EmergencyLighting/`).
 2. Implement `IModuleDefinition` with:
    - `ModuleId`, `DisplayName`, `Description`, `Version`
+   - `Capabilities` — declare supported `ModuleCapabilities` flags
    - `GetDefaultSettings()` returning default categories and parameter mappings
    - Factory methods for collector, topology builder, and rule pack
-3. Implement `IModuleCollector` to extract elements from Revit via `ICollectorContext`.
-4. Implement `ITopologyBuilder` to build the graph from collected entities.
-5. Implement `IRulePack` with validation rules implementing `IRule`.
-6. Register the module in `MainViewModel._modules`.
+3. Optionally implement feature interfaces (`IProvidesWiringFeatures`, `IProvidesSymbolMapping`, etc.).
+4. Implement `IModuleCollector` to extract elements from Revit via `ICollectorContext`.
+5. Implement `ITopologyBuilder` to build the graph from collected entities.
+6. Implement `IRulePack` with validation rules implementing `IRule`.
+7. `ModuleCatalog.Discover()` finds your module automatically via reflection — no registration needed.
 
 No Core modifications are needed. The module contract is fully decoupled.
 
@@ -114,16 +124,17 @@ Default Fire Alarm parameter mappings:
 ## Extensible Storage Schema
 
 Settings are persisted in the Revit document via Extensible Storage.
+Three schemas are used (Module Settings, Diagram Settings, Topology Assignments),
+each with **V1 (legacy)** and **V2 (current, hardened)** GUIDs.
 
-| Field | Type | Purpose |
-|-------|------|---------|
-| SchemaVersion | `int` | Version for upgrade compatibility |
-| SettingsJson | `string` | JSON blob with all module settings |
+V2 schemas use `AccessLevel.Vendor` for write and include a `PulseMarker` ownership field.
+Reads try V2 first, then fall back to V1. V1 entities are never deleted.
 
-**Schema GUID:** `A7E3B1C2-4D5F-6A7B-8C9D-0E1F2A3B4C5E`
+> See [ARCHITECTURE.md](ARCHITECTURE.md#4-extensible-storage-strategy) for full details.
 
 ### Safety guarantees:
-- Schema is versioned with explicit upgrade path
+- Schema is versioned with explicit upgrade path (v1 → v2 migration pipeline)
+- V2 schemas write-locked to Pulse vendor ID
 - Missing schema initializes defaults (never corrupts)
 - Previous schemas are never silently deleted
 - All writes happen inside Revit transactions

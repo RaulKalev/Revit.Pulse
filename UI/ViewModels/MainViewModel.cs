@@ -12,7 +12,6 @@ using Pulse.Core.Settings;
 using Pulse.Core.Graph;
 using Pulse.Modules.FireAlarm;
 using Pulse.Revit.Services;
-using Pulse.Revit.Storage;
 using Pulse.UI;
 
 namespace Pulse.UI.ViewModels
