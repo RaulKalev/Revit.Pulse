@@ -643,7 +643,7 @@ namespace Pulse.UI.Controls
 
                     // Fixed panel size — does not scale with canvas
                     const double panelFixedW = 200.0;
-                    const double panelFixedH = 120.0;
+                    const double panelFixedH = 80.0;
 
                     // Skip zone if it is too narrow to contain the panel
                     if (zoneBottom - zoneTop < panelFixedH + 8) continue;
