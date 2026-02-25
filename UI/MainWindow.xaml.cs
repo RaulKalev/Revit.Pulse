@@ -16,6 +16,9 @@ namespace Pulse.UI
         private readonly WindowResizer _resizer;
         private readonly MainViewModel _viewModel;
 
+        /// <summary>Exposes the root ViewModel so the launch command can flush pending ES writes on close.</summary>
+        public MainViewModel ViewModel => _viewModel;
+
         public MainWindow(UIApplication uiApp)
         {
             InitializeComponent();

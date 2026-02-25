@@ -110,6 +110,31 @@ namespace Pulse.Revit.Services
             }
         }
 
+        // ─── Synchronous write helpers (call from the Revit API thread only) ────
+
+        /// <summary>
+        /// Synchronously write topology assignments to ES.
+        /// Must only be called from the Revit API thread (e.g. inside IExternalCommand.Execute).
+        /// Used to flush in-memory state before a new MainViewModel reads it back.
+        /// </summary>
+        public void SyncWriteTopologyAssignments(Document doc, TopologyAssignmentsStore store)
+        {
+            if (doc == null || store == null) return;
+            try { new ExtensibleStorageService(doc, _logger).WriteTopologyAssignments(store); }
+            catch (Exception ex) { _logger.Error("SyncWriteTopologyAssignments failed.", ex); }
+        }
+
+        /// <summary>
+        /// Synchronously write diagram visibility settings to ES.
+        /// Must only be called from the Revit API thread (e.g. inside IExternalCommand.Execute).
+        /// </summary>
+        public void SyncWriteDiagramSettings(Document doc, LevelVisibilitySettings settings)
+        {
+            if (doc == null || settings == null) return;
+            try { new ExtensibleStorageService(doc, _logger).WriteDiagramSettings(settings); }
+            catch (Exception ex) { _logger.Error("SyncWriteDiagramSettings failed.", ex); }
+        }
+
         // ─── Write helpers (raise ExternalEvents) ───────────────────────────
 
         /// <summary>

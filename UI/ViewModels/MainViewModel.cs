@@ -116,6 +116,19 @@ namespace Pulse.UI.ViewModels
         // Owner window — set via Initialize() so settings dialog can use it as parent
         private Window _ownerWindow;
 
+        /// <summary>
+        /// Synchronously flush in-memory assignments and diagram visibility directly to
+        /// Extensible Storage. Call from the Revit API thread (IExternalCommand.Execute)
+        /// before creating a new window — ensures the new instance reads up-to-date data
+        /// instead of whatever stale state was last written by an async ExternalEvent.
+        /// </summary>
+        internal void FlushPendingToRevit(Document doc)
+        {
+            if (doc == null) return;
+            _storageFacade.SyncWriteTopologyAssignments(doc, _topologyAssignments);
+            _storageFacade.SyncWriteDiagramSettings(doc, Diagram.Visibility);
+        }
+
         public MainViewModel(UIApplication uiApp)
         {
             _uiApp = uiApp ?? throw new ArgumentNullException(nameof(uiApp));
