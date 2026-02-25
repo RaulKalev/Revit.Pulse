@@ -1095,42 +1095,37 @@ namespace Pulse.UI.Controls
                                             devAddr = an.ToString("D3");
                                         string labelText = shortLoop + "." + devAddr;
 
-                                        // Auto-size the Border to its content, then Measure() to get
-                                        // exact natural dimensions for pixel-perfect placement.
-                                        // After -90° LayoutTransform:
-                                        //   natural Width  → visual Height  (label length along wire axis)
-                                        //   natural Height → visual Width   (how wide the pill sits across devX)
+                                        // Auto-size Border to content, then Measure() for exact post-rotation
+                                        // dimensions so centering is pixel-perfect without hardcoded guesses.
+                                        // After -90° LayoutTransform WPF reports DesiredSize in visual space:
+                                        //   DesiredSize.Width  = visual Width  (narrow pill dimension, centres on devX)
+                                        //   DesiredSize.Height = visual Height (pill length, drives SetTop offset)
                                         double labelOffset = _canvasSettings.LabelOffsetPx;
 
                                         var addrLabel = new Border
                                         {
-                                            BorderBrush     = wireBrush,
-                                            BorderThickness = new Thickness(0.75),
-                                            // CornerRadius larger than half-height → WPF clamps to full pill
-                                            CornerRadius    = new CornerRadius(100),
-                                            Background      = Brushes.Transparent,
-                                            // Horizontal padding → visual top/bottom gap inside pill
-                                            // Vertical padding   → visual width (thickness) of pill
-                                            Padding         = new Thickness(3.0, 1.0, 3.0, 1.0),
+                                            BorderBrush      = wireBrush,
+                                            BorderThickness  = new Thickness(0.75),
+                                            CornerRadius     = new CornerRadius(100),
+                                            Background       = Brushes.Transparent,
+                                            Padding          = new Thickness(3.0, 1.0, 3.0, 1.0),
                                             IsHitTestVisible = false,
-                                            LayoutTransform = new System.Windows.Media.RotateTransform(-90),
+                                            LayoutTransform  = new System.Windows.Media.RotateTransform(-90),
                                             Child = new TextBlock
                                             {
-                                                Text      = labelText,
-                                                FontSize  = 7.0,
+                                                Text       = labelText,
+                                                FontSize   = 7.0,
                                                 Foreground = wireBrush
                                             }
                                         };
 
-                                        // Measure to get true natural size (no layout pass needed yet).
                                         addrLabel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                                        double natW = addrLabel.DesiredSize.Width;   // → visual Height
-                                        double natH = addrLabel.DesiredSize.Height;  // → visual Width
+                                        double pillVisualW = addrLabel.DesiredSize.Width;   // narrow dimension — centre on devX
+                                        double pillVisualH = addrLabel.DesiredSize.Height;  // long dimension  — drives SetTop
 
-                                        // Centre pill's visual width on devX; bottom of pill touches wY - circR - offset.
-                                        double idealTop = wY - circR - labelOffset - natW;
+                                        double idealTop = wY - circR - labelOffset - pillVisualH;
                                         double safeTop  = Math.Max(MarginTop - 2.0, idealTop);
-                                        Canvas.SetLeft(addrLabel, devX - natH / 2.0);
+                                        Canvas.SetLeft(addrLabel, devX - pillVisualW / 2.0);
                                         Canvas.SetTop(addrLabel,  safeTop);
                                         DiagramCanvas.Children.Add(addrLabel);
                                     }
