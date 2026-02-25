@@ -1249,10 +1249,14 @@ namespace Pulse.UI.Controls
                                 }
                             }
 
-                            // Far-side connectors: every consecutive row pair, including middle ones.
-                            // (wi=0↔1), (wi=1↔2), (wi=2↔3), … → continuous vertical at farEdge.
-                            for (int wi = 0; wi + 1 < wireCount; wi++)
+                            // Far-side connectors: outer pairs (0↔1), (2↔3), … at farEdge.
+                            for (int wi = 0; wi + 1 < wireCount; wi += 2)
                                 Line(wireBrush, farEdge, wireYs[wi], farEdge, wireYs[wi + 1]);
+
+                            // Near-side connectors: inner transitions (1↔2), (3↔4), … one column away from spine.
+                            double nearX = laneX + dirSign * deviceSpacing;
+                            for (int wi = 1; wi + 1 < wireCount; wi += 2)
+                                Line(wireBrush, nearX, wireYs[wi], nearX, wireYs[wi + 1]);
 
                             // ── Hit-test rectangle ─────────────────────────────────
                             var hitRect = new System.Windows.Shapes.Rectangle
