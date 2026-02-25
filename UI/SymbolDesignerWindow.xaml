@@ -187,6 +187,39 @@
                 </Setter>
             </Style>
 
+            <!-- ── Save-swatch button (used at bottom of each color popup) ──── -->
+            <Style x:Key="SaveSwatchButtonStyle" TargetType="{x:Type Button}">
+                <Setter Property="OverridesDefaultStyle" Value="True" />
+                <Setter Property="Height"               Value="22" />
+                <Setter Property="Cursor"               Value="Hand" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type Button}">
+                            <Border x:Name="Bd"
+                                    Background="Transparent"
+                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4">
+                                <TextBlock Text="＋ Save swatch"
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HighlightBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectionHoverBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <!-- ── Slider for color picker RGB channels ───────────────────── -->
             <Style x:Key="RgbSliderStyle" TargetType="{x:Type Slider}">
                 <Setter Property="OverridesDefaultStyle" Value="True" />
@@ -222,7 +255,7 @@
                                         </RepeatButton>
                                     </Track.IncreaseRepeatButton>
                                     <Track.Thumb>
-                                        <Thumb>
+                                        <Thumb Focusable="False">
                                             <Thumb.Template>
                                                 <ControlTemplate TargetType="Thumb">
                                                     <Ellipse Width="12" Height="12"
@@ -703,6 +736,9 @@
                                             Background="#9B59B6" Click="StrokeSwatch_Click" />
                                 </WrapPanel>
 
+                                <!-- Custom stroke color swatches (saved by user) -->
+                                <WrapPanel x:Name="StrokeCustomSwatchesPanel" Margin="0,0,0,5" />
+
                                 <!-- Stroke hex + preview -->
                                 <Grid Margin="0,0,0,2">
                                     <Grid.ColumnDefinitions>
@@ -793,6 +829,11 @@
                                             <TextBox Text="{Binding StrokeColor, UpdateSourceTrigger=PropertyChanged}"
                                                      Style="{StaticResource PropTextBoxStyle}"
                                                      FontFamily="Consolas" />
+                                            <!-- Save custom swatch -->
+                                            <Button Margin="0,6,0,0"
+                                                    Style="{StaticResource SaveSwatchButtonStyle}"
+                                                    ToolTip="Save current color as a custom swatch&#x0a;Right-click any custom swatch to remove it"
+                                                    Click="SaveStrokeSwatch_Click" />
                                         </StackPanel>
                                     </Border>
                                 </Popup>
@@ -846,6 +887,10 @@
                                             Style="{StaticResource SwatchButtonStyle}"
                                             Background="#9B59B6" Click="FillSwatch_Click" />
                                 </WrapPanel>
+
+                                <!-- Custom fill color swatches (saved by user) -->
+                                <WrapPanel x:Name="FillCustomSwatchesPanel" Margin="0,0,0,5"
+                                           Visibility="{Binding IsFilled, Converter={StaticResource BoolToVis}}" />
 
                                 <!-- Fill hex + preview -->
                                 <Grid Margin="0,0,0,2"
@@ -939,6 +984,11 @@
                                             <TextBox Text="{Binding FillColor, UpdateSourceTrigger=PropertyChanged}"
                                                      Style="{StaticResource PropTextBoxStyle}"
                                                      FontFamily="Consolas" />
+                                            <!-- Save custom swatch -->
+                                            <Button Margin="0,6,0,0"
+                                                    Style="{StaticResource SaveSwatchButtonStyle}"
+                                                    ToolTip="Save current color as a custom swatch&#x0a;Right-click any custom swatch to remove it"
+                                                    Click="SaveFillSwatch_Click" />
                                         </StackPanel>
                                     </Border>
                                 </Popup>

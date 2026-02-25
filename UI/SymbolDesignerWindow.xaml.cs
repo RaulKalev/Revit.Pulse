@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -118,7 +119,7 @@ namespace Pulse.UI
             DrawingCanvas.Loaded += (_, __) => { DrawGrid(); DrawSnapCross(); RebuildAllDrawnShapes(); };
 
             // Rulers need the full window laid out before drawing (different visual-tree branch)
-            Loaded += (_, __) => DrawRulers();
+            Loaded += (_, __) => { DrawRulers(); RebuildCustomSwatches(); };
 
             // Keyboard shortcuts
             KeyDown += OnKeyDown;
@@ -2009,6 +2010,104 @@ namespace Pulse.UI
             {
                 _vm.FillColor = hex;
             }
+        }
+
+        // ─── Custom color swatches ──────────────────────────────────────────────────
+
+        private static readonly string _customSwatchesPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "Pulse", "symbol-custom-colors.txt");
+
+        // Shared across all designer window instances within an app session.
+        private static readonly List<string> _customSwatchColors = LoadCustomSwatchesFromFile();
+
+        private static List<string> LoadCustomSwatchesFromFile()
+        {
+            try
+            {
+                if (File.Exists(_customSwatchesPath))
+                    return new List<string>(File.ReadAllLines(_customSwatchesPath));
+            }
+            catch { }
+            return new List<string>();
+        }
+
+        private static void SaveCustomSwatchesToFile()
+        {
+            try
+            {
+                var dir = Path.GetDirectoryName(_customSwatchesPath);
+                if (dir != null && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
+                File.WriteAllLines(_customSwatchesPath, _customSwatchColors);
+            }
+            catch { }
+        }
+
+        /// <summary>Rebuilds both custom swatch WrapPanels from <see cref="_customSwatchColors"/>.</summary>
+        private void RebuildCustomSwatches()
+        {
+            BuildCustomSwatches(StrokeCustomSwatchesPanel, isStroke: true);
+            BuildCustomSwatches(FillCustomSwatchesPanel,  isStroke: false);
+        }
+
+        private void BuildCustomSwatches(WrapPanel panel, bool isStroke)
+        {
+            panel.Children.Clear();
+            foreach (var hex in _customSwatchColors)
+            {
+                var h   = hex; // closure capture
+                var btn = new Button
+                {
+                    Tag     = h,
+                    ToolTip = h + " (right-click to remove)",
+                    Style   = (Style)FindResource("SwatchButtonStyle"),
+                };
+                try   { btn.Background = new SolidColorBrush((Color)ColorConverter.ConvertFrom(h)); }
+                catch { btn.Background = Brushes.Gray; }
+                btn.Click += isStroke
+                    ? (RoutedEventHandler)StrokeSwatch_Click
+                    : (RoutedEventHandler)FillSwatch_Click;
+                btn.MouseRightButtonUp += (s, e) =>
+                {
+                    _customSwatchColors.Remove(h);
+                    SaveCustomSwatchesToFile();
+                    RebuildCustomSwatches();
+                    e.Handled = true;
+                };
+                panel.Children.Add(btn);
+            }
+        }
+
+        private void SaveStrokeSwatch_Click(object sender, RoutedEventArgs e)
+        {
+            var hex = NormalizeHex(_vm.StrokeColor);
+            if (hex == null || _customSwatchColors.Any(c =>
+                string.Equals(c, hex, StringComparison.OrdinalIgnoreCase))) return;
+            _customSwatchColors.Add(hex);
+            SaveCustomSwatchesToFile();
+            RebuildCustomSwatches();
+        }
+
+        private void SaveFillSwatch_Click(object sender, RoutedEventArgs e)
+        {
+            var hex = NormalizeHex(_vm.FillColor);
+            if (hex == null || _customSwatchColors.Any(c =>
+                string.Equals(c, hex, StringComparison.OrdinalIgnoreCase))) return;
+            _customSwatchColors.Add(hex);
+            SaveCustomSwatchesToFile();
+            RebuildCustomSwatches();
+        }
+
+        /// <summary>Parses any WPF-valid color string and returns an uppercase #RRGGBB hex string, or null on failure.</summary>
+        private static string NormalizeHex(string input)
+        {
+            if (string.IsNullOrWhiteSpace(input)) return null;
+            try
+            {
+                var c = (Color)ColorConverter.ConvertFrom(input.Trim());
+                return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
+            }
+            catch { return null; }
         }
 
         // ─── Import DXF / SVG ─────────────────────────────────────────────────
