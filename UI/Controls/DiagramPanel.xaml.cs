@@ -1095,37 +1095,44 @@ namespace Pulse.UI.Controls
                                             devAddr = an.ToString("D3");
                                         string labelText = shortLoop + "." + devAddr;
 
-                                        // Auto-size Border to content, then Measure() for exact post-rotation
-                                        // dimensions so centering is pixel-perfect without hardcoded guesses.
-                                        // After -90° LayoutTransform WPF reports DesiredSize in visual space:
-                                        //   DesiredSize.Width  = visual Width  (narrow pill dimension, centres on devX)
-                                        //   DesiredSize.Height = visual Height (pill length, drives SetTop offset)
+                                        // Pill shape: pin Height so the narrow dimension is exact and
+                                        // CornerRadius = Height/2 gives perfect rounded ends.
+                                        // Width auto-sizes to text (→ visual pill length).
+                                        // Measure() provides the actual visual length for SetTop.
+                                        const double labelFontSize = 7.0;
+                                        const double labelPadH     = 2.0;   // L/R padding
+                                        const double labelPadV     = 0.8;   // T/B padding
+                                        const double borderThick   = 0.75;
+                                        const double labelBorderH  = labelFontSize + labelPadV * 2 + borderThick * 2 + 0.5;
                                         double labelOffset = _canvasSettings.LabelOffsetPx;
 
                                         var addrLabel = new Border
                                         {
+                                            Height           = labelBorderH,
                                             BorderBrush      = wireBrush,
-                                            BorderThickness  = new Thickness(0.75),
-                                            CornerRadius     = new CornerRadius(100),
+                                            BorderThickness  = new Thickness(borderThick),
+                                            CornerRadius     = new CornerRadius(labelBorderH / 2.0),
                                             Background       = Brushes.Transparent,
-                                            Padding          = new Thickness(3.0, 1.0, 3.0, 1.0),
+                                            Padding          = new Thickness(labelPadH, labelPadV, labelPadH, labelPadV),
                                             IsHitTestVisible = false,
                                             LayoutTransform  = new System.Windows.Media.RotateTransform(-90),
                                             Child = new TextBlock
                                             {
                                                 Text       = labelText,
-                                                FontSize   = 7.0,
+                                                FontSize   = labelFontSize,
                                                 Foreground = wireBrush
                                             }
                                         };
 
+                                        // After -90° LayoutTransform WPF reports DesiredSize in visual space:
+                                        //   DesiredSize.Width  = labelBorderH (narrow visual width)  → centre on devX
+                                        //   DesiredSize.Height = pill visual length (auto from text) → drives SetTop
                                         addrLabel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-                                        double pillVisualW = addrLabel.DesiredSize.Width;   // narrow dimension — centre on devX
-                                        double pillVisualH = addrLabel.DesiredSize.Height;  // long dimension  — drives SetTop
+                                        double pillVisualLen = addrLabel.DesiredSize.Height;
 
-                                        double idealTop = wY - circR - labelOffset - pillVisualH;
+                                        double idealTop = wY - circR - labelOffset - pillVisualLen;
                                         double safeTop  = Math.Max(MarginTop - 2.0, idealTop);
-                                        Canvas.SetLeft(addrLabel, devX - pillVisualW / 2.0);
+                                        Canvas.SetLeft(addrLabel, devX - labelBorderH / 2.0);
                                         Canvas.SetTop(addrLabel,  safeTop);
                                         DiagramCanvas.Children.Add(addrLabel);
                                     }
