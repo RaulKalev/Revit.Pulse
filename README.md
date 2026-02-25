@@ -48,7 +48,7 @@ Revit API integration:
 | `RevitCollectorService` | Implements `ICollectorContext` — extracts elements and parameters |
 | `SelectionService` | Selects elements in the Revit model |
 | `TemporaryOverrideService` | Applies/resets graphic overrides to highlight elements |
-| `ExtensibleStorageService` | Reads/writes module settings to Revit Extensible Storage (V2 hardened) |
+| `ExtensibleStorageService` | Reads/writes module settings to Revit Extensible Storage (single-schema, Public access) |
 | `ExternalEvent handlers` | `CollectDevicesHandler`, `SelectElementHandler`, `TemporaryOverrideHandler`, `ResetOverridesHandler` |
 
 All Revit write operations use `ExternalEvent` to ensure they run on the Revit API thread.
@@ -124,21 +124,25 @@ Default Fire Alarm parameter mappings:
 ## Extensible Storage Schema
 
 Settings are persisted in the Revit document via Extensible Storage.
-Three schemas are used (Module Settings, Diagram Settings, Topology Assignments),
-each with **V1 (legacy)** and **V2 (current, hardened)** GUIDs.
+Three schemas are used, each with a **single GUID** and `AccessLevel.Public`
+for both read and write:
 
-V2 schemas use `AccessLevel.Vendor` for write and include a `PulseMarker` ownership field.
-Reads try V2 first, then fall back to V1. V1 entities are never deleted.
+| Schema | GUID (abridged) | Fields |
+|--------|-----------------|--------|
+| Module Settings | `A7E3B1C2-…-0E1F2A3B4C5E` | `SchemaVersion` (int) + `SettingsJson` (string) |
+| Diagram Settings | `B8F4C2D3-…-1F2A3B4C5D6E` | `DiagramSchemaVersion` (int) + `DiagramSettingsJson` (string) |
+| Topology Assignments | `C9D5E3F4-…-2A3B4C5D6E7F` | `TopologyAssignmentsVersion` (int) + `TopologyAssignmentsJson` (string) |
 
-> See [ARCHITECTURE.md](ARCHITECTURE.md#4-extensible-storage-strategy) for full details.
+All data resides on a single `DataStorage` element named `"PulseSettings"`.
+
+> See [ARCHITECTURE.md](ARCHITECTURE.md#4-extensible-storage-strategy) for full
+> details including the future hardening roadmap.
 
 ### Safety guarantees:
-- Schema is versioned with explicit upgrade path (v1 → v2 migration pipeline)
-- V2 schemas write-locked to Pulse vendor ID
-- Missing schema initializes defaults (never corrupts)
-- Previous schemas are never silently deleted
-- All writes happen inside Revit transactions
-- Read failures fall back to defaults
+- Missing schema or DataStorage → defaults used (never corrupts)
+- All writes happen inside Revit transactions via ExternalEvent handlers
+- Read failures silently fall back to defaults
+- Synchronous flush available during re-entry (FlushPendingToRevit)
 
 ---
 

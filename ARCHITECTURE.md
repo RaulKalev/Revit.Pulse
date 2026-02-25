@@ -57,9 +57,14 @@ PulseFireAlarm.Execute()            ← IExternalCommand entry point
             ├─ RefreshPipeline       — CollectDevicesHandler + ExternalEvent
             ├─ SelectionHighlightFacade
             ├─ StorageFacade         — read/write ES + JSON persistence
+            ├─ TopologyAssignmentsService — per-document assignment lifecycle
+            ├─ SymbolMappingOrchestrator  — custom symbol library + mapping
+            ├─ DiagramFeatureService      — diagram wire orchestration
             │
             ├─ ModuleCatalog.Discover(expectedModuleIds, [FireAlarmFallback])
             │    └─ reflection scan → register into PulseAppController
+            │
+            ├─ Capability guards wired (Diagram, Wiring, SymbolMapping, ConfigAssignment)
             │
             ├─ StorageFacade.ReadSettings(doc)
             │    └─ PulseAppController.ApplySettings() → active module selected
@@ -143,41 +148,75 @@ Optional feature interfaces (`IProvidesDiagramFeatures`,
 
 ## 4. Extensible Storage Strategy
 
-### 4.1 Schema Versioning
+### 4.1 Schema Registry
 
-Each schema has two GUIDs — **V1 (legacy)** and **V2 (current)**:
+Each data category has a **single GUID** defined in `SchemaDefinitions`.
+Schemas use `AccessLevel.Public` for both read and write so that any
+add-in (or future Pulse module) can inspect the data.
 
-| Schema | V1 GUID | V2 GUID |
-|--------|---------|---------|
-| Module Settings | `A7E3B1C2-…-0E1F2A3B4C5E` | `A7E3B1C2-…-1F2A3B4C5E6F` |
-| Diagram Settings | `B8F4C2D3-…-1F2A3B4C5D6E` | `B8F4C2D3-…-2F3A4B5C6D7E` |
-| Topology Assignments | `C9D5E3F4-…-2A3B4C5D6E7F` | `C9D5E3F4-…-3A4B5C6D7E8F` |
+| Schema | GUID | Schema Name | Fields |
+|--------|------|-------------|--------|
+| Module Settings | `A7E3B1C2-4D5F-6A7B-8C9D-0E1F2A3B4C5E` | `PulseModuleSettings` | `SchemaVersion` (int) + `SettingsJson` (string) |
+| Diagram Settings | `B8F4C2D3-5E6A-7B8C-9D0E-1F2A3B4C5D6E` | `PulseDiagramSettings` | `DiagramSchemaVersion` (int) + `DiagramSettingsJson` (string) |
+| Topology Assignments | `C9D5E3F4-6A7B-8C9D-0E1F-2A3B4C5D6E7F` | `PulseTopologyAssignments` | `TopologyAssignmentsVersion` (int) + `TopologyAssignmentsJson` (string) |
 
-### 4.2 V2 Hardening
+All schemas are attached to a single `DataStorage` element named
+`"PulseSettings"`, located via `FilteredElementCollector`.
 
-V2 schemas differ from V1 in two ways:
+### 4.2 Access Level
 
-1. **New GUIDs**: completely separate from V1 data to avoid cross-version corruption
-2. **Marker field**: every V2 entity contains `PulseMarker = "Pulse"`, validated on read
+Both read and write access levels are set to `AccessLevel.Public`.
+This means any Revit add-in can read and write Pulse data.
 
 ### 4.3 Read / Write Flow
 
 ```
 Read:
-  1. Try V2 schema (Schema.Lookup) → validate marker → return JSON
-  2. Fall back to V1 schema → return JSON (no marker expected)
-  3. If neither exists → return null / defaults
+  1. Find DataStorage element named "PulseSettings"
+  2. Schema.Lookup(guid) → get entity → deserialise JSON field
+  3. If DataStorage or schema not found → return null / defaults
 
-Write:
-  Always writes to V2 schema with marker field.
-  V1 entities are never deleted — they remain for safety.
+Write (async path — normal operation):
+  StorageFacade raises ExternalEvent
+    → handler calls ExtensibleStorageService
+      → opens Transaction
+      → serialises to JSON
+      → sets Entity on DataStorage
+      → commits
+
+Write (sync path — flush on re-entry):
+  TopologyAssignmentsService.FlushToRevit(doc)
+    → StorageFacade.SyncWriteTopologyAssignments(doc, store)
 ```
 
-### 4.4 Migration Pipeline
+### 4.4 Fallback Strategy
 
-`UpgradeSettingsJson(json, fromVersion)` steps sequentially through
-each version increment. Currently v1 → v2 is a format-unchanged no-op.
-Future versions add cases to the migration chain.
+- JSON fields store the full object graph; `SchemaVersion` is always `1`.
+- If the DataStorage element does not exist yet, it is created inside
+  the write transaction.
+- If `Schema.Lookup()` returns null on read, the data is treated as
+  absent and defaults are used.
+- There is no V2 schema and no marker-field validation at this time.
+  The previous V2 hardening plan was reverted for stability.
+
+### 4.5 TODO — Future Storage Hardening
+
+> These items are documented for future implementation.  They are **not**
+> active in the current codebase and should not be attempted until the
+> single-schema approach has proven stable in production.
+
+- [ ] **Marker field**: add a `PulseMarker = "Pulse"` string field to
+      each schema; validate on read to guard against collisions with
+      other add-ins.
+- [ ] **Vendor access level**: switch write access to
+      `AccessLevel.Vendor` with the Pulse vendor ID to prevent
+      accidental overwrites by third-party tools.
+- [ ] **V2 GUIDs + migration**: introduce new schema GUIDs with the
+      marker field; implement a `MigrateV1ToV2()` pipeline that reads
+      the old entity, writes to the new schema, and optionally deletes
+      the V1 entity.
+- [ ] **Schema version bumping**: when the JSON shape changes, increment
+      `SchemaVersion` and add a case to a version-step migration chain.
 
 ---
 
