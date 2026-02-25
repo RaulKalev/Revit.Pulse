@@ -803,11 +803,12 @@ namespace Pulse.UI.Controls
                             TextTrimming     = TextTrimming.CharacterEllipsis
                         };
                         outLbl.RenderTransform = new System.Windows.Media.RotateTransform(-90);
-                        // After -90° rotation: visual X span = outLblWidth, visual Y span = outLblLineH
-                        // Centre horizontally in cell: SetLeft = ocx + (outCellW - outLblWidth)/2
-                        // Centre vertically in cell:   SetTop  = outY + outCellH/2 + outLblLineH/2
-                        Canvas.SetLeft(outLbl, ocx + (outCellW - outLblWidth) / 2.0);
-                        Canvas.SetTop(outLbl,  outY + outCellH / 2.0 + outLblLineH / 2.0);
+                        // After -90° rotation: visual width  = outLblLineH (text height → horiz span)
+                        //                      visual height = outLblWidth  (text Width  → vert  span)
+                        // Horizontal centre: SetLeft = ocx + outCellW/2 - outLblLineH/2
+                        // Vertical   centre: SetTop  = outY + outCellH/2 + outLblWidth/2
+                        Canvas.SetLeft(outLbl, ocx  + outCellW  / 2.0 - outLblLineH / 2.0);
+                        Canvas.SetTop(outLbl,  outY + outCellH  / 2.0 + outLblWidth  / 2.0);
                         DiagramCanvas.Children.Add(outLbl);
                     }
 
