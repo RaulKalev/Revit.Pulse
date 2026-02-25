@@ -1111,6 +1111,7 @@ namespace Pulse.UI.Controls
 
                                         var addrLabel = new Border
                                         {
+                                            Width            = labelW,
                                             Height           = labelBorderH,
                                             BorderBrush      = wireBrush,
                                             BorderThickness  = new Thickness(borderThick),
@@ -1121,11 +1122,11 @@ namespace Pulse.UI.Controls
                                             LayoutTransform  = new System.Windows.Media.RotateTransform(-90),
                                             Child = new TextBlock
                                             {
-                                                Text                = labelText,
-                                                FontSize            = labelFontSize,
-                                                Foreground          = wireBrush,
-                                                VerticalAlignment   = VerticalAlignment.Center,
-                                                HorizontalAlignment = HorizontalAlignment.Center
+                                                Text              = labelText,
+                                                FontSize          = labelFontSize,
+                                                Foreground        = wireBrush,
+                                                TextAlignment     = TextAlignment.Center,
+                                                VerticalAlignment = VerticalAlignment.Center
                                             }
                                         };
 
