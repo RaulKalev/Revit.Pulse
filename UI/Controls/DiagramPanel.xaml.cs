@@ -68,8 +68,9 @@ namespace Pulse.UI.Controls
 
         private struct WireSlot
         {
-            public bool   IsDots;     // true = ··· placeholder
-            public string DeviceType; // meaningful when IsDots == false
+            public bool   IsDots;        // true = ··· placeholder
+            public string DeviceType;    // meaningful when IsDots == false
+            public int    AddressIndex;  // index into loopInfo.DeviceAddresses / DeviceTypesByAddress
         }
 
         /// <summary>
@@ -96,14 +97,14 @@ namespace Pulse.UI.Controls
 
                 if (runLen >= 4)
                 {
-                    result.Add(new WireSlot { DeviceType = raw[runStart] }); // first
-                    result.Add(new WireSlot { IsDots     = true });           // ···
-                    result.Add(new WireSlot { DeviceType = raw[j - 1] });    // last
+                    result.Add(new WireSlot { DeviceType = raw[runStart], AddressIndex = offset + runStart }); // first
+                    result.Add(new WireSlot { IsDots     = true,          AddressIndex = -1 });                // ···
+                    result.Add(new WireSlot { DeviceType = raw[j - 1],   AddressIndex = offset + j - 1 });    // last
                 }
                 else
                 {
                     for (int k = runStart; k < j; k++)
-                        result.Add(new WireSlot { DeviceType = raw[k] });
+                        result.Add(new WireSlot { DeviceType = raw[k], AddressIndex = offset + k });
                 }
             }
             return result;
@@ -1076,16 +1077,12 @@ namespace Pulse.UI.Controls
                                     if (slots == null) devOffset++;
 
                                     // ── Address label (rotated, above wire) ───────────────────────
-                                    // Labels are only emitted in uncompressed mode (slots == null).
-                                    // In compressed mode devOffset is never incremented so the
-                                    // mapping from slot position to address index is non-trivial;
-                                    // skipping avoids incorrect labels on collapsed rows.
-                                    if (_canvasSettings.ShowAddressLabels && slots == null)
+                                    if (_canvasSettings.ShowAddressLabels)
                                     {
-                                        // devOffset was already incremented just above, so the
-                                        // current device sits at index devOffset-1.
-                                        int addrIdx = devOffset - 1;
-                                        string devAddr = addrIdx < loopInfo.DeviceAddresses.Count
+                                        // In slot mode: AddressIndex was recorded in BuildCompressedRow.
+                                        // In uncompressed mode: devOffset was already incremented above.
+                                        int addrIdx = slots != null ? slots[di].AddressIndex : devOffset - 1;
+                                        string devAddr = addrIdx >= 0 && addrIdx < loopInfo.DeviceAddresses.Count
                                             ? loopInfo.DeviceAddresses[addrIdx] : string.Empty;
 
                                         // Format: zero-pad loop number (strip "Loop " prefix) + "." + address
