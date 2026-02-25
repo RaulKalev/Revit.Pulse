@@ -485,6 +485,7 @@ namespace Pulse.UI.ViewModels
                 Owner = _ownerWindow
             };
             win.ShowDialog();
+            Diagram.DeviceConfigChanged?.Invoke();
         }
 
         /// <summary>Open the Symbol Mapping dialog.</summary>

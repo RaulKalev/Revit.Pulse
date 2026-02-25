@@ -262,6 +262,9 @@ namespace Pulse.UI.ViewModels
         /// <summary>Raised after FlipSelectedLoop() so the diagram redraws.</summary>
         public Action FlipStateChanged { get; set; }
 
+        /// <summary>Raised after the DeviceConfigurator is closed so the diagram redraws with new config.</summary>
+        public Action DeviceConfigChanged { get; set; }
+
         // LoadFlipStates is handled by LoadAssignments.
 
         /// <summary>True when the given loop should be drawn on the right side of its panel.</summary>

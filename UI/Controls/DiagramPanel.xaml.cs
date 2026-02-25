@@ -188,6 +188,7 @@ namespace Pulse.UI.Controls
                 _currentVm.Levels.CollectionChanged  -= OnLevelsChanged;
                 _currentVm.Panels.CollectionChanged  -= OnLevelsChanged;
                 _currentVm.FlipStateChanged           = null;
+                _currentVm.DeviceConfigChanged        = null;
             }
 
             _currentVm = DataContext as DiagramViewModel;
@@ -198,6 +199,8 @@ namespace Pulse.UI.Controls
                 _currentVm.Panels.CollectionChanged  += OnLevelsChanged;
                 _currentVm.FlipStateChanged           = () => Dispatcher.BeginInvoke(
                     DispatcherPriority.Loaded, (System.Action)DrawLevels);
+                _currentVm.DeviceConfigChanged        = () => Dispatcher.BeginInvoke(
+                    DispatcherPriority.Loaded, (System.Action)(() => { LoadPaperSizes(); DrawLevels(); }));
             }
 
             // Refresh symbol library whenever the data context changes
