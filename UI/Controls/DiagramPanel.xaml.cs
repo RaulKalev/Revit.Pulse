@@ -1099,27 +1099,28 @@ namespace Pulse.UI.Controls
                                         string labelText = shortLoop + "." + devAddr;
 
                                         const double labelFontSize    = 7.0;
-                                        const double addrApproxLineH  = 8.5; // px at fontSize 7
+                                        const double addrApproxLineH  = 9.5;  // visual width after -90° rotate (= natural line height at fontSize 7)
+                                        const double labelW           = 28.0; // visual height after -90° rotate (= natural text width)
                                         double labelOffset = _canvasSettings.LabelOffsetPx;
-                                        // Label natural width capped; after -90° becomes visual height.
-                                        const double labelW = 30.0;
+
                                         var addrLabel = new TextBlock
                                         {
                                             Text             = labelText,
                                             FontSize         = labelFontSize,
                                             Foreground       = wireBrush,
                                             IsHitTestVisible = false,
-                                            Width            = labelW,
-                                            TextTrimming     = TextTrimming.CharacterEllipsis
+                                            // LayoutTransform: WPF applies the rotation during layout,
+                                            // so Canvas.SetLeft/SetTop reference the VISUAL (rotated) bounds.
+                                            // After rotation: visual Width ≈ addrApproxLineH, visual Height = labelW.
+                                            LayoutTransform  = new System.Windows.Media.RotateTransform(-90)
                                         };
-                                        // RotateTransform(-90): natural width → visual height,
-                                        //   natural height → visual width.
-                                        addrLabel.RenderTransform = new System.Windows.Media.RotateTransform(-90);
-                                        // Horizontal centre at devX: left = devX − approxLineH/2
-                                        // Bottom of label at wY − circR − labelOffset:
-                                        //   SetTop = bottom − labelW (natural width is visual height)
+
+                                        // Ideal: top of label = wY - circR - labelOffset - labelW
+                                        // Clamped to MarginTop - 2 so labels near the canvas top stay visible.
+                                        double idealTop = wY - circR - labelOffset - labelW;
+                                        double safeTop  = Math.Max(MarginTop - 2.0, idealTop);
                                         Canvas.SetLeft(addrLabel, devX - addrApproxLineH / 2.0);
-                                        Canvas.SetTop(addrLabel,  wY - circR - labelOffset);
+                                        Canvas.SetTop(addrLabel,  safeTop);
                                         DiagramCanvas.Children.Add(addrLabel);
                                     }
 
