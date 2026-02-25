@@ -497,7 +497,7 @@ namespace Pulse.UI.Controls
 
                     double rectW    = panelFixedW;
                     double rectH    = panelFixedH;
-                    double rectLeft = (w - rectW) / 2.0;          // horizontally centered
+                    double rectLeft = (totalW - rectW) / 2.0;          // horizontally centered on level lines
 
                     // Per-panel user settings (name, outCount, supply) — needed before rectTop
                     var panelCfg = GetPanelCfg(panel.Name);
