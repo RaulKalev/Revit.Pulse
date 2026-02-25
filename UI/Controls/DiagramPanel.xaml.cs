@@ -789,46 +789,48 @@ namespace Pulse.UI.Controls
 
                     // ── Output lines (one per labeled output, L-shaped: stub down then right) ───────
                     {
-                        var outLineBrush       = new SolidColorBrush(Color.FromArgb(0xDD, 0x26, 0xC6, 0xB0));
                         const double lineLen   = 200.0;  // length of horizontal run
                         const double lineGapY  = 12.0;   // vertical spacing between horizontal lines
                         const double firstGapY =  8.0;   // gap from bottom of output cells to first line
                         const double lineThick =  0.8;
                         const double lblFontSz =  5.5;
 
-                        double lineY0 = outY + outCellH + firstGapY;
-                        int    lineIdx = 0;
-
+                        // Collect labeled output indices, sorted right-to-left so the
+                        // rightmost cell gets the topmost (shallowest) line — no stubs
+                        // ever cross a horizontal run.
+                        var labeledOuts = new System.Collections.Generic.List<int>();
                         for (int oi = 0; oi < outCount; oi++)
+                            if (panelCfg.OutputLabels.Count > oi
+                                && !string.IsNullOrWhiteSpace(panelCfg.OutputLabels[oi]))
+                                labeledOuts.Add(oi);
+                        labeledOuts.Sort((a, b) => b.CompareTo(a)); // descending → rightmost first
+
+                        double lineY0 = outY + outCellH + firstGapY;
+
+                        for (int slot = 0; slot < labeledOuts.Count; slot++)
                         {
-                            string userLbl = (panelCfg.OutputLabels.Count > oi)
-                                             ? panelCfg.OutputLabels[oi] : string.Empty;
-                            if (string.IsNullOrWhiteSpace(userLbl)) continue;
+                            int    oi      = labeledOuts[slot];
+                            string userLbl = panelCfg.OutputLabels[oi];
+                            double stubX   = outStartX + oi * outCellW + outCellW / 2.0;
+                            double ly      = lineY0 + slot * lineGapY;
 
-                            // Centre-X of this output cell
-                            double stubX = outStartX + oi * outCellW + outCellW / 2.0;
-                            double ly    = lineY0 + lineIdx * lineGapY;
-
-                            // Vertical stub down from cell bottom to the horizontal run
-                            PLine(outLineBrush, stubX, outY + outCellH, stubX, ly, lineThick);
+                            // Vertical stub from cell bottom to the horizontal run
+                            PLine(panelStroke, stubX, outY + outCellH, stubX, ly, lineThick);
 
                             // Horizontal run to the right
-                            double lx2 = outStartX + lineLen;
-                            PLine(outLineBrush, stubX, ly, lx2, ly, lineThick);
+                            PLine(panelStroke, stubX, ly, outStartX + lineLen, ly, lineThick);
 
                             // Label above the horizontal run
                             var lineLbl = new TextBlock
                             {
                                 Text             = userLbl,
                                 FontSize         = lblFontSz,
-                                Foreground       = outLineBrush,
+                                Foreground       = panelStroke,
                                 IsHitTestVisible = false
                             };
                             Canvas.SetLeft(lineLbl, stubX + 2);
                             Canvas.SetTop(lineLbl,  ly - lblFontSz * 1.35);
                             DiagramCanvas.Children.Add(lineLbl);
-
-                            lineIdx++;
                         }
                     }
 
