@@ -33,7 +33,7 @@
                 Fill="Transparent"
                 Stroke="{Binding DimBrush, FallbackValue=#66FFFFFF, TargetNullValue=#66FFFFFF}"
                 StrokeThickness="1.5"
-                Data="M 12,51 C 2,53 2,63 12,65 C 22,67 22,77 12,79 L 12,80" />
+                Data="M 12,41 C 2,43 2,53 12,55 C 22,57 22,67 12,69 L 12,70" />
 
         </Canvas>
     </Viewbox>
