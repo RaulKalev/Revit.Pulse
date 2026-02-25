@@ -442,9 +442,24 @@ namespace Pulse.UI.ViewModels
             {
                 var service = new ExtensibleStorageService(doc);
 
-                var allSettings = service.ReadSettings();
-                if (allSettings != null && allSettings.TryGetValue(_activeModule.ModuleId, out var stored))
-                    _activeSettings = stored;
+                // Parameter mappings are always loaded from local JSON (machine-wide).
+                var jsonStore = DeviceConfigService.Load();
+                if (jsonStore.ModuleSettings.TryGetValue(_activeModule.ModuleId, out var jsonSettings))
+                {
+                    // Merge in any parameter keys present in defaults but absent in the saved
+                    // settings (e.g. keys added in a newer version of the plugin).
+                    var defaults = _activeModule.GetDefaultSettings();
+                    var existingKeys = new System.Collections.Generic.HashSet<string>(
+                        jsonSettings.ParameterMappings.ConvertAll(m => m.LogicalName),
+                        StringComparer.OrdinalIgnoreCase);
+                    foreach (var dm in defaults.ParameterMappings)
+                    {
+                        if (!existingKeys.Contains(dm.LogicalName))
+                            jsonSettings.ParameterMappings.Add(dm);
+                    }
+
+                    _activeSettings = jsonSettings;
+                }
 
                 var diagramSettings = service.ReadDiagramSettings();
                 if (diagramSettings != null)
@@ -528,29 +543,48 @@ namespace Pulse.UI.ViewModels
 
             var configName = vm.AssignedConfig ?? string.Empty;
 
-            // Prefer writing to the node's own Revit element (panel board / electrical circuit).
-            // Fall back to stamping all descendant devices when no direct element is resolved.
             System.Collections.Generic.List<(long, string, string)> writes;
             string writeTarget;
-            if (vm.GraphNode.RevitElementId.HasValue)
+
+            if (vm.NodeType == "Panel")
             {
-                writes = new System.Collections.Generic.List<(long, string, string)>
+                // Panel config → write to the panel board element itself.
+                // Fall back to descendant devices if no panel element was resolved.
+                if (vm.GraphNode.RevitElementId.HasValue)
                 {
-                    (vm.GraphNode.RevitElementId.Value, paramName, configName)
-                };
-                writeTarget = vm.NodeType == "Panel" ? "FACP element" : "circuit element";
+                    writes = new System.Collections.Generic.List<(long, string, string)>
+                    {
+                        (vm.GraphNode.RevitElementId.Value, paramName, configName)
+                    };
+                    writeTarget = "FACP element";
+                }
+                else if (vm.DescendantDeviceElementIds.Count > 0)
+                {
+                    writes = vm.DescendantDeviceElementIds
+                        .Select(id => (id, paramName, configName))
+                        .ToList();
+                    writeTarget = "descendant devices (no FACP element resolved)";
+                }
+                else
+                {
+                    StatusText = $"Config '{configName}' not written — no Revit element resolved for '{vm.Label}'.";
+                    return;
+                }
             }
-            else if (vm.DescendantDeviceElementIds.Count > 0)
+            else // Loop
             {
+                // Loop module config → always write to all devices in the loop,
+                // same as wire assignment. The circuit element (RevitElementId) is
+                // a lookup helper and does not carry the loop-config parameter.
+                if (vm.DescendantDeviceElementIds.Count == 0)
+                {
+                    StatusText = $"Config '{configName}' not written — no device elements resolved for '{vm.Label}'.";
+                    return;
+                }
                 writes = vm.DescendantDeviceElementIds
                     .Select(id => (id, paramName, configName))
                     .ToList();
-                writeTarget = "descendant devices (no direct element resolved)";
-            }
-            else
-            {
-                StatusText = $"Config '{configName}' not written — no Revit element resolved for '{vm.Label}'.";
-                return;
+                writeTarget = $"devices in {vm.Label}";
             }
 
             _writeParamHandler.Writes = writes;

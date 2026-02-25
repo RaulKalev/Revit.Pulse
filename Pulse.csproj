@@ -13,6 +13,8 @@
 
   <ItemGroup>
     <Resource Include="Assets\Pulse.tiff" />
+    <Resource Include="Assets\Light - Pulse - Fire.tiff" />
+    <Resource Include="Assets\Dark - Pulse - Fire.tiff" />
   </ItemGroup>
 
   <!-- NuGet Packages -->

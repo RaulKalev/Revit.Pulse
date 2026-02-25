@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
+using Pulse.Core.Settings;
 
 namespace Pulse.Core.Settings
 {
@@ -129,5 +130,13 @@ namespace Pulse.Core.Settings
         /// <summary>User-defined cable/wire definitions selectable on loops.</summary>
         [JsonProperty("wires")]
         public List<WireConfig> Wires { get; set; } = new List<WireConfig>();
+
+        /// <summary>
+        /// Per-module parameter mappings and category settings, keyed by module ID.
+        /// Mirrors what is stored in Revit Extensible Storage, providing a machine-wide
+        /// fallback so settings survive across documents and fresh models.
+        /// </summary>
+        [JsonProperty("moduleSettings")]
+        public Dictionary<string, ModuleSettings> ModuleSettings { get; set; } = new Dictionary<string, ModuleSettings>();
     }
 }

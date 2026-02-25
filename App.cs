@@ -13,7 +13,7 @@ namespace Pulse
     {
         public Result OnStartup(UIControlledApplication application)
         {
-            string tabName = "Pulse";
+            string tabName = "RK Tools";
 
             try
             {
@@ -24,12 +24,12 @@ namespace Pulse
                 // Tab already exists
             }
 
-            var panel = application.CreateOrSelectPanel(tabName, "Tools");
+            var panel = application.CreateOrSelectPanel(tabName, "Pulse");
 
-            panel.CreatePushButton<PulseCommand>()
-                .SetLargeImage("pack://application:,,,/Pulse;component/Assets/Pulse.tiff")
-                .SetText("Pulse")
-                .SetToolTip("Open the Pulse system control center.")
+            panel.CreatePushButton<PulseFireAlarm>()
+                .SetLargeImage("pack://application:,,,/Pulse;component/Assets/Light%20-%20Pulse%20-%20Fire.tiff")
+                .SetText("Fire Alarm")
+                .SetToolTip("Open the Pulse Fire Alarm module.")
                 .SetLongDescription("Pulse is a modern MEP UX platform for addressable systems. Manage fire alarm panels, loops, zones, and devices with real-time topology visualization.");
 
             return Result.Succeeded;

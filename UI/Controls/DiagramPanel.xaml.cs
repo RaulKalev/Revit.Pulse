@@ -534,9 +534,12 @@ namespace Pulse.UI.Controls
                         : panel.LoopInfos.Count;
                     loopCount = Math.Min(loopCount, 16);
 
-                    const double headerH   = 52.0;
                     const double lblFont   = 7.0;
-                    double approxLineH     = lblFont * 1.55;
+                    // Size the header to exactly fit the longest expected loop label ("Loop 10") + margin
+                    var _headerProbe = new TextBlock { Text = "Loop 10", FontSize = lblFont };
+                    _headerProbe.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+                    double headerH     = _headerProbe.DesiredSize.Width + 8.0;
+                    double approxLineH = lblFont * 1.55;
 
                     if (loopCount > 0 && rectH > headerH + 12)
                     {
@@ -584,106 +587,69 @@ namespace Pulse.UI.Controls
                     // Vertical divider between sections
                     PLine(panelDim, rsLeft, rectTop + 1, rsLeft, rectTop + rectH - 1);
 
-                    // ---- Battery symbol (centered in header zone of right section) ----
-                    // Standard IEC battery: alternating long-thin (−) and short-thick (+) plates
-                    // connected by a central vertical conductor, two cells shown.
-                    double batAreaCY = rectTop + headerH / 2.0;  // vertical centre of header zone
-                    double batHalf   = 22.0;                      // half total symbol height
-                    double batSY     = batAreaCY - batHalf;       // symbol top
-                    double plateW_thin  = 16.0;
-                    double plateW_thick = 10.0;
-
-                    // Central vertical conductor (full height of symbol)
-                    PLine(panelDim, rsCX, batSY, rsCX, batSY + batHalf * 2);
-
-                    // Cell 1  (upper)
-                    // — thin plate (−)
-                    PLine(panelDim,    rsCX - plateW_thin / 2,  batSY + 6,  rsCX + plateW_thin / 2,  batSY + 6,  1.0);
-                    // — thick plate (+)
-                    PLine(panelStroke, rsCX - plateW_thick / 2, batSY + 11, rsCX + plateW_thick / 2, batSY + 11, 2.5);
-
-                    // Cell 2  (lower)
-                    // — thin plate (−)
-                    PLine(panelDim,    rsCX - plateW_thin / 2,  batSY + 26, rsCX + plateW_thin / 2,  batSY + 26, 1.0);
-                    // — thick plate (+)
-                    PLine(panelStroke, rsCX - plateW_thick / 2, batSY + 31, rsCX + plateW_thick / 2, batSY + 31, 2.5);
-
-                    // Dashed vertical gap between the two cells (polarity indicator)
-                    var batDash = new Line
+                    // ---- Battery symbol (XAML UserControl, centered in top half) ----
+                    double batAreaCY = rectTop + rectH / 4.0;
+                    var batSymbol = new BatterySymbol
                     {
-                        X1 = rsCX, Y1 = batSY + 14, X2 = rsCX, Y2 = batSY + 23,
-                        Stroke = panelDimmer, StrokeThickness = 1,
-                        StrokeDashArray = new DoubleCollection { 2, 2 },
-                        IsHitTestVisible = false
+                        StrokeBrush = panelStroke,
+                        DimBrush    = panelDim
                     };
-                    DiagramCanvas.Children.Add(batDash);
+                    Canvas.SetLeft(batSymbol, rsLeft);
+                    Canvas.SetTop(batSymbol,  batAreaCY - 30); // 30 = half control height (60/2)
+                    DiagramCanvas.Children.Add(batSymbol);
 
-                    // ---- Horizontal divider inside right section (header / body boundary) ----
-                    double rsDivY = rectTop + headerH;
+                    // ---- Horizontal divider at panel vertical centre (battery / PSU boundary) ----
+                    double rsDivY = rectTop + rectH / 2.0;
                     PLine(panelDim, rsLeft + 1, rsDivY, rsLeft + rightSecW - 1, rsDivY);
 
-                    // ---- Diagonal PSU section (body zone of right section) ----
-                    double diagTop    = rsDivY + 1;
-                    double diagBottom = rectTop + rectH - 2;
-                    double diagBoxH   = diagBottom - diagTop;
-                    double diagBoxL   = rsLeft + 2;
-                    double diagBoxR   = rsLeft + rightSecW - 2;
-
-                    // No inner border rect — the outer panel rect + divider already frame it.
-                    // Single diagonal: bottom-left → top-right
-                    PLine(panelDimmer, diagBoxL, diagBottom, diagBoxR, diagTop);
-
-                    // Rod (fuse/indicator) symbol — upper-right area, short vertical bar with caps
-                    double rodX  = diagBoxL + (diagBoxR - diagBoxL) * 0.68;
-                    double rodMY = diagTop  + diagBoxH * 0.32;
-                    PLine(panelStroke, rodX, rodMY - 7, rodX, rodMY + 7);          // main rod
-                    PLine(panelDim,    rodX - 3, rodMY - 7, rodX + 3, rodMY - 7); // top cap
-                    PLine(panelDim,    rodX - 3, rodMY + 7, rodX + 3, rodMY + 7); // bottom cap
-
-                    // Coil/cord symbol — lower-left area, open arc (backward-C)
-                    double coilCX = diagBoxL + (diagBoxR - diagBoxL) * 0.32;
-                    double coilCY = diagTop  + diagBoxH * 0.70;
-                    double coilR  = 5.5;
-                    var coilPath = new System.Windows.Shapes.Path
+                    // ---- PSU / diagonal section (XAML UserControl, fills lower half) ----
+                    double diagTop  = rsDivY + 1;
+                    double diagBoxH = (rectTop + rectH - 2) - diagTop;
+                    var psuSymbol = new PSUSymbol
                     {
-                        Stroke = panelDim, StrokeThickness = 1,
-                        Fill = Brushes.Transparent, IsHitTestVisible = false,
-                        Data = new PathGeometry(new[]
-                        {
-                            new PathFigure(
-                                new Point(coilCX, coilCY - coilR),
-                                new PathSegment[]
-                                {
-                                    new ArcSegment(
-                                        new Point(coilCX, coilCY + coilR),
-                                        new System.Windows.Size(coilR, coilR),
-                                        0, true,
-                                        SweepDirection.Counterclockwise, true)
-                                },
-                                false)
-                        })
+                        StrokeBrush = panelStroke,
+                        DimBrush    = panelDim,
+                        Width       = rightSecW - 4,
+                        Height      = diagBoxH
                     };
-                    DiagramCanvas.Children.Add(coilPath);
-                    // Short tail below coil
-                    PLine(panelDim, coilCX, coilCY + coilR, coilCX, coilCY + coilR + 4);
+                    Canvas.SetLeft(psuSymbol, rsLeft + 2);
+                    Canvas.SetTop(psuSymbol,  diagTop);
+                    DiagramCanvas.Children.Add(psuSymbol);
 
-                    // ── Power connection: from right panel edge → ground symbol + label ──
-                    double pwrY  = rsDivY + diagBoxH * 0.45;  // midway in diagonal section
-                    double gndX0 = rectLeft + rectW;           // panel right edge
-                    double gndX1 = gndX0 + 14;                 // start of ground symbol
+                    // ── Power connection: from right panel edge → L-path → IEC earth symbol + label ──
+                    double pwrY        = rsDivY + diagBoxH * 0.45; // midway in diagonal section
+                    double gndX0       = rectLeft + rectW;          // panel right edge
+                    double gndHorizLen = 14.0;                      // horizontal lead
+                    double gndVertLen  = 14.0;                      // vertical drop
+                    double gndX1       = gndX0 + gndHorizLen;      // elbow / earth symbol centre X
+                    double gndY1       = pwrY  + gndVertLen;        // top bar of earth symbol
+
+                    // Horizontal lead from panel edge to elbow
                     PLine(panelDim, gndX0, pwrY, gndX1, pwrY);
-                    // 3-bar ground symbol (bars centred on gndX1)
-                    PLine(panelStroke, gndX1 - 6, pwrY,     gndX1 + 6, pwrY);
-                    PLine(panelStroke, gndX1 - 4, pwrY + 3, gndX1 + 4, pwrY + 3);
-                    PLine(panelStroke, gndX1 - 2, pwrY + 6, gndX1 + 2, pwrY + 6);
-                    // Label below ground symbol
+                    // Vertical drop from elbow to earth symbol
+                    PLine(panelDim, gndX1, pwrY, gndX1, gndY1);
+                    // IEC earth symbol — three decreasing bars below the vertical
+                    PLine(panelStroke, gndX1 - 6, gndY1,     gndX1 + 6, gndY1);     // bar 1 (widest)
+                    PLine(panelStroke, gndX1 - 4, gndY1 + 4, gndX1 + 4, gndY1 + 4); // bar 2
+                    PLine(panelStroke, gndX1 - 2, gndY1 + 8, gndX1 + 2, gndY1 + 8); // bar 3 (narrowest)
+
+                    // "Toide 230V" label + stub line at bottom-right corner of panel
+                    double toideY      = rectTop + rectH - 1;    // 1px up so line bottom aligns with panel bottom edge
+                    double toideLineX0 = rectLeft + rectW - 3;   // overlap panel stroke to eliminate gap
+                    double toideLabelX = rectLeft + rectW + 5;   // text starts 5px from panel edge
+
                     var pwrLabel = new TextBlock
                     {
                         Text = "Toide 230V", FontSize = 6,
                         Foreground = panelDim, IsHitTestVisible = false
                     };
-                    Canvas.SetLeft(pwrLabel, gndX1 - 10);
-                    Canvas.SetTop(pwrLabel,  pwrY + 10);
+                    pwrLabel.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+                    double toideStubLen = (toideLabelX - toideLineX0) + pwrLabel.DesiredSize.Width + 10.0;
+
+                    PLine(panelDim, toideLineX0, toideY, toideLineX0 + toideStubLen, toideY);
+
+                    Canvas.SetLeft(pwrLabel, toideLabelX);
+                    Canvas.SetTop(pwrLabel,  toideY - pwrLabel.DesiredSize.Height - 1);
                     DiagramCanvas.Children.Add(pwrLabel);
 
                     // ── Body: subtitle lines + panel name (left section, below header) ──
