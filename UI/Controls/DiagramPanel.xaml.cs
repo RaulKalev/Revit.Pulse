@@ -1205,17 +1205,17 @@ namespace Pulse.UI.Controls
                             for (int wi = 0; wi < wireCount; wi++)
                                 wireYs[wi] = botY - wi * wireSpacing;
 
-                            // Spine: panel head → row 0 only. Rows 1+ connect via nearX, not the spine.
-                            Line(wireBrush, laneX, rectTop, laneX, wireYs[0]);
+                            // Spine: panel head → topmost row. Row 0 and row wireCount-1 both touch it;
+                            // inner rows start at nearX so they never visually connect to the spine.
+                            Line(wireBrush, laneX, rectTop, laneX, wireYs[wireCount - 1]);
 
                             // di=0 is the column nearest the spine; columns go away from laneX
                             double dirSign = flipped ? 1.0 : -1.0;
                             // nearX: one device-column away from spine — inner-pair connector column
                             double nearX   = laneX + dirSign * deviceSpacing;
 
-                            // Horizontal wires:
-                            //   row 0  spans laneX → farEdge (full reach, connected to spine)
-                            //   rows 1+  span nearX → farEdge (never touch the spine)
+                            // Row 0 and row wireCount-1 are "spine rows" — their horizontals start at laneX.
+                            // Inner rows start at nearX and have devices pushed one extra column away.
                             double gapHalf  = deviceSpacing * 0.44;
                             double wireX0   = Math.Min(laneX,  farEdge);
                             double wireX1   = Math.Max(laneX,  farEdge);
@@ -1223,11 +1223,13 @@ namespace Pulse.UI.Controls
                             double nearX_hi = Math.Max(nearX, farEdge);
                             for (int wi = 0; wi < wireCount; wi++)
                             {
-                                double wyH    = wireYs[wi];
-                                bool revWire  = (wi % 2 == 1);
-                                double rowX0  = wi == 0 ? wireX0 : nearX_lo;
-                                double rowX1  = wi == 0 ? wireX1 : nearX_hi;
-                                var slotRow   = wireSlotsByWi?[wireCount - 1 - wi];
+                                double wyH       = wireYs[wi];
+                                bool revWire     = (wi % 2 == 1);
+                                bool isSpineRow  = (wi == 0 || wi == wireCount - 1);
+                                int  colOffset   = isSpineRow ? 1 : 2;  // inner rows push devices 1 col further out
+                                double rowX0     = isSpineRow ? wireX0 : nearX_lo;
+                                double rowX1     = isSpineRow ? wireX1 : nearX_hi;
+                                var slotRow      = wireSlotsByWi?[wireCount - 1 - wi];
                                 if (slotRow == null || !slotRow.Any(s => s.IsDots))
                                 {
                                     Line(wireBrush, rowX0, wyH, rowX1, wyH);
@@ -1240,7 +1242,7 @@ namespace Pulse.UI.Controls
                                     {
                                         if (!slotRow[si].IsDots) continue;
                                         int lDi   = revWire ? slotCntH - 1 - si : si;
-                                        double sx = laneX + dirSign * deviceSpacing * (lDi + 1);
+                                        double sx = laneX + dirSign * deviceSpacing * (lDi + colOffset);
                                         gaps.Add((sx - gapHalf, sx + gapHalf));
                                     }
                                     gaps.Sort((a, b) => a.lo.CompareTo(b.lo));
@@ -1307,10 +1309,12 @@ namespace Pulse.UI.Controls
                                 var slots      = wireSlotsByWi?[wireCount - 1 - rowFB];
                                 int slotCount  = slots != null ? slots.Count : wireDevs;
 
+                                bool isSpineRow2 = (rowFB == 0 || rowFB == wireCount - 1);
+                                int  devColOff   = isSpineRow2 ? 1 : 2; // inner rows: push 1 col away from nearX connector
                                 for (int di = 0; di < slotCount; di++)
                                 {
-                                    // Devices fan away from the spine (laneX)
-                                    double devX = laneX + dirSign * deviceSpacing * (di + 1);
+                                    // Devices fan away from the spine; inner rows offset by 2 columns
+                                    double devX = laneX + dirSign * deviceSpacing * (di + devColOff);
 
                                     // Reversed rows: map display index to reversed slot/address
                                     int edi = revRow && slots != null ? slotCount - 1 - di : di;
