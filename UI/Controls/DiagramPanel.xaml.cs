@@ -1075,6 +1075,54 @@ namespace Pulse.UI.Controls
                                         : (devOffset < flatTypes.Count ? flatTypes[devOffset] : null);
                                     if (slots == null) devOffset++;
 
+                                    // ── Address label (rotated, above wire) ───────────────────────
+                                    // Labels are only emitted in uncompressed mode (slots == null).
+                                    // In compressed mode devOffset is never incremented so the
+                                    // mapping from slot position to address index is non-trivial;
+                                    // skipping avoids incorrect labels on collapsed rows.
+                                    if (_canvasSettings.ShowAddressLabels && slots == null)
+                                    {
+                                        // devOffset was already incremented just above, so the
+                                        // current device sits at index devOffset-1.
+                                        int addrIdx = devOffset - 1;
+                                        string devAddr = addrIdx < loopInfo.DeviceAddresses.Count
+                                            ? loopInfo.DeviceAddresses[addrIdx] : string.Empty;
+
+                                        // Format: zero-pad loop number (strip "Loop " prefix) + "." + address
+                                        string shortLoop = loopInfo.Name.StartsWith("Loop ",
+                                            StringComparison.OrdinalIgnoreCase)
+                                            ? loopInfo.Name.Substring(5).Trim() : loopInfo.Name;
+                                        if (int.TryParse(shortLoop, out int ln))
+                                            shortLoop = ln.ToString("D2");
+                                        if (int.TryParse(devAddr, out int an))
+                                            devAddr = an.ToString("D3");
+                                        string labelText = shortLoop + "." + devAddr;
+
+                                        const double labelFontSize    = 7.0;
+                                        const double addrApproxLineH  = 8.5; // px at fontSize 7
+                                        double labelOffset = _canvasSettings.LabelOffsetPx;
+                                        // Label natural width capped; after -90° becomes visual height.
+                                        const double labelW = 30.0;
+                                        var addrLabel = new TextBlock
+                                        {
+                                            Text             = labelText,
+                                            FontSize         = labelFontSize,
+                                            Foreground       = wireBrush,
+                                            IsHitTestVisible = false,
+                                            Width            = labelW,
+                                            TextTrimming     = TextTrimming.CharacterEllipsis
+                                        };
+                                        // RotateTransform(-90): natural width → visual height,
+                                        //   natural height → visual width.
+                                        addrLabel.RenderTransform = new System.Windows.Media.RotateTransform(-90);
+                                        // Horizontal centre at devX: left = devX − approxLineH/2
+                                        // Bottom of label at wY − circR − labelOffset:
+                                        //   SetTop = bottom − labelW (natural width is visual height)
+                                        Canvas.SetLeft(addrLabel, devX - addrApproxLineH / 2.0);
+                                        Canvas.SetTop(addrLabel,  wY - circR - labelOffset);
+                                        DiagramCanvas.Children.Add(addrLabel);
+                                    }
+
                                     string slotSymKey = devType != null
                                         ? _currentVm.GetDeviceTypeSymbol(devType) : null;
                                     CustomSymbolDefinition slotSym = slotSymKey != null && _symbolLibrary != null
@@ -1549,7 +1597,10 @@ namespace Pulse.UI.Controls
                 System.Globalization.CultureInfo.InvariantCulture);
             TbDeviceSpacing.Text  = _canvasSettings.DeviceSpacingPx.ToString("F1",
                 System.Globalization.CultureInfo.InvariantCulture);
-            CbShowRepetitions.IsChecked = _canvasSettings.ShowRepetitions;
+            CbShowRepetitions.IsChecked   = _canvasSettings.ShowRepetitions;
+            CbShowAddressLabels.IsChecked  = _canvasSettings.ShowAddressLabels;
+            TbLabelOffset.Text             = _canvasSettings.LabelOffsetPx.ToString("F1",
+                System.Globalization.CultureInfo.InvariantCulture);
             CanvasSettingsPopup.IsOpen = true;
         }
 
@@ -1565,7 +1616,13 @@ namespace Pulse.UI.Controls
                     System.Globalization.CultureInfo.InvariantCulture, out double ds) && ds >= 0)
                 _canvasSettings.DeviceSpacingPx = ds;
 
-            _canvasSettings.ShowRepetitions = CbShowRepetitions.IsChecked == true;
+            _canvasSettings.ShowRepetitions   = CbShowRepetitions.IsChecked   == true;
+            _canvasSettings.ShowAddressLabels  = CbShowAddressLabels.IsChecked == true;
+
+            if (double.TryParse(TbLabelOffset.Text,
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out double lo) && lo >= 0)
+                _canvasSettings.LabelOffsetPx = lo;
 
             DiagramCanvasSettingsService.Save(_canvasSettings);
             CanvasSettingsPopup.IsOpen = false;

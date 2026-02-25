@@ -33,16 +33,22 @@ namespace Pulse.UI.ViewModels
         public IReadOnlyList<LoopLevelInfo> Levels { get; }
         /// <summary>
         /// All devices on this loop across every level, sorted by numeric address ascending.
-        /// Used by the diagram canvas to draw device symbols in address order.
         /// Each entry is the DeviceType string (may be null/empty for untyped devices).
         /// </summary>
         public IReadOnlyList<string> DeviceTypesByAddress { get; }
+        /// <summary>
+        /// Raw address string for each device (same order as <see cref="DeviceTypesByAddress"/>).
+        /// Used by the diagram canvas to render per-device address labels.
+        /// </summary>
+        public IReadOnlyList<string> DeviceAddresses { get; }
         public LoopDrawInfo(string name, IReadOnlyList<LoopLevelInfo> levels,
-                            IReadOnlyList<string> deviceTypesByAddress)
+                            IReadOnlyList<string> deviceTypesByAddress,
+                            IReadOnlyList<string> deviceAddresses)
         {
-            Name                = name;
-            Levels              = levels;
+            Name                 = name;
+            Levels               = levels;
             DeviceTypesByAddress = deviceTypesByAddress ?? System.Array.Empty<string>();
+            DeviceAddresses      = deviceAddresses      ?? System.Array.Empty<string>();
         }
     }
 
@@ -167,6 +173,11 @@ namespace Pulse.UI.ViewModels
                         .Select(d => d.DeviceType)
                         .ToList();
 
+                    // Build parallel address list (same order).
+                    var deviceAddresses = sortedDevices
+                        .Select(d => d.Address ?? string.Empty)
+                        .ToList();
+
                     // Group devices by (elevation, deviceType) for level heat-map data.
                     var levelTypeMap = new Dictionary<double, Dictionary<string, int>>();
                     foreach (var d in sortedDevices)
@@ -185,7 +196,8 @@ namespace Pulse.UI.ViewModels
                                      .ToList()))
                         .OrderBy(x => x.Elevation)
                         .ToList();
-                    loopInfos.Add(new LoopDrawInfo(loop.DisplayName, levelInfos, deviceTypesByAddress));
+                    loopInfos.Add(new LoopDrawInfo(loop.DisplayName, levelInfos,
+                                                   deviceTypesByAddress, deviceAddresses));
                 }
 
                 int configLoopCount = 0;

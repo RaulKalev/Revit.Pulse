@@ -32,6 +32,20 @@ namespace Pulse.Core.Settings
         /// </summary>
         [JsonProperty("showRepetitions")]
         public bool ShowRepetitions { get; set; } = false;
+
+        /// <summary>
+        /// When true, each device slot displays a small rotated address label above it.
+        /// Default: false.
+        /// </summary>
+        [JsonProperty("showAddressLabels")]
+        public bool ShowAddressLabels { get; set; } = false;
+
+        /// <summary>
+        /// Vertical distance in canvas pixels between the wire centre and the
+        /// near edge of the address label. Default: 10 px.
+        /// </summary>
+        [JsonProperty("labelOffsetPx")]
+        public double LabelOffsetPx { get; set; } = 10.0;
     }
 
     /// <summary>

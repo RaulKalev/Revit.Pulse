@@ -367,12 +367,39 @@
 
                             <!-- Repetitions -->
                             <CheckBox x:Name="CbShowRepetitions"
-                                      Margin="0,0,0,10"
+                                      Margin="0,0,0,6"
                                       Foreground="{DynamicResource ForegroundBrush}"
                                       FontSize="11">
                                 <TextBlock Text="Collapse repeated devices (·4 in a row)"
                                            FontSize="11" TextWrapping="Wrap"/>
                             </CheckBox>
+
+                            <!-- Address labels -->
+                            <CheckBox x:Name="CbShowAddressLabels"
+                                      Margin="0,0,0,6"
+                                      Foreground="{DynamicResource ForegroundBrush}"
+                                      FontSize="11">
+                                <TextBlock Text="Show address labels"
+                                           FontSize="11" TextWrapping="Wrap"/>
+                            </CheckBox>
+
+                            <!-- Label offset -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="56"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="Label offset (px):"
+                                           FontSize="11" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           Grid.Column="0" Margin="0,0,8,0"/>
+                                <TextBox x:Name="TbLabelOffset"
+                                         Grid.Column="1"
+                                         FontSize="11"
+                                         Style="{DynamicResource DarkTextBoxStyle}"
+                                         VerticalContentAlignment="Center"
+                                         Height="24"/>
+                            </Grid>
 
                             <Button x:Name="BtnCanvasSettingsApply"
                                     Click="BtnCanvasSettingsApply_Click"
