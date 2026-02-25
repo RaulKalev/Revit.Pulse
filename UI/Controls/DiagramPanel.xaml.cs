@@ -827,7 +827,7 @@ namespace Pulse.UI.Controls
                     DiagramCanvas.Children.Add(psuSymbol);
 
                     // ── Power connection: from right panel edge → L-path → IEC earth symbol + label ──
-                    double pwrY        = rsDivY + diagBoxH * 0.45; // midway in diagonal section
+                    double pwrY        = rsDivY;                    // at the battery/PSU divider line
                     double gndX0       = rectLeft + rectW;          // panel right edge
                     double gndHorizLen = 14.0;                      // horizontal lead
                     double gndVertLen  = 14.0;                      // vertical drop
