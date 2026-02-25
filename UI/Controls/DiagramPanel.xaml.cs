@@ -114,7 +114,9 @@ namespace Pulse.UI.Controls
         {
             InitializeComponent();
             DataContextChanged += OnDataContextChanged;
-            Loaded += (_, __) => { ApplyState(); LoadPaperSizes(); };
+            Loaded   += (_, __) => { ApplyState(); LoadPaperSizes(); };
+            Unloaded += (_, __) => DeviceConfigService.ConfigSaved -= OnDeviceConfigSaved;
+            DeviceConfigService.ConfigSaved += OnDeviceConfigSaved;
 
             // Apply the zoom transform group to the canvas once on construction.
             var tg = new TransformGroup();
@@ -212,6 +214,10 @@ namespace Pulse.UI.Controls
 
         private void OnLevelsChanged(object sender, NotifyCollectionChangedEventArgs e)
             => Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
+
+        private void OnDeviceConfigSaved()
+            => Dispatcher.BeginInvoke(DispatcherPriority.Loaded,
+                (System.Action)(() => { LoadPaperSizes(); DrawLevels(); }));
 
         // ── SizeChanged ───────────────────────────────────────────────────
 
@@ -365,17 +371,22 @@ namespace Pulse.UI.Controls
                                                  .FirstOrDefault(p => p.Id == _canvasSettings.SelectedPaperSizeId);
                 if (selPaper != null && selPaper.WidthMm > 0 && selPaper.HeightMm > 0)
                 {
-                    // Fit the paper (preserving its aspect ratio) to the
-                    // canvas, leaving at least 10 px margin on every side.
-                    const double paperPad = 10.0;
-                    double availW = totalW - 2 * paperPad;
-                    double availH = h      - 2 * paperPad;
-                    double scale  = Math.Min(availW / selPaper.WidthMm,
-                                            availH / selPaper.HeightMm);
-                    double pW     = selPaper.WidthMm  * scale;
-                    double pH     = selPaper.HeightMm * scale;
-                    double pLeft  = (totalW - pW) / 2.0;
-                    double pTop   = (h      - pH) / 2.0;
+                    // Use an absolute scale anchored to A4 landscape (297×210 mm),
+                    // so that A4 fills ~85% of the canvas and larger papers (A3, A2…)
+                    // appear proportionally bigger — giving a clear visual size difference
+                    // even between ISO series sheets that share the same aspect ratio.
+                    const double paperPad  = 10.0;
+                    const double anchorW   = 297.0;   // A4 landscape width  (mm)
+                    const double anchorH   = 210.0;   // A4 landscape height (mm)
+                    const double fitFactor = 0.85;
+                    double availW    = totalW - 2 * paperPad;
+                    double availH    = h      - 2 * paperPad;
+                    double baseScale = Math.Min(availW * fitFactor / anchorW,
+                                               availH * fitFactor / anchorH);
+                    double pW     = selPaper.WidthMm  * baseScale;
+                    double pH     = selPaper.HeightMm * baseScale;
+                    double pLeft  = paperPad + (availW - pW) / 2.0;
+                    double pTop   = paperPad + (availH - pH) / 2.0;
 
                     // Dashed border
                     var paperBorder = new System.Windows.Shapes.Rectangle

@@ -10,6 +10,9 @@ namespace Pulse.Core.Settings
     /// </summary>
     public static class DeviceConfigService
     {
+        /// <summary>Fired on the calling thread whenever the config is saved to disk.</summary>
+        public static event Action ConfigSaved;
+
         private static readonly string StorePath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Pulse",
@@ -51,6 +54,7 @@ namespace Pulse.Core.Settings
 
             var json = JsonConvert.SerializeObject(store, Formatting.Indented);
             File.WriteAllText(StorePath, json);
+            ConfigSaved?.Invoke();
         }
     }
 }
