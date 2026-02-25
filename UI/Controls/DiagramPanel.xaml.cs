@@ -513,10 +513,10 @@ namespace Pulse.UI.Controls
                                 && !string.IsNullOrWhiteSpace(panelCfg.OutputLabels[pi]))
                                 preLabeledCount++;
 
-                    // Cells are nudged 2px up into the panel border; 12px of the 14px cell hangs below.
+                    // Cells are nudged 1px up into the panel border; 13px of the 14px cell hangs below.
                     double belowPanelH = panelCfg.OutCount == 0  ? 0.0
-                                       : preLabeledCount == 0    ? 12.0
-                                       : 12.0 + 8.0 + (preLabeledCount - 1) * 12.0;
+                                       : preLabeledCount == 0    ? 13.0
+                                       : 13.0 + 8.0 + (preLabeledCount - 1) * 12.0;
 
                     double rectTop  = zoneBottom - 10.0 - belowPanelH - rectH;
 
@@ -774,7 +774,7 @@ namespace Pulse.UI.Controls
                     const double outCellW  = 11.0;
                     const double outCellH  = 14.0;
                     double outStartX       = rectLeft + 4;
-                    double outY            = rectTop + rectH - 2.0;  // 2px overlap with panel bottom edge
+                    double outY            = rectTop + rectH - 1.0;  // 1px overlap with panel bottom edge
 
                     for (int oi = 0; oi < outCount; oi++)
                     {
