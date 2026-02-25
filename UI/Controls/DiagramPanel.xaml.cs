@@ -374,18 +374,6 @@ namespace Pulse.UI.Controls
                     double pLeft  = (totalW - pW) / 2.0;
                     double pTop   = (h      - pH) / 2.0;
 
-                    // Background fill
-                    var paperFill = new System.Windows.Shapes.Rectangle
-                    {
-                        Width           = pW,
-                        Height          = pH,
-                        Fill            = new SolidColorBrush(Color.FromArgb(0x0C, 0xFF, 0xFF, 0xFF)),
-                        IsHitTestVisible = false
-                    };
-                    Canvas.SetLeft(paperFill, pLeft);
-                    Canvas.SetTop(paperFill, pTop);
-                    DiagramCanvas.Children.Add(paperFill);
-
                     // Dashed border
                     var paperBorder = new System.Windows.Shapes.Rectangle
                     {
@@ -1900,6 +1888,7 @@ namespace Pulse.UI.Controls
             {
                 _canvasSettings.SelectedPaperSizeId = selected.Id;
                 DiagramCanvasSettingsService.Save(_canvasSettings);
+                DrawLevels();
             }
         }
 
