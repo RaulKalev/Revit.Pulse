@@ -232,6 +232,113 @@
                     </Border>
                 </Popup>
 
+                <!-- Panel edit popup — appears at panel click position -->
+                <Popup x:Name="PanelPopup"
+                       StaysOpen="False"
+                       AllowsTransparency="True"
+                       PopupAnimation="Fade"
+                       Placement="MousePoint">
+                    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            MinWidth="220">
+                        <StackPanel>
+                            <!-- Title -->
+                            <TextBlock x:Name="PanelPopupTitle"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Opacity="0.55"
+                                       Padding="10,7,10,4"
+                                       Foreground="{DynamicResource ForegroundBrush}"/>
+                            <Separator Margin="0,2,0,2" Background="{DynamicResource BorderBrush}"/>
+
+                            <!-- Name field -->
+                            <TextBlock Text="Name"
+                                       FontSize="10" Opacity="0.55"
+                                       Margin="10,6,10,2"
+                                       Foreground="{DynamicResource ForegroundBrush}"/>
+                            <TextBox x:Name="PanelPopupName"
+                                     FontSize="11"
+                                     AcceptsReturn="True"
+                                     TextWrapping="Wrap"
+                                     MinLines="2" MaxLines="3"
+                                     Margin="8,0,8,8"
+                                     Padding="6,4,6,4"
+                                     Foreground="{DynamicResource ForegroundBrush}"
+                                     Background="{DynamicResource BackgroundBrush}"
+                                     BorderBrush="{DynamicResource BorderBrush}"
+                                     CaretBrush="{DynamicResource ForegroundBrush}"/>
+
+                            <!-- Output count row -->
+                            <TextBlock Text="Output count"
+                                       FontSize="10" Opacity="0.55"
+                                       Margin="10,0,10,2"
+                                       Foreground="{DynamicResource ForegroundBrush}"/>
+                            <Grid Margin="8,0,8,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="28"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="28"/>
+                                </Grid.ColumnDefinitions>
+                                <Button Grid.Column="0"
+                                        x:Name="PanelPopupOutDown"
+                                        Content="−"
+                                        FontSize="14"
+                                        Style="{StaticResource PulseActionButtonStyle}"
+                                        Padding="0"
+                                        Click="PanelPopupOutDown_Click"/>
+                                <TextBox Grid.Column="1"
+                                         x:Name="PanelPopupOutCount"
+                                         FontSize="11"
+                                         TextAlignment="Center"
+                                         Margin="4,0,4,0"
+                                         Padding="4,4,4,4"
+                                         Foreground="{DynamicResource ForegroundBrush}"
+                                         Background="{DynamicResource BackgroundBrush}"
+                                         BorderBrush="{DynamicResource BorderBrush}"
+                                         CaretBrush="{DynamicResource ForegroundBrush}"/>
+                                <Button Grid.Column="2"
+                                        x:Name="PanelPopupOutUp"
+                                        Content="+"
+                                        FontSize="13"
+                                        Style="{StaticResource PulseActionButtonStyle}"
+                                        Padding="0"
+                                        Click="PanelPopupOutUp_Click"/>
+                            </Grid>
+
+                            <!-- Supply field -->
+                            <TextBlock Text="Supply"
+                                       FontSize="10" Opacity="0.55"
+                                       Margin="10,0,10,2"
+                                       Foreground="{DynamicResource ForegroundBrush}"/>
+                            <TextBox x:Name="PanelPopupSupply"
+                                     FontSize="11"
+                                     Margin="8,0,8,8"
+                                     Padding="6,4,6,4"
+                                     Foreground="{DynamicResource ForegroundBrush}"
+                                     Background="{DynamicResource BackgroundBrush}"
+                                     BorderBrush="{DynamicResource BorderBrush}"
+                                     CaretBrush="{DynamicResource ForegroundBrush}"/>
+
+                            <Separator Margin="0,2,0,2" Background="{DynamicResource BorderBrush}"/>
+
+                            <!-- Save button -->
+                            <Button x:Name="PanelPopupSave"
+                                    Click="PanelPopupSave_Click"
+                                    Style="{StaticResource PulseActionButtonStyle}"
+                                    HorizontalAlignment="Stretch"
+                                    HorizontalContentAlignment="Left"
+                                    Padding="10,5,10,6"
+                                    FontSize="11">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ContentSave" Width="13" Height="13" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                    <TextBlock Text="Save" FontSize="11" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Popup>
+
                 <!-- Level context popup — appears at mouse position on click -->
                 <Popup x:Name="LevelPopup"
                        StaysOpen="False"

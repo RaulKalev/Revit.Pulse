@@ -1461,6 +1461,8 @@ namespace Pulse.UI.Controls
 
         // ── Per-panel diagram settings helpers ──────────────────────────────
 
+        private string _popupPanelName; // panel name currently open in PanelPopup
+
         private PanelDiagramSettings GetPanelCfg(string panelName)
         {
             if (_canvasSettings.PanelSettings.TryGetValue(panelName, out var cfg))
@@ -1470,142 +1472,51 @@ namespace Pulse.UI.Controls
 
         private void ShowPanelEditPopup(string panelName, double canvasX, double canvasY)
         {
+            _popupPanelName = panelName;
             var cfg = GetPanelCfg(panelName);
 
-            // ── Popup shell ──────────────────────────────────────────────
-            var popup = new Popup
-            {
-                AllowsTransparency = true,
-                PopupAnimation     = PopupAnimation.Fade,
-                StaysOpen          = false,
-                PlacementTarget    = DiagramCanvas,
-                Placement          = PlacementMode.RelativePoint,
-                // Convert canvas coords to screen coords via the zoom/pan transform
-                HorizontalOffset   = canvasX * _zoom + _zoomTT.X,
-                VerticalOffset     = canvasY * _zoom + _zoomTT.Y - 20,
-            };
+            PanelPopupTitle.Text    = panelName;
+            PanelPopupName.Text     = cfg.Name.Replace("\n", System.Environment.NewLine);
+            PanelPopupOutCount.Text = cfg.OutCount.ToString();
+            PanelPopupSupply.Text   = cfg.Supply;
 
-            // ── Content border ───────────────────────────────────────────
-            var root = new Border
-            {
-                Background      = new SolidColorBrush(Color.FromRgb(0x28, 0x28, 0x28)),
-                BorderBrush     = new SolidColorBrush(Color.FromRgb(0x55, 0x55, 0x55)),
-                BorderThickness = new Thickness(1),
-                CornerRadius    = new CornerRadius(6),
-                Padding         = new Thickness(16),
-                MinWidth        = 260,
-                Effect          = new System.Windows.Media.Effects.DropShadowEffect
-                {
-                    Color     = Colors.Black,
-                    Opacity   = 0.6,
-                    BlurRadius = 12,
-                    ShadowDepth = 4
-                }
-            };
+            PanelPopup.IsOpen = true;
 
-            var stack = new StackPanel();
-
-            // Title
-            stack.Children.Add(new TextBlock
-            {
-                Text       = "Panel Settings",
-                FontWeight = FontWeights.SemiBold,
-                FontSize   = 13,
-                Foreground = Brushes.White,
-                Margin     = new Thickness(0, 0, 0, 12)
-            });
-
-            // Helper: labelled input row
-            TextBox MakeField(string labelText, string value, bool multiline = false)
-            {
-                stack.Children.Add(new TextBlock
-                {
-                    Text       = labelText,
-                    FontSize   = 10,
-                    Foreground = new SolidColorBrush(Color.FromRgb(0xAA, 0xAA, 0xAA)),
-                    Margin     = new Thickness(0, 0, 0, 3)
-                });
-                var tb = new TextBox
-                {
-                    Text            = value,
-                    FontSize        = 11,
-                    Foreground      = Brushes.White,
-                    Background      = new SolidColorBrush(Color.FromRgb(0x3C, 0x3C, 0x3C)),
-                    BorderBrush     = new SolidColorBrush(Color.FromRgb(0x60, 0x60, 0x60)),
-                    BorderThickness = new Thickness(1),
-                    Padding         = new Thickness(6, 4, 6, 4),
-                    Margin          = new Thickness(0, 0, 0, 10),
-                    CaretBrush      = Brushes.White,
-                    AcceptsReturn   = multiline,
-                    TextWrapping    = multiline ? TextWrapping.Wrap : TextWrapping.NoWrap,
-                    MinLines        = multiline ? 2 : 1,
-                    MaxLines        = multiline ? 3 : 1,
-                };
-                stack.Children.Add(tb);
-                return tb;
-            }
-
-            var tbName     = MakeField("Name", cfg.Name.Replace("\n", System.Environment.NewLine), multiline: true);
-            var tbOutCount = MakeField("Output count", cfg.OutCount.ToString());
-            var tbSupply   = MakeField("Supply", cfg.Supply);
-
-            // Button row
-            var btnRow = new StackPanel
-            {
-                Orientation         = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                Margin              = new Thickness(0, 4, 0, 0)
-            };
-
-            Button MakeBtn(string text, bool accent)
-            {
-                return new Button
-                {
-                    Content         = text,
-                    FontSize        = 11,
-                    Padding         = new Thickness(14, 5, 14, 5),
-                    Margin          = accent ? new Thickness(8, 0, 0, 0) : new Thickness(0),
-                    Background      = accent
-                        ? new SolidColorBrush(Color.FromRgb(0x19, 0x76, 0xD2))
-                        : new SolidColorBrush(Color.FromRgb(0x4A, 0x4A, 0x4A)),
-                    Foreground      = Brushes.White,
-                    BorderThickness = new Thickness(0),
-                };
-            }
-
-            var btnCancel = MakeBtn("Cancel", accent: false);
-            var btnSave   = MakeBtn("Save",   accent: true);
-            btnRow.Children.Add(btnCancel);
-            btnRow.Children.Add(btnSave);
-            stack.Children.Add(btnRow);
-
-            root.Child  = stack;
-            popup.Child = root;
-
-            btnCancel.Click += (_, __) => popup.IsOpen = false;
-            btnSave.Click   += (_, __) =>
-            {
-                // Normalise newlines back to \n for storage
-                string newName = tbName.Text.Replace(System.Environment.NewLine, "\n").TrimEnd();
-                string supply  = tbSupply.Text.Trim();
-                if (!int.TryParse(tbOutCount.Text.Trim(), out int newOut) || newOut < 0)
-                    newOut = cfg.OutCount;
-
-                _canvasSettings.PanelSettings[panelName] = new PanelDiagramSettings
-                {
-                    Name     = newName,
-                    OutCount = newOut,
-                    Supply   = supply
-                };
-                DiagramCanvasSettingsService.Save(_canvasSettings);
-                popup.IsOpen = false;
-                DrawLevels();
-            };
-
-            popup.IsOpen = true;
-            // Delay focus so the popup has finished opening
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input,
-                new Action(() => tbName.Focus()));
+                new Action(() => PanelPopupName.Focus()));
+        }
+
+        private void PanelPopupOutDown_Click(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(PanelPopupOutCount.Text, out int v) && v > 0)
+                PanelPopupOutCount.Text = (v - 1).ToString();
+        }
+
+        private void PanelPopupOutUp_Click(object sender, RoutedEventArgs e)
+        {
+            if (int.TryParse(PanelPopupOutCount.Text, out int v))
+                PanelPopupOutCount.Text = (v + 1).ToString();
+        }
+
+        private void PanelPopupSave_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrEmpty(_popupPanelName)) return;
+
+            string newName = PanelPopupName.Text
+                .Replace(System.Environment.NewLine, "\n").TrimEnd();
+            string supply = PanelPopupSupply.Text.Trim();
+            if (!int.TryParse(PanelPopupOutCount.Text.Trim(), out int newOut) || newOut < 0)
+                newOut = GetPanelCfg(_popupPanelName).OutCount;
+
+            _canvasSettings.PanelSettings[_popupPanelName] = new PanelDiagramSettings
+            {
+                Name     = newName,
+                OutCount = newOut,
+                Supply   = supply
+            };
+            DiagramCanvasSettingsService.Save(_canvasSettings);
+            PanelPopup.IsOpen = false;
+            DrawLevels();
         }
 
         private static StackPanel MakeButtonContent(PackIconKind iconKind, string label)
