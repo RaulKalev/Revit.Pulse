@@ -269,9 +269,9 @@ namespace Pulse.UI.Controls
                 (System.Action)(() => { LoadPaperSizes(); DrawLevels(); }));
 
         // ── SizeChanged ───────────────────────────────────────────────────
-
-        private void DiagramContent_SizeChanged(object sender, SizeChangedEventArgs e)
-            => DrawLevels();
+        // Intentionally NOT redrawing on resize — layout is fixed once drawn
+        // so elements don't scale/reposition as the panel is resized.
+        private void DiagramContent_SizeChanged(object sender, SizeChangedEventArgs e) { }
 
         // ── Zoom handlers ─────────────────────────────────────────────────
 

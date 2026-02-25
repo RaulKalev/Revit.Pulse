@@ -154,7 +154,7 @@
                 <!-- Horizontal-only scroll to reveal overflowing loops -->
                 <ScrollViewer x:Name="DiagramScrollViewer"
                               HorizontalScrollBarVisibility="Auto"
-                              VerticalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto"
                               CanContentScroll="False"
                               Background="Transparent"
                               Padding="0"
