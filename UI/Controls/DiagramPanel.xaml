@@ -36,11 +36,14 @@
                             DockPanel.Dock="Right"
                             Style="{StaticResource PulseActionButtonStyle}"
                             Width="24" Height="24"
+                            Padding="0"
+                            Margin="0,0,4,0"
                             ToolTip="Toggle diagram panel"
                             Click="ToggleButton_Click">
                         <materialDesign:PackIcon x:Name="ToggleIcon"
                                                  Kind="ChevronRight"
-                                                 Width="14" Height="14"/>
+                                                 Width="14" Height="14"
+                                                 Foreground="{DynamicResource ForegroundBrush}"/>
                     </Button>
 
                     <!-- Restore hidden/deleted items button — only visible when there are non-visible items -->

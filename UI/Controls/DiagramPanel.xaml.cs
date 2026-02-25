@@ -19,7 +19,11 @@ namespace Pulse.UI.Controls
     public partial class DiagramPanel : UserControl
     {
         private const double ExpandedWidth  = 300;
-        private const double CollapsedWidth = 32;
+        private const double CollapsedWidth = 46;
+
+        // Tracks the user's last expanded width so GridSplitter resizes are preserved
+        // across collapse/expand cycles and across sessions.
+        private double _expandedWidth = ExpandedWidth;
         private const double MarginTop      = 16;
         private const double MarginBottom   = 16;
 
@@ -33,11 +37,18 @@ namespace Pulse.UI.Controls
         private readonly ScaleTransform     _zoomST = new ScaleTransform(1, 1);
         private readonly TranslateTransform _zoomTT = new TranslateTransform(0, 0);
 
-        // ── Middle-mouse pan ──────────────────────────────────────────
+        // ── Pan ──────────────────────────────────────────────────────────
         private bool   _isPanning;
         private Point  _panStart;
         private double _panStartX;
         private double _panStartY;
+
+        // ── Paper bounds (saved by DrawLevels for zoom-to-fit) ────────────
+        private double _paperLeft;
+        private double _paperTop;
+        private double _paperW;
+        private double _paperH;
+        private bool   _hasPaper;
 
         // ── Move mode ─────────────────────────────────────────────────────
         private bool      _inMoveMode;
@@ -143,13 +154,46 @@ namespace Pulse.UI.Controls
 
         private void ToggleButton_Click(object sender, RoutedEventArgs e)
         {
+            // Snapshot the live column width before collapsing so it is preserved.
+            if (_isExpanded && Parent is Grid g)
+            {
+                int col = Grid.GetColumn(this);
+                if (col >= 0 && col < g.ColumnDefinitions.Count)
+                    _expandedWidth = g.ColumnDefinitions[col].Width.Value;
+            }
+
             _isExpanded = !_isExpanded;
             ApplyState();
+            PanelStateChanged?.Invoke();
+        }
+
+        /// <summary>Fired whenever the panel is expanded or collapsed, so the host can persist state immediately.</summary>
+        public event Action PanelStateChanged;
+
+        /// <summary>Restores the saved expanded width from a previous session. Always starts collapsed.</summary>
+        public void RestoreState(double savedExpandedWidth)
+        {
+            if (savedExpandedWidth >= CollapsedWidth + 1)
+                _expandedWidth = savedExpandedWidth;
+            _isExpanded = false;
+            ApplyState();
+        }
+
+        /// <summary>Returns the current expanded width for persistence (reads live column when expanded).</summary>
+        public double GetExpandedWidth()
+        {
+            if (_isExpanded && Parent is Grid g)
+            {
+                int col = Grid.GetColumn(this);
+                if (col >= 0 && col < g.ColumnDefinitions.Count)
+                    return g.ColumnDefinitions[col].Width.Value;
+            }
+            return _expandedWidth;
         }
 
         private void ApplyState()
         {
-            SetParentColumnWidth(_isExpanded ? ExpandedWidth : CollapsedWidth);
+            SetParentColumnWidth(_isExpanded ? _expandedWidth : CollapsedWidth);
 
             if (_isExpanded)
             {
@@ -176,7 +220,11 @@ namespace Pulse.UI.Controls
             {
                 int col = Grid.GetColumn(this);
                 if (col >= 0 && col < parentGrid.ColumnDefinitions.Count)
-                    parentGrid.ColumnDefinitions[col].Width = new GridLength(width);
+                {
+                    var cd = parentGrid.ColumnDefinitions[col];
+                    cd.Width    = new GridLength(width);
+                    cd.MaxWidth = _isExpanded ? double.PositiveInfinity : CollapsedWidth;
+                }
             }
         }
 
@@ -255,17 +303,34 @@ namespace Pulse.UI.Controls
         {
             if (e.ChangedButton == MouseButton.Middle)
             {
-                // Double-click → reset zoom & pan
+                // Double-click → fit paper in viewport (or reset to 1:1 if no paper)
                 if (e.ClickCount == 2)
                 {
-                    _isPanning     = false;
-                    _zoom          = 1.0;
-                    _zoomST.ScaleX = 1.0;
-                    _zoomST.ScaleY = 1.0;
-                    _zoomTT.X      = 0.0;
-                    _zoomTT.Y      = 0.0;
+                    _isPanning = false;
                     DiagramContent.ReleaseMouseCapture();
                     DiagramContent.Cursor = Cursors.Arrow;
+
+                    if (_hasPaper && _paperW > 0 && _paperH > 0)
+                    {
+                        double vw = DiagramContent.ActualWidth;
+                        double vh = DiagramContent.ActualHeight;
+                        const double fitPad = 0.90;
+                        double scale = Math.Min(vw / _paperW, vh / _paperH) * fitPad;
+                        scale = Math.Max(ZoomMin, Math.Min(ZoomMax, scale));
+                        _zoom          = scale;
+                        _zoomST.ScaleX = scale;
+                        _zoomST.ScaleY = scale;
+                        _zoomTT.X      = vw / 2.0 - (_paperLeft + _paperW / 2.0) * scale;
+                        _zoomTT.Y      = vh / 2.0 - (_paperTop  + _paperH / 2.0) * scale;
+                    }
+                    else
+                    {
+                        _zoom          = 1.0;
+                        _zoomST.ScaleX = 1.0;
+                        _zoomST.ScaleY = 1.0;
+                        _zoomTT.X      = 0.0;
+                        _zoomTT.Y      = 0.0;
+                    }
                     e.Handled = true;
                     return;
                 }
@@ -329,6 +394,7 @@ namespace Pulse.UI.Controls
                                  : paperStore.PaperSizes
                                              .FirstOrDefault(p => p.Id == _canvasSettings.SelectedPaperSizeId);
             bool   hasPaper      = selPaper != null && selPaper.WidthMm > 0 && selPaper.HeightMm > 0;
+            _hasPaper = hasPaper;
             double pLeft = 0, pTop = 0, pW = 0, pH = 0, paperScale = 0;
             double marginLeftPx = 0, marginTopPx = 0, marginRightPx = 0, marginBottomPx = 0;
             if (hasPaper)
@@ -347,6 +413,7 @@ namespace Pulse.UI.Controls
                 pH               = selPaper.HeightMm * paperScale;
                 pLeft            = paperPad + (availW - pW) / 2.0;
                 pTop             = paperPad + (availH - pH) / 2.0;
+                _paperLeft = pLeft; _paperTop = pTop; _paperW = pW; _paperH = pH;
                 marginLeftPx     = selPaper.MarginLeftMm   * paperScale;
                 marginTopPx      = selPaper.MarginTopMm    * paperScale;
                 marginRightPx    = selPaper.MarginRightMm  * paperScale;

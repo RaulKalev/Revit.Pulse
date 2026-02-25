@@ -15,16 +15,17 @@ namespace Pulse.Helpers
             "Pulse",
             "window_placement.json");
 
-        public static void Save(double left, double top, double width, double height)
+        public static void Save(double left, double top, double width, double height, double diagramPanelWidth = 300)
         {
             try
             {
                 var data = new PlacementData
                 {
-                    Left   = left,
-                    Top    = top,
-                    Width  = width,
-                    Height = height
+                    Left               = left,
+                    Top                = top,
+                    Width              = width,
+                    Height             = height,
+                    DiagramPanelWidth  = diagramPanelWidth
                 };
 
                 Directory.CreateDirectory(Path.GetDirectoryName(_filePath));
@@ -59,10 +60,11 @@ namespace Pulse.Helpers
 
         public class PlacementData
         {
-            public double Left   { get; set; }
-            public double Top    { get; set; }
-            public double Width  { get; set; }
-            public double Height { get; set; }
+            public double Left               { get; set; }
+            public double Top                { get; set; }
+            public double Width              { get; set; }
+            public double Height             { get; set; }
+            public double DiagramPanelWidth  { get; set; } = 300;
         }
     }
 }

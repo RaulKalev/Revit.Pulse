@@ -33,17 +33,32 @@ namespace Pulse.UI
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
             var p = WindowPlacementService.Load();
-            if (p == null) return;
-            Left   = p.Left;
-            Top    = p.Top;
-            Width  = p.Width;
-            Height = p.Height;
+            if (p != null)
+            {
+                Left   = p.Left;
+                Top    = p.Top;
+                Width  = p.Width;
+                Height = p.Height;
+                TheDiagramPanel.RestoreState(p.DiagramPanelWidth);
+            }
+            else
+            {
+                // First launch — start collapsed
+                TheDiagramPanel.RestoreState(300);
+            }
+
+            TheDiagramPanel.PanelStateChanged += SavePlacement;
         }
 
         private void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            WindowPlacementService.Save(Left, Top, Width, Height);
+            SavePlacement();
             _viewModel.SaveExpandState();
+        }
+
+        private void SavePlacement()
+        {
+            WindowPlacementService.Save(Left, Top, Width, Height, TheDiagramPanel.GetExpandedWidth());
         }
 
         // ---- Resize Grip Handlers (same pattern as original ProSchedules) ----

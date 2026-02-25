@@ -153,8 +153,8 @@
                 <Grid Grid.Row="2">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="450" />   <!-- Left block: Topology + Inspector -->
-                        <ColumnDefinition Width="5" />                   <!-- Splitter -->
-                        <ColumnDefinition Width="300" MinWidth="32" />  <!-- Diagram -->
+                        <ColumnDefinition Width="1" />                   <!-- Splitter -->
+                        <ColumnDefinition Width="300" MinWidth="46" />  <!-- Diagram -->
                     </Grid.ColumnDefinitions>
 
                     <!-- Left block: Topology + Inspector side by side -->
@@ -178,7 +178,7 @@
 
                     <!-- GridSplitter (Left block | Diagram) -->
                     <GridSplitter Grid.Column="1"
-                                  Width="5"
+                                  Width="1"
                                   HorizontalAlignment="Stretch"
                                   VerticalAlignment="Stretch"
                                   ResizeDirection="Columns"
@@ -186,7 +186,7 @@
                                   Cursor="SizeWE"/>
 
                     <!-- Diagram Panel -->
-                    <controls:DiagramPanel Grid.Column="2" DataContext="{Binding Diagram}"/>
+                    <controls:DiagramPanel x:Name="TheDiagramPanel" Grid.Column="2" DataContext="{Binding Diagram}" Margin="4,0,0,0"/>
                 </Grid>
 
                 <!-- Row 3: Status Strip -->
