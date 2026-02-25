@@ -1096,23 +1096,32 @@ namespace Pulse.UI.Controls
                                         string labelText = shortLoop + "." + devAddr;
 
                                         const double labelFontSize    = 7.0;
-                                        const double addrApproxLineH  = 9.5;  // visual width after -90° rotate (= natural line height at fontSize 7)
-                                        const double labelW           = 28.0; // visual height after -90° rotate (= natural text width)
+                                        const double labelPadH        = 2.5;  // horizontal padding inside border
+                                        const double labelPadV        = 2.0;  // vertical padding inside border
+                                        // After -90° LayoutTransform: natural Width → visual Height, natural Height → visual Width.
+                                        const double addrApproxLineH  = labelFontSize + labelPadV * 2 + 2.0; // natural height ≈ visual width
+                                        const double labelW           = 30.0; // natural width ≈ visual height
                                         double labelOffset = _canvasSettings.LabelOffsetPx;
 
-                                        var addrLabel = new TextBlock
+                                        var addrLabel = new Border
                                         {
-                                            Text             = labelText,
-                                            FontSize         = labelFontSize,
-                                            Foreground       = wireBrush,
+                                            BorderBrush      = wireBrush,
+                                            BorderThickness  = new Thickness(0.75),
+                                            CornerRadius     = new CornerRadius(addrApproxLineH / 2.0),
+                                            Background       = Brushes.Transparent,
+                                            Padding          = new Thickness(labelPadH, labelPadV, labelPadH, labelPadV),
                                             IsHitTestVisible = false,
-                                            // LayoutTransform: WPF applies the rotation during layout,
-                                            // so Canvas.SetLeft/SetTop reference the VISUAL (rotated) bounds.
-                                            // After rotation: visual Width ≈ addrApproxLineH, visual Height = labelW.
-                                            LayoutTransform  = new System.Windows.Media.RotateTransform(-90)
+                                            // LayoutTransform so Canvas.SetLeft/SetTop use the post-rotation visual bounds.
+                                            LayoutTransform  = new System.Windows.Media.RotateTransform(-90),
+                                            Child = new TextBlock
+                                            {
+                                                Text       = labelText,
+                                                FontSize   = labelFontSize,
+                                                Foreground = wireBrush
+                                            }
                                         };
 
-                                        // Ideal: top of label = wY - circR - labelOffset - labelW
+                                        // Ideal: top of label = wY - circR - labelOffset - labelW (visual height)
                                         // Clamped to MarginTop - 2 so labels near the canvas top stay visible.
                                         double idealTop = wY - circR - labelOffset - labelW;
                                         double safeTop  = Math.Max(MarginTop - 2.0, idealTop);
