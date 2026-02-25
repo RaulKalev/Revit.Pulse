@@ -1095,37 +1095,45 @@ namespace Pulse.UI.Controls
                                             devAddr = an.ToString("D3");
                                         string labelText = shortLoop + "." + devAddr;
 
-                                        const double labelFontSize    = 7.0;
-                                        const double labelPadH        = 2.5;  // horizontal padding inside border
-                                        const double labelPadV        = 2.0;  // vertical padding inside border
-                                        // After -90° LayoutTransform: natural Width → visual Height, natural Height → visual Width.
-                                        const double addrApproxLineH  = labelFontSize + labelPadV * 2 + 2.0; // natural height ≈ visual width
-                                        const double labelW           = 30.0; // natural width ≈ visual height
+                                        // After -90° LayoutTransform: natural Width  → visual Height,
+                                        //                              natural Height → visual Width.
+                                        // Pin the Border height so visual width is known exactly, allowing
+                                        // precise horizontal centering at devX.
+                                        const double labelFontSize = 7.0;
+                                        const double labelPadH     = 2.0;   // left/right padding (→ visual top/bottom)
+                                        const double labelPadV     = 0.8;   // top/bottom padding (→ visual width contribution)
+                                        const double borderThick   = 0.75;
+                                        // Explicit fixed height = narrower visual width after rotation.
+                                        const double labelBorderH  = labelFontSize + labelPadV * 2 + borderThick * 2 + 2.5;
+                                        // Natural width drives visual height; approx from text + h-padding + border.
+                                        const double labelW        = 30.0;
                                         double labelOffset = _canvasSettings.LabelOffsetPx;
 
                                         var addrLabel = new Border
                                         {
+                                            Height           = labelBorderH,
                                             BorderBrush      = wireBrush,
-                                            BorderThickness  = new Thickness(0.75),
-                                            CornerRadius     = new CornerRadius(addrApproxLineH / 2.0),
+                                            BorderThickness  = new Thickness(borderThick),
+                                            CornerRadius     = new CornerRadius(labelBorderH / 2.0),
                                             Background       = Brushes.Transparent,
                                             Padding          = new Thickness(labelPadH, labelPadV, labelPadH, labelPadV),
                                             IsHitTestVisible = false,
-                                            // LayoutTransform so Canvas.SetLeft/SetTop use the post-rotation visual bounds.
                                             LayoutTransform  = new System.Windows.Media.RotateTransform(-90),
                                             Child = new TextBlock
                                             {
-                                                Text       = labelText,
-                                                FontSize   = labelFontSize,
-                                                Foreground = wireBrush
+                                                Text                = labelText,
+                                                FontSize            = labelFontSize,
+                                                Foreground          = wireBrush,
+                                                VerticalAlignment   = VerticalAlignment.Center,
+                                                HorizontalAlignment = HorizontalAlignment.Center
                                             }
                                         };
 
-                                        // Ideal: top of label = wY - circR - labelOffset - labelW (visual height)
-                                        // Clamped to MarginTop - 2 so labels near the canvas top stay visible.
+                                        // Canvas.SetLeft uses the post-rotation visual bounding box.
+                                        // Visual width = labelBorderH → centre it at devX exactly.
                                         double idealTop = wY - circR - labelOffset - labelW;
                                         double safeTop  = Math.Max(MarginTop - 2.0, idealTop);
-                                        Canvas.SetLeft(addrLabel, devX - addrApproxLineH / 2.0);
+                                        Canvas.SetLeft(addrLabel, devX - labelBorderH / 2.0);
                                         Canvas.SetTop(addrLabel,  safeTop);
                                         DiagramCanvas.Children.Add(addrLabel);
                                     }
