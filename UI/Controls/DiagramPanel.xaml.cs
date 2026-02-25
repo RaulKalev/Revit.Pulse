@@ -457,7 +457,10 @@ namespace Pulse.UI.Controls
                     double dsPre = (_canvasSettings.DeviceSpacingPx > 0)
                         ? _canvasSettings.DeviceSpacingPx
                         : (mprPre > 0 ? (drawRightPre - lxPre) / (mprPre + 1) : drawRightPre - lxPre);
-                    double fePre   = lxPre + dsPre * (mprPre + 1);
+                    // When wireCount > 2 there are inner rows whose devices reach col maxPerRow+1,
+                    // so the far connector must sit one column further out at maxPerRow+2.
+                    int extraColPre = wcPre > 2 ? 1 : 0;
+                    double fePre   = lxPre + dsPre * (mprPre + 1 + extraColPre);
                     totalW = Math.Max(totalW, fePre + 10.0);
                 }
             }
@@ -1190,12 +1193,15 @@ namespace Pulse.UI.Controls
                                 compressedMaxPerRow = wireSlotsByWi.Max(s => s?.Count ?? 0);
                             }
 
-                            // farEdge: flipped=true → right of laneX, flipped=false → left of laneX
+                            // farEdge: flipped=true → right of laneX, flipped=false → left of laneX.
+                            // +1 extra column when wireCount > 2 so inner rows' last device (col maxPerRow+1)
+                            // never sits on the connector (which lands at col maxPerRow+2).
                             double farEdge = laneX;
                             if (total > 0)
                             {
+                                int extraCol = wireCount > 2 ? 1 : 0;
                                 double requiredReach = deviceSpacing *
-                                    ((showRep ? compressedMaxPerRow : maxPerRow) + 1);
+                                    ((showRep ? compressedMaxPerRow : maxPerRow) + 1 + extraCol);
                                 farEdge = flipped ? laneX + requiredReach : laneX - requiredReach;
                             }
 
