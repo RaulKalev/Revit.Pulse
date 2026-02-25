@@ -11,12 +11,12 @@ namespace Pulse.UI.Controls
         public static readonly DependencyProperty StrokeBrushProperty =
             DependencyProperty.Register(
                 nameof(StrokeBrush), typeof(Brush), typeof(PSUSymbol),
-                new PropertyMetadata(new SolidColorBrush(Color.FromArgb(0xCC, 0, 0, 0))));
+                new PropertyMetadata(new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF))));
 
         public static readonly DependencyProperty DimBrushProperty =
             DependencyProperty.Register(
                 nameof(DimBrush), typeof(Brush), typeof(PSUSymbol),
-                new PropertyMetadata(new SolidColorBrush(Color.FromArgb(0x66, 0, 0, 0))));
+                new PropertyMetadata(new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF))));
 
         public Brush StrokeBrush
         {

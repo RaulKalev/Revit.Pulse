@@ -1,42 +1,74 @@
-<!-- PSU / transformer section symbol.
-     Uses a Viewbox so it scales to whatever Width × Height the parent sets.
-     Design canvas: 48 × 80 px.
-     Diagonal runs bottom-left → top-right; rod is right-side vertical bar;
-     coil is a backward-C (open right) arc with a tail. -->
-<UserControl x:Class="Pulse.UI.Controls.PSUSymbol"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             IsHitTestVisible="False">
+<!--
+    PSU / transformer section symbol.
+    Uses a Viewbox so it scales to whatever Width × Height the parent sets.
+    Design canvas: 48 × 80 px.
+    Diagonal runs bottom-left → top-right; rod is right-side vertical bar;
+    coil is a backward-C (open right) arc with a tail.
+-->
+<UserControl
+    x:Class="Pulse.UI.Controls.PSUSymbol"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    IsHitTestVisible="False">
     <Viewbox Stretch="Fill">
         <Canvas Width="48" Height="80">
 
-            <!-- Diagonal: bottom-left → top-right -->
-            <Line X1="2" Y1="78" X2="46" Y2="2"
-                  Stroke="{Binding DimBrush}" StrokeThickness="1"/>
+            <!--  Diagonal: bottom-left → top-right  -->
+            <Line
+                Stroke="{Binding DimBrush, FallbackValue=#66FFFFFF, TargetNullValue=#66FFFFFF}"
+                StrokeThickness="1"
+                X1="0.44"
+                X2="47.58"
+                Y1="0.24"
+                Y2="79.74" />
 
-            <!-- Rod (fuse): plain vertical bar, no end caps, right-centre -->
-            <Line X1="34" Y1="30" X2="34" Y2="50"
-                  Stroke="{Binding StrokeBrush}" StrokeThickness="1.5"/>
+            <!--  Rod (fuse): plain vertical bar, no end caps, right-centre  -->
+            <Line
+                Stroke="{Binding StrokeBrush, FallbackValue=#CCFFFFFF, TargetNullValue=#CCFFFFFF}"
+                StrokeThickness="1.5"
+                X1="36"
+                X2="36"
+                Y1="10"
+                Y2="30" />
 
-            <!-- Coil: backward-C arc (open to the right), lower-left -->
-            <Path Stroke="{Binding DimBrush}" StrokeThickness="1.5" Fill="Transparent">
+            <!--  Coil: backward-C arc (open to the right), lower-left  -->
+            <Path
+                Fill="Transparent"
+                Stroke="{Binding DimBrush, FallbackValue=#66FFFFFF, TargetNullValue=#66FFFFFF}"
+                StrokeThickness="1.5">
                 <Path.Data>
                     <PathGeometry>
-                        <PathFigure StartPoint="14,46" IsClosed="False">
-                            <!-- Large arc, counterclockwise = sweeps left → backward-C -->
-                            <ArcSegment Point="14,62"
-                                        Size="8,8"
-                                        RotationAngle="0"
-                                        IsLargeArc="True"
-                                        SweepDirection="Counterclockwise"/>
+                        <PathFigure IsClosed="False" StartPoint="15,72">
+                            <!--  Large arc, counterclockwise = sweeps left → backward-C  -->
+                            <ArcSegment
+                                IsLargeArc="True"
+                                Point="15,60"
+                                RotationAngle="0"
+                                Size="2,2"
+                                SweepDirection="Clockwise" />
                         </PathFigure>
                     </PathGeometry>
                 </Path.Data>
             </Path>
-
-            <!-- Short tail below coil -->
-            <Line X1="14" Y1="62" X2="14" Y2="67"
-                  Stroke="{Binding DimBrush}" StrokeThickness="1.5"/>
+            <Path
+                Fill="Transparent"
+                Stroke="{Binding DimBrush, FallbackValue=#66FFFFFF, TargetNullValue=#66FFFFFF}"
+                StrokeThickness="1.5">
+                <Path.Data>
+                    <PathGeometry>
+                        <PathFigure IsClosed="False" StartPoint="15,60">
+                            <!--  Large arc, counterclockwise = sweeps left → backward-C  -->
+                            <ArcSegment
+                                IsLargeArc="True"
+                                Point="15,48"
+                                RotationAngle="0"
+                                Size="2,2"
+                                SweepDirection="Counterclockwise" />
+                        </PathFigure>
+                    </PathGeometry>
+                </Path.Data>
+            </Path>
+            <!--  Short tail below coil  -->
 
         </Canvas>
     </Viewbox>
