@@ -1205,26 +1205,32 @@ namespace Pulse.UI.Controls
                             for (int wi = 0; wi < wireCount; wi++)
                                 wireYs[wi] = botY - wi * wireSpacing;
 
-                            // Spine: panel head → topmost wire row.
-                            // This single vertical line passes through every intermediate row's laneX end,
-                            // covering all spine-side turnarounds (rows 1↔2, 3↔4, …).
-                            Line(wireBrush, laneX, rectTop, laneX, wireYs[wireCount - 1]);
+                            // Spine: panel head → row 0 only. Rows 1+ connect via nearX, not the spine.
+                            Line(wireBrush, laneX, rectTop, laneX, wireYs[0]);
 
                             // di=0 is the column nearest the spine; columns go away from laneX
                             double dirSign = flipped ? 1.0 : -1.0;
+                            // nearX: one device-column away from spine — inner-pair connector column
+                            double nearX   = laneX + dirSign * deviceSpacing;
 
-                            // Horizontal wires (all rows draw spine→farEdge, i.e. min→max X)
-                            double gapHalf = deviceSpacing * 0.44;
-                            double wireX0  = Math.Min(laneX, farEdge);
-                            double wireX1  = Math.Max(laneX, farEdge);
+                            // Horizontal wires:
+                            //   row 0  spans laneX → farEdge (full reach, connected to spine)
+                            //   rows 1+  span nearX → farEdge (never touch the spine)
+                            double gapHalf  = deviceSpacing * 0.44;
+                            double wireX0   = Math.Min(laneX,  farEdge);
+                            double wireX1   = Math.Max(laneX,  farEdge);
+                            double nearX_lo = Math.Min(nearX, farEdge);
+                            double nearX_hi = Math.Max(nearX, farEdge);
                             for (int wi = 0; wi < wireCount; wi++)
                             {
-                                double wyH   = wireYs[wi];
-                                bool revWire = (wi % 2 == 1);
-                                var slotRow  = wireSlotsByWi?[wireCount - 1 - wi];
+                                double wyH    = wireYs[wi];
+                                bool revWire  = (wi % 2 == 1);
+                                double rowX0  = wi == 0 ? wireX0 : nearX_lo;
+                                double rowX1  = wi == 0 ? wireX1 : nearX_hi;
+                                var slotRow   = wireSlotsByWi?[wireCount - 1 - wi];
                                 if (slotRow == null || !slotRow.Any(s => s.IsDots))
                                 {
-                                    Line(wireBrush, wireX0, wyH, wireX1, wyH);
+                                    Line(wireBrush, rowX0, wyH, rowX1, wyH);
                                 }
                                 else
                                 {
@@ -1233,19 +1239,18 @@ namespace Pulse.UI.Controls
                                     for (int si = 0; si < slotCntH; si++)
                                     {
                                         if (!slotRow[si].IsDots) continue;
-                                        // logical di: even rows 0..n, odd rows reversed
                                         int lDi   = revWire ? slotCntH - 1 - si : si;
                                         double sx = laneX + dirSign * deviceSpacing * (lDi + 1);
                                         gaps.Add((sx - gapHalf, sx + gapHalf));
                                     }
                                     gaps.Sort((a, b) => a.lo.CompareTo(b.lo));
-                                    double curX = wireX0;
+                                    double curX = rowX0;
                                     foreach (var g in gaps)
                                     {
                                         if (g.lo > curX) Line(wireBrush, curX, wyH, g.lo, wyH);
                                         curX = Math.Max(curX, g.hi);
                                     }
-                                    if (curX < wireX1) Line(wireBrush, curX, wyH, wireX1, wyH);
+                                    if (curX < rowX1) Line(wireBrush, curX, wyH, rowX1, wyH);
                                 }
                             }
 
@@ -1253,8 +1258,7 @@ namespace Pulse.UI.Controls
                             for (int wi = 0; wi + 1 < wireCount; wi += 2)
                                 Line(wireBrush, farEdge, wireYs[wi], farEdge, wireYs[wi + 1]);
 
-                            // Near-side connectors: inner transitions (1↔2), (3↔4), … one column away from spine.
-                            double nearX = laneX + dirSign * deviceSpacing;
+                            // Near connectors: inner transitions (1↔2), (3↔4), … at nearX.
                             for (int wi = 1; wi + 1 < wireCount; wi += 2)
                                 Line(wireBrush, nearX, wireYs[wi], nearX, wireYs[wi + 1]);
 
