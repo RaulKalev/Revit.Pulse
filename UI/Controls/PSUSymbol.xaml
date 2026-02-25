@@ -27,14 +27,13 @@
                 X1="36" Y1="10"
                 X2="36" Y2="30" />
 
-            <!--  Coil: 3 right-facing bumps using cubic beziers, lower-left.
-                  Bezier curves transform correctly under non-uniform scaling.
-                  Each bump: start/end at x=10, control points at x=22. -->
+            <!--  AC symbol: mirrored-S — top bump bows left, bottom bump bows right.
+                  Short vertical tails top and bottom. Centred at x=12. -->
             <Path
                 Fill="Transparent"
                 Stroke="{Binding DimBrush, FallbackValue=#66FFFFFF, TargetNullValue=#66FFFFFF}"
                 StrokeThickness="1.5"
-                Data="M 10,46 C 22,46 22,54 10,54 C 22,54 22,62 10,62 C 22,62 22,70 10,70 L 10,74" />
+                Data="M 12,48 L 12,51 C 2,53 2,63 12,65 C 22,67 22,77 12,79 L 12,80" />
 
         </Canvas>
     </Viewbox>
