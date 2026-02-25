@@ -787,15 +787,14 @@ namespace Pulse.UI.Controls
                         DiagramCanvas.Children.Add(outLbl);
                     }
 
-                    // ── Output arrow lines (one per labeled output) ───────
+                    // ── Output lines (one per labeled output, L-shaped: stub down then right) ───────
                     {
-                        var outArrowBrush      = new SolidColorBrush(Color.FromArgb(0xDD, 0x26, 0xC6, 0xB0));
-                        const double arrowLen  = 200.0;
-                        const double lineGapY  = 16.0;   // vertical spacing between lines
-                        const double firstGapY = 10.0;   // gap from bottom of output cells to first line
-                        const double arrowH    =  4.0;   // arrowhead half-height
-                        const double arrowW    =  7.0;   // arrowhead length
-                        const double lblFontSz =  8.0;
+                        var outLineBrush       = new SolidColorBrush(Color.FromArgb(0xDD, 0x26, 0xC6, 0xB0));
+                        const double lineLen   = 200.0;  // length of horizontal run
+                        const double lineGapY  = 12.0;   // vertical spacing between horizontal lines
+                        const double firstGapY =  8.0;   // gap from bottom of output cells to first line
+                        const double lineThick =  0.8;
+                        const double lblFontSz =  5.5;
 
                         double lineY0 = outY + outCellH + firstGapY;
                         int    lineIdx = 0;
@@ -806,28 +805,28 @@ namespace Pulse.UI.Controls
                                              ? panelCfg.OutputLabels[oi] : string.Empty;
                             if (string.IsNullOrWhiteSpace(userLbl)) continue;
 
-                            double lx1 = outStartX;
-                            double lx2 = outStartX + arrowLen;
-                            double ly  = lineY0 + lineIdx * lineGapY;
+                            // Centre-X of this output cell
+                            double stubX = outStartX + oi * outCellW + outCellW / 2.0;
+                            double ly    = lineY0 + lineIdx * lineGapY;
 
-                            // Horizontal line
-                            PLine(outArrowBrush, lx1, ly, lx2, ly, 1.5);
+                            // Vertical stub down from cell bottom to the horizontal run
+                            PLine(outLineBrush, stubX, outY + outCellH, stubX, ly, lineThick);
 
-                            // Arrowhead
-                            PLine(outArrowBrush, lx2, ly, lx2 - arrowW, ly - arrowH, 1.5);
-                            PLine(outArrowBrush, lx2, ly, lx2 - arrowW, ly + arrowH, 1.5);
+                            // Horizontal run to the right
+                            double lx2 = outStartX + lineLen;
+                            PLine(outLineBrush, stubX, ly, lx2, ly, lineThick);
 
-                            // Label above the line
-                            var arrowLbl = new TextBlock
+                            // Label above the horizontal run
+                            var lineLbl = new TextBlock
                             {
                                 Text             = userLbl,
                                 FontSize         = lblFontSz,
-                                Foreground       = outArrowBrush,
+                                Foreground       = outLineBrush,
                                 IsHitTestVisible = false
                             };
-                            Canvas.SetLeft(arrowLbl, lx1 + 2);
-                            Canvas.SetTop(arrowLbl,  ly - lblFontSz * 1.4);
-                            DiagramCanvas.Children.Add(arrowLbl);
+                            Canvas.SetLeft(lineLbl, stubX + 2);
+                            Canvas.SetTop(lineLbl,  ly - lblFontSz * 1.35);
+                            DiagramCanvas.Children.Add(lineLbl);
 
                             lineIdx++;
                         }
