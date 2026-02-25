@@ -794,32 +794,35 @@ namespace Pulse.UI.Controls
                     // Vertical divider between sections
                     PLine(panelDim, rsLeft, rectTop + 1, rsLeft, rectTop + rectH - 1);
 
-                    // ---- Battery symbol (XAML UserControl, centered in top half) ----
+                    // ---- Battery symbol — scaled to 0.5×0.5 so it fits the top half ----
                     double batAreaCY = rectTop + rectH / 4.0;
                     var batSymbol = new BatterySymbol
                     {
-                        StrokeBrush = panelStroke,
-                        DimBrush    = panelDim
+                        StrokeBrush     = panelStroke,
+                        DimBrush        = panelDim,
+                        RenderTransform = new System.Windows.Media.ScaleTransform(0.5, 0.5)
                     };
-                    Canvas.SetLeft(batSymbol, rsLeft);
-                    Canvas.SetTop(batSymbol,  batAreaCY - 30); // 30 = half control height (60/2)
+                    // Scaled: 52→26 wide, 60→30 tall. Centre it in the top-half cell.
+                    Canvas.SetLeft(batSymbol, rsCX - 13);        // 13 = 26/2
+                    Canvas.SetTop(batSymbol,  batAreaCY - 15);   // 15 = 30/2
                     DiagramCanvas.Children.Add(batSymbol);
 
                     // ---- Horizontal divider at panel vertical centre (battery / PSU boundary) ----
                     double rsDivY = rectTop + rectH / 2.0;
                     PLine(panelDim, rsLeft + 1, rsDivY, rsLeft + rightSecW - 1, rsDivY);
 
-                    // ---- PSU / diagonal section (XAML UserControl, fills lower half) ----
-                    double diagTop  = rsDivY + 1;
-                    double diagBoxH = (rectTop + rectH - 2) - diagTop;
+                    // ---- PSU / diagonal section — half width, centred ----
+                    double diagTop   = rsDivY + 1;
+                    double diagBoxH  = (rectTop + rectH - 2) - diagTop;
+                    double psuW      = (rightSecW - 4) / 2.0;
                     var psuSymbol = new PSUSymbol
                     {
                         StrokeBrush = panelStroke,
                         DimBrush    = panelDim,
-                        Width       = rightSecW - 4,
+                        Width       = psuW,
                         Height      = diagBoxH
                     };
-                    Canvas.SetLeft(psuSymbol, rsLeft + 2);
+                    Canvas.SetLeft(psuSymbol, rsLeft + (rightSecW - psuW) / 2.0);
                     Canvas.SetTop(psuSymbol,  diagTop);
                     DiagramCanvas.Children.Add(psuSymbol);
 
