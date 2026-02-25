@@ -129,6 +129,11 @@ namespace Pulse.UI.Controls
                 // Only redraw if no action was taken (plain close/dismiss).
                 Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
             };
+            PanelPopup.Closed += (_, __) =>
+            {
+                _selectedPanelName = null;
+                Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
+            };
         }
 
         // ── Toggle ────────────────────────────────────────────────────────
@@ -503,7 +508,10 @@ namespace Pulse.UI.Controls
                     var panelCfg = GetPanelCfg(panel.Name);
 
                     // Common brushes
-                    var panelStroke = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
+                    bool isPanelSelected = _selectedPanelName == panel.Name;
+                    var panelStroke = isPanelSelected
+                        ? new SolidColorBrush(Color.FromArgb(0xFF, 0x4F, 0xC3, 0xF7))
+                        : new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
                     var panelDim    = new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
                     var panelDimmer = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF));
 
@@ -550,6 +558,8 @@ namespace Pulse.UI.Controls
                     var _pW      = rectW;
                     panelClickTarget.MouseLeftButtonUp += (_, e) =>
                     {
+                        _selectedPanelName = _pName;
+                        DrawLevels();
                         ShowPanelEditPopup(_pName, _pLeft + _pW / 2, _pTop);
                         e.Handled = true;
                     };
@@ -765,7 +775,9 @@ namespace Pulse.UI.Controls
 
                         var outLbl = new TextBlock
                         {
-                            Text = $"Out{oi + 1}",
+                            Text = (panelCfg.OutputLabels.Count > oi && !string.IsNullOrEmpty(panelCfg.OutputLabels[oi]))
+                                   ? panelCfg.OutputLabels[oi]
+                                   : $"Out{oi + 1}",
                             FontSize = 4.5, Foreground = panelDim,
                             IsHitTestVisible = false,
                             Width = outCellH - 2,
@@ -1461,7 +1473,8 @@ namespace Pulse.UI.Controls
 
         // ── Per-panel diagram settings helpers ──────────────────────────────
 
-        private string _popupPanelName; // panel name currently open in PanelPopup
+        private string _popupPanelName;    // panel name currently open in PanelPopup
+        private string _selectedPanelName; // panel whose border is highlighted
 
         private PanelDiagramSettings GetPanelCfg(string panelName)
         {
@@ -1480,22 +1493,91 @@ namespace Pulse.UI.Controls
             PanelPopupOutCount.Text = cfg.OutCount.ToString();
             PanelPopupSupply.Text   = cfg.Supply;
 
+            RefreshOutputsPanel(cfg.OutCount, cfg.OutputLabels);
+
             PanelPopup.IsOpen = true;
 
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Input,
                 new Action(() => PanelPopupName.Focus()));
         }
 
+        /// <summary>Rebuilds the per-output label text-boxes inside the popup.</summary>
+        private void RefreshOutputsPanel(int count, System.Collections.Generic.List<string> existingLabels = null)
+        {
+            PanelPopupOutputsPanel.Children.Clear();
+            for (int i = 0; i < count; i++)
+            {
+                var row = new StackPanel
+                {
+                    Orientation = Orientation.Horizontal,
+                    Margin      = new Thickness(0, 0, 0, 4)
+                };
+
+                var lbl = new TextBlock
+                {
+                    Text              = $"Out {i + 1}",
+                    FontSize          = 10,
+                    Width             = 44,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Opacity           = 0.60,
+                    Foreground        = (Brush)TryFindResource("ForegroundBrush")
+                                        ?? (Brush)Brushes.White
+                };
+
+                var tb = new TextBox
+                {
+                    Text             = (existingLabels != null && existingLabels.Count > i)
+                                       ? existingLabels[i] : string.Empty,
+                    FontSize         = 11,
+                    Width            = 160,
+                    Padding          = new Thickness(6, 3, 6, 3),
+                    Foreground       = (Brush)TryFindResource("ForegroundBrush")
+                                       ?? (Brush)Brushes.White,
+                    Background       = (Brush)TryFindResource("BackgroundBrush")
+                                       ?? (Brush)new SolidColorBrush(Color.FromArgb(0xFF, 0x1E, 0x1E, 0x1E)),
+                    BorderBrush      = (Brush)TryFindResource("BorderBrush")
+                                       ?? (Brush)new SolidColorBrush(Color.FromArgb(0x55, 0xFF, 0xFF, 0xFF)),
+                    CaretBrush       = (Brush)TryFindResource("ForegroundBrush")
+                                       ?? (Brush)Brushes.White,
+                    VerticalContentAlignment = VerticalAlignment.Center
+                };
+
+                row.Children.Add(lbl);
+                row.Children.Add(tb);
+                PanelPopupOutputsPanel.Children.Add(row);
+            }
+        }
+
         private void PanelPopupOutDown_Click(object sender, RoutedEventArgs e)
         {
             if (int.TryParse(PanelPopupOutCount.Text, out int v) && v > 0)
+            {
                 PanelPopupOutCount.Text = (v - 1).ToString();
+                RefreshOutputsPanel(v - 1, CurrentOutputLabels());
+            }
         }
 
         private void PanelPopupOutUp_Click(object sender, RoutedEventArgs e)
         {
             if (int.TryParse(PanelPopupOutCount.Text, out int v))
+            {
                 PanelPopupOutCount.Text = (v + 1).ToString();
+                RefreshOutputsPanel(v + 1, CurrentOutputLabels());
+            }
+        }
+
+        /// <summary>Reads current output label values from the dynamic popup panel.</summary>
+        private System.Collections.Generic.List<string> CurrentOutputLabels()
+        {
+            var list = new System.Collections.Generic.List<string>();
+            foreach (FrameworkElement row in PanelPopupOutputsPanel.Children)
+            {
+                if (row is StackPanel sp)
+                    foreach (UIElement child in sp.Children)
+                        if (child is TextBox tb)
+                            list.Add(tb.Text.Trim());
+            }
+            return list;
         }
 
         private void PanelPopupSave_Click(object sender, RoutedEventArgs e)
@@ -1510,9 +1592,10 @@ namespace Pulse.UI.Controls
 
             _canvasSettings.PanelSettings[_popupPanelName] = new PanelDiagramSettings
             {
-                Name     = newName,
-                OutCount = newOut,
-                Supply   = supply
+                Name         = newName,
+                OutCount     = newOut,
+                Supply       = supply,
+                OutputLabels = CurrentOutputLabels()
             };
             DiagramCanvasSettingsService.Save(_canvasSettings);
             PanelPopup.IsOpen = false;

@@ -25,6 +25,13 @@ namespace Pulse.Core.Settings
         /// <summary>Supply label drawn at the bottom-right corner of the panel symbol.</summary>
         [JsonProperty("supply")]
         public string Supply { get; set; } = "Toide 230V";
+
+        /// <summary>
+        /// Per-output custom labels. Index 0 = Out1, etc.
+        /// Shorter than OutCount → remaining outputs fall back to "Out{n}".
+        /// </summary>
+        [JsonProperty("outputLabels")]
+        public List<string> OutputLabels { get; set; } = new List<string>();
     }
 
     /// <summary>

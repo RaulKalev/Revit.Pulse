@@ -320,6 +320,15 @@
                                      BorderBrush="{DynamicResource BorderBrush}"
                                      CaretBrush="{DynamicResource ForegroundBrush}"/>
 
+                            <!-- Output labels — populated dynamically from code-behind -->
+                            <Separator Margin="0,2,0,2" Background="{DynamicResource BorderBrush}"/>
+                            <TextBlock Text="Output labels"
+                                       FontSize="10" Opacity="0.55"
+                                       Margin="10,6,10,4"
+                                       Foreground="{DynamicResource ForegroundBrush}"/>
+                            <StackPanel x:Name="PanelPopupOutputsPanel"
+                                        Margin="8,0,8,6"/>
+
                             <Separator Margin="0,2,0,2" Background="{DynamicResource BorderBrush}"/>
 
                             <!-- Save button -->
