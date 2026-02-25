@@ -2,8 +2,8 @@
     PSU / transformer section symbol.
     Uses a Viewbox so it scales to whatever Width × Height the parent sets.
     Design canvas: 48 × 80 px.
-    Diagonal runs bottom-left → top-right; rod is right-side vertical bar;
-    coil is a backward-C (open right) arc with a tail.
+    Diagonal runs top-left → bottom-right; rod is upper-right vertical bar;
+    coil is three right-facing bumps (cubic-bezier) in the lower-left.
 -->
 <UserControl
     x:Class="Pulse.UI.Controls.PSUSymbol"
@@ -13,62 +13,28 @@
     <Viewbox Stretch="Fill">
         <Canvas Width="48" Height="80">
 
-            <!--  Diagonal: bottom-left → top-right  -->
+            <!--  Diagonal: exactly top-left → bottom-right of design canvas  -->
             <Line
                 Stroke="{Binding DimBrush, FallbackValue=#66FFFFFF, TargetNullValue=#66FFFFFF}"
                 StrokeThickness="1"
-                X1="0.44"
-                X2="47.58"
-                Y1="0.24"
-                Y2="79.74" />
+                X1="0" Y1="0"
+                X2="48" Y2="80" />
 
-            <!--  Rod (fuse): plain vertical bar, no end caps, right-centre  -->
+            <!--  Rod (fuse): plain vertical bar, upper-right  -->
             <Line
                 Stroke="{Binding StrokeBrush, FallbackValue=#CCFFFFFF, TargetNullValue=#CCFFFFFF}"
                 StrokeThickness="1.5"
-                X1="36"
-                X2="36"
-                Y1="10"
-                Y2="30" />
+                X1="36" Y1="10"
+                X2="36" Y2="30" />
 
-            <!--  Coil: backward-C arc (open to the right), lower-left  -->
+            <!--  Coil: 3 right-facing bumps using cubic beziers, lower-left.
+                  Bezier curves transform correctly under non-uniform scaling.
+                  Each bump: start/end at x=10, control points at x=22. -->
             <Path
                 Fill="Transparent"
                 Stroke="{Binding DimBrush, FallbackValue=#66FFFFFF, TargetNullValue=#66FFFFFF}"
-                StrokeThickness="1.5">
-                <Path.Data>
-                    <PathGeometry>
-                        <PathFigure IsClosed="False" StartPoint="15,72">
-                            <!--  Large arc, counterclockwise = sweeps left → backward-C  -->
-                            <ArcSegment
-                                IsLargeArc="True"
-                                Point="15,60"
-                                RotationAngle="0"
-                                Size="2,2"
-                                SweepDirection="Clockwise" />
-                        </PathFigure>
-                    </PathGeometry>
-                </Path.Data>
-            </Path>
-            <Path
-                Fill="Transparent"
-                Stroke="{Binding DimBrush, FallbackValue=#66FFFFFF, TargetNullValue=#66FFFFFF}"
-                StrokeThickness="1.5">
-                <Path.Data>
-                    <PathGeometry>
-                        <PathFigure IsClosed="False" StartPoint="15,60">
-                            <!--  Large arc, counterclockwise = sweeps left → backward-C  -->
-                            <ArcSegment
-                                IsLargeArc="True"
-                                Point="15,48"
-                                RotationAngle="0"
-                                Size="2,2"
-                                SweepDirection="Counterclockwise" />
-                        </PathFigure>
-                    </PathGeometry>
-                </Path.Data>
-            </Path>
-            <!--  Short tail below coil  -->
+                StrokeThickness="1.5"
+                Data="M 10,46 C 22,46 22,54 10,54 C 22,54 22,62 10,62 C 22,62 22,70 10,70 L 10,74" />
 
         </Canvas>
     </Viewbox>

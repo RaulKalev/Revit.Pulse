@@ -814,7 +814,7 @@ namespace Pulse.UI.Controls
                     // ---- PSU / diagonal section — half width, centred ----
                     double diagTop   = rsDivY + 1;
                     double diagBoxH  = (rectTop + rectH - 2) - diagTop;
-                    double psuW      = (rightSecW - 4) / 2.0;
+                    double psuW      = rightSecW - 4;
                     var psuSymbol = new PSUSymbol
                     {
                         StrokeBrush = panelStroke,
