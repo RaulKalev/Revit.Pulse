@@ -1095,46 +1095,42 @@ namespace Pulse.UI.Controls
                                             devAddr = an.ToString("D3");
                                         string labelText = shortLoop + "." + devAddr;
 
-                                        // After -90° LayoutTransform: natural Width  → visual Height,
-                                        //                              natural Height → visual Width.
-                                        // Pin the Border height so visual width is known exactly, allowing
-                                        // precise horizontal centering at devX.
-                                        const double labelFontSize = 7.0;
-                                        const double labelPadH     = 2.0;   // left/right padding (→ visual top/bottom)
-                                        const double labelPadV     = 0.8;   // top/bottom padding (→ visual width contribution)
-                                        const double borderThick   = 0.75;
-                                        // Explicit fixed height = narrower visual width after rotation.
-                                        const double labelBorderH  = labelFontSize + labelPadV * 2 + borderThick * 2 + 0.5;
-                                        // Natural width drives visual height; approx from text + h-padding + border.
-                                        const double labelW        = 30.0;
+                                        // Auto-size the Border to its content, then Measure() to get
+                                        // exact natural dimensions for pixel-perfect placement.
+                                        // After -90° LayoutTransform:
+                                        //   natural Width  → visual Height  (label length along wire axis)
+                                        //   natural Height → visual Width   (how wide the pill sits across devX)
                                         double labelOffset = _canvasSettings.LabelOffsetPx;
 
                                         var addrLabel = new Border
                                         {
-                                            Width            = labelW,
-                                            Height           = labelBorderH,
-                                            BorderBrush      = wireBrush,
-                                            BorderThickness  = new Thickness(borderThick),
-                                            CornerRadius     = new CornerRadius(labelBorderH / 2.0),
-                                            Background       = Brushes.Transparent,
-                                            Padding          = new Thickness(labelPadH, labelPadV, labelPadH, labelPadV),
+                                            BorderBrush     = wireBrush,
+                                            BorderThickness = new Thickness(0.75),
+                                            // CornerRadius larger than half-height → WPF clamps to full pill
+                                            CornerRadius    = new CornerRadius(100),
+                                            Background      = Brushes.Transparent,
+                                            // Horizontal padding → visual top/bottom gap inside pill
+                                            // Vertical padding   → visual width (thickness) of pill
+                                            Padding         = new Thickness(3.0, 1.0, 3.0, 1.0),
                                             IsHitTestVisible = false,
-                                            LayoutTransform  = new System.Windows.Media.RotateTransform(-90),
+                                            LayoutTransform = new System.Windows.Media.RotateTransform(-90),
                                             Child = new TextBlock
                                             {
-                                                Text              = labelText,
-                                                FontSize          = labelFontSize,
-                                                Foreground        = wireBrush,
-                                                TextAlignment     = TextAlignment.Center,
-                                                VerticalAlignment = VerticalAlignment.Center
+                                                Text      = labelText,
+                                                FontSize  = 7.0,
+                                                Foreground = wireBrush
                                             }
                                         };
 
-                                        // Canvas.SetLeft uses the post-rotation visual bounding box.
-                                        // Visual width = labelBorderH → centre it at devX exactly.
-                                        double idealTop = wY - circR - labelOffset - labelW;
+                                        // Measure to get true natural size (no layout pass needed yet).
+                                        addrLabel.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+                                        double natW = addrLabel.DesiredSize.Width;   // → visual Height
+                                        double natH = addrLabel.DesiredSize.Height;  // → visual Width
+
+                                        // Centre pill's visual width on devX; bottom of pill touches wY - circR - offset.
+                                        double idealTop = wY - circR - labelOffset - natW;
                                         double safeTop  = Math.Max(MarginTop - 2.0, idealTop);
-                                        Canvas.SetLeft(addrLabel, devX - labelBorderH / 2.0);
+                                        Canvas.SetLeft(addrLabel, devX - natH / 2.0);
                                         Canvas.SetTop(addrLabel,  safeTop);
                                         DiagramCanvas.Children.Add(addrLabel);
                                     }
