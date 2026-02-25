@@ -64,6 +64,51 @@ namespace Pulse.UI.Controls
         // Canvas drawing settings (loaded from disk, editable via popup)
         private DiagramCanvasSettings _canvasSettings = new DiagramCanvasSettings();
 
+        // ── Repetition compression ────────────────────────────────────────
+
+        private struct WireSlot
+        {
+            public bool   IsDots;     // true = ··· placeholder
+            public string DeviceType; // meaningful when IsDots == false
+        }
+
+        /// <summary>
+        /// Compresses a wire row of <paramref name="count"/> raw device types (starting at
+        /// <paramref name="offset"/> in <paramref name="allTypes"/>) into a slot list.
+        /// Runs of 4+ consecutive identical types are collapsed to: first + dots + last.
+        /// </summary>
+        private static List<WireSlot> BuildCompressedRow(
+            IReadOnlyList<string> allTypes, int offset, int count)
+        {
+            var raw = new string[count];
+            for (int i = 0; i < count; i++)
+                raw[i] = (offset + i < allTypes.Count) ? allTypes[offset + i] : null;
+
+            var result = new List<WireSlot>(count);
+            int j = 0;
+            while (j < count)
+            {
+                string type     = raw[j];
+                int    runStart = j;
+                // Advance while same type (null == null is OK for string ==)
+                while (j < count && raw[j] == type) j++;
+                int runLen = j - runStart;
+
+                if (runLen >= 4)
+                {
+                    result.Add(new WireSlot { DeviceType = raw[runStart] }); // first
+                    result.Add(new WireSlot { IsDots     = true });           // ···
+                    result.Add(new WireSlot { DeviceType = raw[j - 1] });    // last
+                }
+                else
+                {
+                    for (int k = runStart; k < j; k++)
+                        result.Add(new WireSlot { DeviceType = raw[k] });
+                }
+            }
+            return result;
+        }
+
         public DiagramPanel()
         {
             InitializeComponent();
@@ -895,14 +940,31 @@ namespace Pulse.UI.Controls
                                 ? _canvasSettings.DeviceSpacingPx
                                 : (maxPerRow > 0 ? span0 / (maxPerRow + 1) : span0);
 
-                            // farEdge = exactly one deviceSpacing past the last device column.
-                            // Auto-spacing: requiredReach == span0, so farEdge == baseEdge (unchanged).
-                            // Fixed spacing: farEdge moves to match the actual last device + 1 gap,
-                            //   stretching outward if devices would overflow, shrinking if they fit.
+                            // ── Pre-compute per-wire slot lists when repetitions enabled ──────
+                            bool showRep = _canvasSettings.ShowRepetitions && total > 0;
+                            List<WireSlot>[] wireSlotsByWi = null;
+                            int compressedMaxPerRow = maxPerRow;
+                            if (showRep)
+                            {
+                                wireSlotsByWi = new List<WireSlot>[wireCount];
+                                int tempRemain = total;
+                                for (int wi2 = wireCount - 1; wi2 >= 0; wi2--)
+                                {
+                                    int wd       = (tempRemain + wi2) / (wi2 + 1);
+                                    int startOff = total - tempRemain;
+                                    wireSlotsByWi[wi2] = BuildCompressedRow(
+                                        loopInfo.DeviceTypesByAddress, startOff, wd);
+                                    tempRemain -= wd;
+                                }
+                                compressedMaxPerRow = wireSlotsByWi.Max(s => s?.Count ?? 0);
+                            }
+
+                            // farEdge = one deviceSpacing past the last visible column.
                             double farEdge = baseEdge;
                             if (total > 0)
                             {
-                                double requiredReach = deviceSpacing * (maxPerRow + 1);
+                                double requiredReach = deviceSpacing *
+                                    ((showRep ? compressedMaxPerRow : maxPerRow) + 1);
                                 farEdge = flipped
                                     ? laneX + requiredReach
                                     : laneX - requiredReach;
@@ -912,9 +974,40 @@ namespace Pulse.UI.Controls
                             Line(wireBrush, laneX, rectTop, laneX, topY);
                             // ── Far vertical (spans full loop height) ─────────────
                             Line(wireBrush, farEdge, topY, farEdge, botY);
-                            // ── All horizontal wires ──────────────────────────────
+                            // ── All horizontal wires (with repetition gaps where needed) ──────
+                            double gapHalf = deviceSpacing * 0.44;
                             for (int wi = 0; wi < wireCount; wi++)
-                                Line(wireBrush, farEdge, topY + wi * wireSpacing, laneX, topY + wi * wireSpacing);
+                            {
+                                double wY2     = topY + wi * wireSpacing;
+                                var    slotRow = wireSlotsByWi?[wi];
+                                if (slotRow == null || !slotRow.Any(s => s.IsDots))
+                                {
+                                    Line(wireBrush, farEdge, wY2, laneX, wY2);
+                                }
+                                else
+                                {
+                                    // Collect X-range gaps around every dots slot then draw segments
+                                    var gaps = new List<(double lo, double hi)>();
+                                    for (int si = 0; si < slotRow.Count; si++)
+                                    {
+                                        if (!slotRow[si].IsDots) continue;
+                                        double sx = flipped
+                                            ? laneX + deviceSpacing * (si + 1)
+                                            : laneX - deviceSpacing * (si + 1);
+                                        gaps.Add((sx - gapHalf, sx + gapHalf));
+                                    }
+                                    gaps.Sort((a, b) => a.lo.CompareTo(b.lo));
+                                    double wx0 = Math.Min(laneX, farEdge);
+                                    double wx1 = Math.Max(laneX, farEdge);
+                                    double cur = wx0;
+                                    foreach (var g in gaps)
+                                    {
+                                        if (g.lo > cur) Line(wireBrush, cur, wY2, g.lo, wY2);
+                                        cur = Math.Max(cur, g.hi);
+                                    }
+                                    if (cur < wx1) Line(wireBrush, cur, wY2, wx1, wY2);
+                                }
+                            }
 
                             // ── Hit-test rectangle (full loop height) ─────────────
                             double hitX = Math.Min(laneX, farEdge);
@@ -940,10 +1033,8 @@ namespace Pulse.UI.Controls
                             // ── Devices: bottom wire carries the lowest addresses ──────────
                             // wi=wireCount-1 → bottom wire (first in address order)
                             // wi=0           → top wire (last in address order)
-                            // di=0           → innermost column (rightmost for left-side,
-                            //                  leftmost for right-side)
-                            // This places address 1 at bottom-right (left loops) or
-                            // bottom-left (right/flipped loops).
+                            // di=0           → innermost column
+                            // When showRep: dots slots replace compressed runs in-place.
                             int devRemain = total;
                             int devOffset = 0;
                             for (int wi = wireCount - 1; wi >= 0; wi--)
@@ -951,13 +1042,38 @@ namespace Pulse.UI.Controls
                                 // Ceiling-divide remaining devices among remaining wires (wi+1 left).
                                 int wireDevs = (devRemain + wi) / (wi + 1);
                                 double wY    = topY + wi * wireSpacing;
-                                for (int di = 0; di < wireDevs; di++)
+                                var slots    = wireSlotsByWi?[wi];
+                                int slotCount = slots != null ? slots.Count : wireDevs;
+
+                                for (int di = 0; di < slotCount; di++)
                                 {
                                     double devX = flipped
                                         ? laneX + deviceSpacing * (di + 1)
                                         : laneX - deviceSpacing * (di + 1);
-                                    string devType = devOffset < flatTypes.Count ? flatTypes[devOffset] : null;
-                                    devOffset++;
+
+                                    if (slots != null && slots[di].IsDots)
+                                    {
+                                        // ··· repetition marker: 3 small filled dots
+                                        double dotR    = 1.5;
+                                        double dotStep = gapHalf * 0.65;
+                                        for (int d = -1; d <= 1; d++)
+                                        {
+                                            var dot = new Ellipse
+                                            {
+                                                Width = dotR * 2, Height = dotR * 2,
+                                                Fill  = wireBrush, IsHitTestVisible = false
+                                            };
+                                            Canvas.SetLeft(dot, devX + d * dotStep - dotR);
+                                            Canvas.SetTop(dot,  wY - dotR);
+                                            DiagramCanvas.Children.Add(dot);
+                                        }
+                                        continue;
+                                    }
+
+                                    string devType = slots != null
+                                        ? slots[di].DeviceType
+                                        : (devOffset < flatTypes.Count ? flatTypes[devOffset] : null);
+                                    if (slots == null) devOffset++;
 
                                     string slotSymKey = devType != null
                                         ? _currentVm.GetDeviceTypeSymbol(devType) : null;
@@ -1433,6 +1549,7 @@ namespace Pulse.UI.Controls
                 System.Globalization.CultureInfo.InvariantCulture);
             TbDeviceSpacing.Text  = _canvasSettings.DeviceSpacingPx.ToString("F1",
                 System.Globalization.CultureInfo.InvariantCulture);
+            CbShowRepetitions.IsChecked = _canvasSettings.ShowRepetitions;
             CanvasSettingsPopup.IsOpen = true;
         }
 
@@ -1447,6 +1564,8 @@ namespace Pulse.UI.Controls
                     System.Globalization.NumberStyles.Any,
                     System.Globalization.CultureInfo.InvariantCulture, out double ds) && ds >= 0)
                 _canvasSettings.DeviceSpacingPx = ds;
+
+            _canvasSettings.ShowRepetitions = CbShowRepetitions.IsChecked == true;
 
             DiagramCanvasSettingsService.Save(_canvasSettings);
             CanvasSettingsPopup.IsOpen = false;

@@ -24,6 +24,14 @@ namespace Pulse.Core.Settings
         /// </summary>
         [JsonProperty("deviceSpacingPx")]
         public double DeviceSpacingPx { get; set; } = 0.0;
+
+        /// <summary>
+        /// When true, runs of 4+ consecutive same-type devices on a wire row are collapsed
+        /// to first … last with the middle replaced by a ··· marker and a gap in the wire line.
+        /// Default: false.
+        /// </summary>
+        [JsonProperty("showRepetitions")]
+        public bool ShowRepetitions { get; set; } = false;
     }
 
     /// <summary>

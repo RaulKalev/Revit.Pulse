@@ -347,7 +347,7 @@
                             </Grid>
 
                             <!-- Device spacing -->
-                            <Grid Margin="0,0,0,10">
+                            <Grid Margin="0,0,0,6">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="56"/>
@@ -364,6 +364,15 @@
                                          VerticalContentAlignment="Center"
                                          Height="24"/>
                             </Grid>
+
+                            <!-- Repetitions -->
+                            <CheckBox x:Name="CbShowRepetitions"
+                                      Margin="0,0,0,10"
+                                      Foreground="{DynamicResource ForegroundBrush}"
+                                      FontSize="11">
+                                <TextBlock Text="Collapse repeated devices (·4 in a row)"
+                                           FontSize="11" TextWrapping="Wrap"/>
+                            </CheckBox>
 
                             <Button x:Name="BtnCanvasSettingsApply"
                                     Click="BtnCanvasSettingsApply_Click"
