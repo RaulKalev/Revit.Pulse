@@ -447,6 +447,8 @@ namespace Pulse.UI.Controls
                 {
                     var infPre = panelPre.LoopInfos[liPre];
                     if (infPre.Levels == null || infPre.Levels.Count == 0) continue;
+                    bool flPre  = _currentVm.IsLoopFlipped(panelPre.Name, infPre.Name);
+                    if (!flPre) continue;  // left-extending loops never widen the canvas
                     int  totPre = infPre.DeviceTypesByAddress.Count;
                     if (totPre == 0) continue;
                     int  wcPre  = _currentVm.GetLoopWireCount(panelPre.Name, infPre.Name);
@@ -1158,10 +1160,11 @@ namespace Pulse.UI.Controls
                             double botY = effectiveLevelY - gap * (rank + 1) - heightsBelow;
                             double topY = botY - effectiveLoopH;
 
-                            // ── Compute farEdge — always extends rightward from laneX ──────────
+                            // ── Compute farEdge — direction depends on flip flag ───────────────
                             int    total     = loopInfo.DeviceTypesByAddress.Count;
                             int    maxPerRow = total > 0 ? (int)Math.Ceiling((double)total / wireCount) : 0;
-                            double span0     = drawRight - laneX;
+                            // Default span: distance from spine to the natural draw boundary
+                            double span0     = flipped ? drawRight - laneX : laneX - drawLeft;
 
                             // Device spacing: fixed setting or auto-fit to default span
                             double deviceSpacing = (_canvasSettings.DeviceSpacingPx > 0 && total > 0)
@@ -1187,13 +1190,13 @@ namespace Pulse.UI.Controls
                                 compressedMaxPerRow = wireSlotsByWi.Max(s => s?.Count ?? 0);
                             }
 
-                            // farEdge = one deviceSpacing past the last visible column (always right of laneX).
+                            // farEdge: flipped=true → right of laneX, flipped=false → left of laneX
                             double farEdge = laneX;
                             if (total > 0)
                             {
                                 double requiredReach = deviceSpacing *
                                     ((showRep ? compressedMaxPerRow : maxPerRow) + 1);
-                                farEdge = laneX + requiredReach;
+                                farEdge = flipped ? laneX + requiredReach : laneX - requiredReach;
                             }
 
                             // ── Serpentine: left spine + horizontal wires + right pair connectors ──
@@ -1205,18 +1208,21 @@ namespace Pulse.UI.Controls
                             // Left spine: panel head → topmost wire
                             Line(wireBrush, laneX, rectTop, laneX, wireYs[wireCount - 1]);
 
-                            // Horizontal wires (even rows from bottom: L→R ascending address;
-                            //                   odd  rows: L→R but addresses reversed)
+                            // di=0 is the column nearest the spine; columns go away from laneX
+                            double dirSign = flipped ? 1.0 : -1.0;
+
+                            // Horizontal wires (all rows draw spine→farEdge, i.e. min→max X)
                             double gapHalf = deviceSpacing * 0.44;
+                            double wireX0  = Math.Min(laneX, farEdge);
+                            double wireX1  = Math.Max(laneX, farEdge);
                             for (int wi = 0; wi < wireCount; wi++)
                             {
-                                double wyH  = wireYs[wi];
+                                double wyH   = wireYs[wi];
                                 bool revWire = (wi % 2 == 1);
-                                // wireSlotsByWi[k] was built with k = wireCount-1 for bottom row
-                                var slotRow = wireSlotsByWi?[wireCount - 1 - wi];
+                                var slotRow  = wireSlotsByWi?[wireCount - 1 - wi];
                                 if (slotRow == null || !slotRow.Any(s => s.IsDots))
                                 {
-                                    Line(wireBrush, laneX, wyH, farEdge, wyH);
+                                    Line(wireBrush, wireX0, wyH, wireX1, wyH);
                                 }
                                 else
                                 {
@@ -1225,35 +1231,36 @@ namespace Pulse.UI.Controls
                                     for (int si = 0; si < slotCntH; si++)
                                     {
                                         if (!slotRow[si].IsDots) continue;
-                                        int dispIdx = revWire ? slotCntH - 1 - si : si;
-                                        double sx = laneX + deviceSpacing * (dispIdx + 1);
+                                        // logical di: even rows 0..n, odd rows reversed
+                                        int lDi   = revWire ? slotCntH - 1 - si : si;
+                                        double sx = laneX + dirSign * deviceSpacing * (lDi + 1);
                                         gaps.Add((sx - gapHalf, sx + gapHalf));
                                     }
                                     gaps.Sort((a, b) => a.lo.CompareTo(b.lo));
-                                    double curX = laneX;
+                                    double curX = wireX0;
                                     foreach (var g in gaps)
                                     {
                                         if (g.lo > curX) Line(wireBrush, curX, wyH, g.lo, wyH);
                                         curX = Math.Max(curX, g.hi);
                                     }
-                                    if (curX < farEdge) Line(wireBrush, curX, wyH, farEdge, wyH);
+                                    if (curX < wireX1) Line(wireBrush, curX, wyH, wireX1, wyH);
                                 }
                             }
 
-                            // Right-side pair connectors: (wi=0 ↔ wi=1), (wi=2 ↔ wi=3), …
+                            // Far-side pair connectors: (wi=0 ↔ wi=1), (wi=2 ↔ wi=3), …
                             for (int wi = 0; wi + 1 < wireCount; wi += 2)
                                 Line(wireBrush, farEdge, wireYs[wi], farEdge, wireYs[wi + 1]);
 
                             // ── Hit-test rectangle ─────────────────────────────────
                             var hitRect = new System.Windows.Shapes.Rectangle
                             {
-                                Width  = Math.Max(farEdge - laneX, 8),
+                                Width  = Math.Max(Math.Abs(farEdge - laneX), 8),
                                 Height = effectiveLoopH + 4,
                                 Fill   = Brushes.Transparent,
                                 Tag    = "loop::" + loopKey,
                                 Cursor = Cursors.Hand
                             };
-                            Canvas.SetLeft(hitRect, laneX);
+                            Canvas.SetLeft(hitRect, wireX0);
                             Canvas.SetTop(hitRect,  topY - 2);
                             DiagramCanvas.Children.Add(hitRect);
 
@@ -1291,8 +1298,8 @@ namespace Pulse.UI.Controls
 
                                 for (int di = 0; di < slotCount; di++)
                                 {
-                                    // All devices display left-to-right from laneX
-                                    double devX = laneX + deviceSpacing * (di + 1);
+                                    // Devices fan away from the spine (laneX)
+                                    double devX = laneX + dirSign * deviceSpacing * (di + 1);
 
                                     // Reversed rows: map display index to reversed slot/address
                                     int edi = revRow && slots != null ? slotCount - 1 - di : di;
