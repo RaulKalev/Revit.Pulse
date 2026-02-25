@@ -123,7 +123,13 @@ namespace Pulse.UI.ViewModels
 
             // ── Initialise orchestration services ────────────────────────────
             _appController = new PulseAppController();
-            _appController.RegisterModule(new FireAlarmModuleDefinition());
+
+            // Use reflection-based module discovery with manual fallback.
+            // The fallback list ensures that if reflection fails to find
+            // FireAlarmModuleDefinition, the module is still registered.
+            var fallback = new IModuleDefinition[] { new FireAlarmModuleDefinition() };
+            _appController.DiscoverModules(fallback);
+
             ActiveModuleName = _appController.ActiveModule.DisplayName;
 
             _refreshPipeline = new RefreshPipeline();

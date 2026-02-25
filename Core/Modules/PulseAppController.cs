@@ -1,9 +1,9 @@
 using System;
 using System.Collections.Generic;
-using Autodesk.Revit.UI;
+using System.Reflection;
+using Pulse.Core.Logging;
 using Pulse.Core.Modules;
 using Pulse.Core.Settings;
-using Pulse.Revit.ExternalEvents;
 
 namespace Pulse.Core.Modules
 {
@@ -17,6 +17,7 @@ namespace Pulse.Core.Modules
         private IModuleDefinition _activeModule;
         private ModuleSettings _activeSettings;
         private ModuleData _currentData;
+        private readonly ILogger _logger;
 
         /// <summary>Raised when the active module changes.</summary>
         public event Action<IModuleDefinition> ActiveModuleChanged;
@@ -46,6 +47,11 @@ namespace Pulse.Core.Modules
         /// <summary>Latest collected module data (null until first refresh).</summary>
         public ModuleData CurrentData => _currentData;
 
+        public PulseAppController(ILogger logger = null)
+        {
+            _logger = logger ?? new DebugLogger("Pulse.AppController");
+        }
+
         /// <summary>
         /// Register a module definition. The first registered module becomes active.
         /// </summary>
@@ -58,6 +64,46 @@ namespace Pulse.Core.Modules
                 _activeModule = module;
                 _activeSettings = module.GetDefaultSettings();
             }
+        }
+
+        /// <summary>
+        /// Discover modules via reflection and register them.
+        /// Falls back to <paramref name="fallbackModules"/> if discovery fails.
+        /// Call this instead of (or in addition to) <see cref="RegisterModule"/>
+        /// to enable automatic module discovery.
+        /// </summary>
+        /// <param name="fallbackModules">Manual modules used if reflection fails.</param>
+        /// <param name="assemblies">
+        /// Assemblies to scan. Null = scan the calling assembly + entry assembly.
+        /// </param>
+        public void DiscoverModules(
+            IEnumerable<IModuleDefinition> fallbackModules,
+            IEnumerable<Assembly> assemblies = null)
+        {
+            var expectedIds = new List<string>();
+            foreach (var m in fallbackModules)
+                expectedIds.Add(m.ModuleId);
+
+            var catalog = new ModuleCatalog(fallbackModules, _logger);
+
+            // Default: scan the assembly that contains the modules
+            var asmList = assemblies ?? new[]
+            {
+                typeof(PulseAppController).Assembly,   // Core
+                Assembly.GetCallingAssembly()           // Modules/FireAlarm lives in main assembly
+            };
+
+            catalog.Discover(asmList, expectedIds);
+
+            _modules.Clear();
+            _activeModule = null;
+
+            foreach (var mod in catalog.Modules)
+                RegisterModule(mod);
+
+            _logger.Info(catalog.UsedFallback
+                ? "Module discovery fell back to manual registration."
+                : $"Module discovery succeeded with {catalog.Modules.Count} module(s).");
         }
 
         /// <summary>
