@@ -1205,9 +1205,10 @@ namespace Pulse.UI.Controls
                             for (int wi = 0; wi < wireCount; wi++)
                                 wireYs[wi] = botY - wi * wireSpacing;
 
-                            // Spine: panel head → bottom row, touching every wire row's laneX end.
-                            // This covers all spine-side turnarounds (rows 1↔2, 3↔4, …).
-                            Line(wireBrush, laneX, rectTop, laneX, wireYs[0]);
+                            // Spine: panel head → topmost wire row.
+                            // This single vertical line passes through every intermediate row's laneX end,
+                            // covering all spine-side turnarounds (rows 1↔2, 3↔4, …).
+                            Line(wireBrush, laneX, rectTop, laneX, wireYs[wireCount - 1]);
 
                             // di=0 is the column nearest the spine; columns go away from laneX
                             double dirSign = flipped ? 1.0 : -1.0;
