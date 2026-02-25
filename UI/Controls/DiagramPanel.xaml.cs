@@ -440,7 +440,7 @@ namespace Pulse.UI.Controls
                     panelPre.ConfigLoopCount > 0 ? panelPre.ConfigLoopCount : panelPre.LoopInfos.Count,
                     16);
                 if (lcPre == 0) continue;
-                const double lsWPre  = 200.0 - 52.0; // leftSecW
+                const double lsWPre  = 200.0 - 26.0; // leftSecW
                 double slWPre  = lsWPre / lcPre;
                 double rLPre   = laneCenterX - 100.0;
                 for (int liPre = 0; liPre < Math.Min(panelPre.LoopInfos.Count, lcPre); liPre++)
@@ -674,7 +674,7 @@ namespace Pulse.UI.Controls
                     double rectTop  = zoneBottom - 10.0 - belowPanelH - rectH;
 
                     // Left section (loops + body) and right section (power/battery)
-                    const double rightSecW = 52.0;
+                    const double rightSecW = 26.0;
                     double leftSecW        = rectW - rightSecW;
 
                     // Common brushes
