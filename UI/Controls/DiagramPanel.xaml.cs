@@ -323,7 +323,6 @@ namespace Pulse.UI.Controls
             // The paper fits the viewport at fitFactor preserving aspect ratio.
             // All content (level lines, panels, devices) is confined to the paper's inner margin.
             const double paperPad  = 10.0;
-            const double fitFactor = 0.90;
             var paperStore = DeviceConfigService.Load();
             var selPaper   = string.IsNullOrEmpty(_canvasSettings.SelectedPaperSizeId)
                                  ? null
@@ -335,8 +334,14 @@ namespace Pulse.UI.Controls
             {
                 double availW  = w - 2 * paperPad;
                 double availH  = h - 2 * paperPad;
-                paperScale    = Math.Min(availW * fitFactor / selPaper.WidthMm,
-                                        availH * fitFactor / selPaper.HeightMm);
+                // Anchor the px/mm scale to A4 landscape (297×210 mm) filling 85% of the
+                // viewport.  Every other paper size uses the SAME scale, so A3 (420×297)
+                // renders 41% larger than A4, A2 another 41% above that, etc.
+                const double anchorW   = 297.0;   // A4 landscape width mm
+                const double anchorH   = 210.0;   // A4 landscape height mm
+                const double anchorFit = 0.85;
+                paperScale    = Math.Min(availW * anchorFit / anchorW,
+                                        availH * anchorFit / anchorH);
                 pW            = selPaper.WidthMm  * paperScale;
                 pH            = selPaper.HeightMm * paperScale;
                 pLeft         = paperPad + (availW - pW) / 2.0;
