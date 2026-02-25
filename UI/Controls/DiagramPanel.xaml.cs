@@ -787,6 +787,52 @@ namespace Pulse.UI.Controls
                         DiagramCanvas.Children.Add(outLbl);
                     }
 
+                    // ── Output arrow lines (one per labeled output) ───────
+                    {
+                        var outArrowBrush      = new SolidColorBrush(Color.FromArgb(0xDD, 0x26, 0xC6, 0xB0));
+                        const double arrowLen  = 200.0;
+                        const double lineGapY  = 16.0;   // vertical spacing between lines
+                        const double firstGapY = 10.0;   // gap from bottom of output cells to first line
+                        const double arrowH    =  4.0;   // arrowhead half-height
+                        const double arrowW    =  7.0;   // arrowhead length
+                        const double lblFontSz =  8.0;
+
+                        double lineY0 = outY + outCellH + firstGapY;
+                        int    lineIdx = 0;
+
+                        for (int oi = 0; oi < outCount; oi++)
+                        {
+                            string userLbl = (panelCfg.OutputLabels.Count > oi)
+                                             ? panelCfg.OutputLabels[oi] : string.Empty;
+                            if (string.IsNullOrWhiteSpace(userLbl)) continue;
+
+                            double lx1 = outStartX;
+                            double lx2 = outStartX + arrowLen;
+                            double ly  = lineY0 + lineIdx * lineGapY;
+
+                            // Horizontal line
+                            PLine(outArrowBrush, lx1, ly, lx2, ly, 1.5);
+
+                            // Arrowhead
+                            PLine(outArrowBrush, lx2, ly, lx2 - arrowW, ly - arrowH, 1.5);
+                            PLine(outArrowBrush, lx2, ly, lx2 - arrowW, ly + arrowH, 1.5);
+
+                            // Label above the line
+                            var arrowLbl = new TextBlock
+                            {
+                                Text             = userLbl,
+                                FontSize         = lblFontSz,
+                                Foreground       = outArrowBrush,
+                                IsHitTestVisible = false
+                            };
+                            Canvas.SetLeft(arrowLbl, lx1 + 2);
+                            Canvas.SetTop(arrowLbl,  ly - lblFontSz * 1.4);
+                            DiagramCanvas.Children.Add(arrowLbl);
+
+                            lineIdx++;
+                        }
+                    }
+
                     // ── Loop wires (closed rectangular loops) ────────────────────
                     if (loopCount > 0 && panel.LoopInfos.Count > 0)
                     {
