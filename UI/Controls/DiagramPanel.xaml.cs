@@ -775,9 +775,7 @@ namespace Pulse.UI.Controls
 
                         var outLbl = new TextBlock
                         {
-                            Text = (panelCfg.OutputLabels.Count > oi && !string.IsNullOrEmpty(panelCfg.OutputLabels[oi]))
-                                   ? panelCfg.OutputLabels[oi]
-                                   : $"Out{oi + 1}",
+                            Text = $"Out{oi + 1}",
                             FontSize = 4.5, Foreground = panelDim,
                             IsHitTestVisible = false,
                             Width = outCellH - 2,
