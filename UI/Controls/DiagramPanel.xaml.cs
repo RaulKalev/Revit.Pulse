@@ -800,6 +800,7 @@ namespace Pulse.UI.Controls
                             Foreground       = panelStroke,
                             IsHitTestVisible = false,
                             Width            = outLblWidth,
+                            TextAlignment    = TextAlignment.Center,
                             TextTrimming     = TextTrimming.CharacterEllipsis
                         };
                         outLbl.RenderTransform = new System.Windows.Media.RotateTransform(-90);
