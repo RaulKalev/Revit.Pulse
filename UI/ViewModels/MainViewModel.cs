@@ -169,20 +169,30 @@ namespace Pulse.UI.ViewModels
 
             // Wire up topology selection events
             Topology.NodeSelected     += OnTopologyNodeSelected;
-            Topology.ConfigAssigned   += OnTopologyConfigAssigned;
-            Topology.WireAssigned     += OnTopologyWireAssigned;
 
-            // Wire diagram visibility saves
-            Diagram.VisibilityChanged = () =>
-                _storageFacade.SaveDiagramSettings(Diagram.Visibility);
+            // Guard config-assignment wiring with capability check
+            if (_appController.HasCapability(ModuleCapabilities.ConfigAssignment))
+                Topology.ConfigAssigned += OnTopologyConfigAssigned;
+
+            // Guard wire-assignment wiring with capability check
+            if (_appController.HasCapability(ModuleCapabilities.Wiring))
+                Topology.WireAssigned += OnTopologyWireAssigned;
+
+            // Wire diagram visibility saves (guarded by Diagram capability)
+            if (_appController.HasCapability(ModuleCapabilities.Diagram))
+            {
+                Diagram.VisibilityChanged = () =>
+                    _storageFacade.SaveDiagramSettings(Diagram.Visibility);
+            }
 
             // Wire topology assignment saves (panel/loop configs, flip states, etc.)
             Action saveAssignments = () => _assignmentsService.RequestSave();
             Topology.AssignmentsSaveRequested = saveAssignments;
             Diagram.AssignmentsSaveRequested = saveAssignments;
 
-            // Wire diagram wire-assignment writes
-            Diagram.WireAssigned = OnDiagramWireAssigned;
+            // Wire diagram wire-assignment writes (guarded by Wiring capability)
+            if (_appController.HasCapability(ModuleCapabilities.Wiring))
+                Diagram.WireAssigned = OnDiagramWireAssigned;
 
             // Create commands
             RefreshCommand = new RelayCommand(ExecuteRefresh, () => !IsLoading);
@@ -190,7 +200,9 @@ namespace Pulse.UI.ViewModels
             FilterWarningsCommand = new RelayCommand(_ => ShowWarningsOnly = !ShowWarningsOnly);
             OpenSettingsCommand = new RelayCommand(ExecuteOpenSettings);
             OpenDeviceConfiguratorCommand = new RelayCommand(ExecuteOpenDeviceConfigurator);
-            OpenSymbolMappingCommand = new RelayCommand(ExecuteOpenSymbolMapping);
+            OpenSymbolMappingCommand = new RelayCommand(
+                ExecuteOpenSymbolMapping,
+                () => _appController.HasCapability(ModuleCapabilities.SymbolMapping));
 
             // Load previously saved settings from Extensible Storage (we are on the API thread here)
             LoadInitialSettings(uiApp.ActiveUIDocument?.Document);
