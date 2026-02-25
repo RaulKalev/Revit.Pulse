@@ -349,6 +349,72 @@ namespace Pulse.UI.Controls
             }
             DiagramCanvas.Width = totalW;
 
+            // ── Paper border ──────────────────────────────────────────────
+            // Draw a subtle dashed rectangle representing the selected paper
+            // size, sized to contain the level-line content area with a small
+            // margin and centred on the canvas.  It is added first so it sits
+            // behind every other canvas child.
+            {
+                var paperStore = DeviceConfigService.Load();
+                var selPaper   = string.IsNullOrEmpty(_canvasSettings.SelectedPaperSizeId)
+                                     ? null
+                                     : paperStore.PaperSizes
+                                                 .FirstOrDefault(p => p.Id == _canvasSettings.SelectedPaperSizeId);
+                if (selPaper != null && selPaper.WidthMm > 0 && selPaper.HeightMm > 0)
+                {
+                    // Fit the paper (preserving its aspect ratio) to the
+                    // canvas, leaving at least 10 px margin on every side.
+                    const double paperPad = 10.0;
+                    double availW = totalW - 2 * paperPad;
+                    double availH = h      - 2 * paperPad;
+                    double scale  = Math.Min(availW / selPaper.WidthMm,
+                                            availH / selPaper.HeightMm);
+                    double pW     = selPaper.WidthMm  * scale;
+                    double pH     = selPaper.HeightMm * scale;
+                    double pLeft  = (totalW - pW) / 2.0;
+                    double pTop   = (h      - pH) / 2.0;
+
+                    // Background fill
+                    var paperFill = new System.Windows.Shapes.Rectangle
+                    {
+                        Width           = pW,
+                        Height          = pH,
+                        Fill            = new SolidColorBrush(Color.FromArgb(0x0C, 0xFF, 0xFF, 0xFF)),
+                        IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(paperFill, pLeft);
+                    Canvas.SetTop(paperFill, pTop);
+                    DiagramCanvas.Children.Add(paperFill);
+
+                    // Dashed border
+                    var paperBorder = new System.Windows.Shapes.Rectangle
+                    {
+                        Width            = pW,
+                        Height           = pH,
+                        Stroke           = new SolidColorBrush(Color.FromArgb(0x55, 0xBB, 0xBB, 0xBB)),
+                        StrokeThickness  = 1.0,
+                        StrokeDashArray  = new DoubleCollection { 6, 4 },
+                        Fill             = Brushes.Transparent,
+                        IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(paperBorder, pLeft);
+                    Canvas.SetTop(paperBorder, pTop);
+                    DiagramCanvas.Children.Add(paperBorder);
+
+                    // Paper name label — top-left corner, inside the border
+                    var paperLabel = new TextBlock
+                    {
+                        Text       = selPaper.Name,
+                        FontSize   = 8,
+                        Foreground = new SolidColorBrush(Color.FromArgb(0x55, 0xBB, 0xBB, 0xBB)),
+                        IsHitTestVisible = false
+                    };
+                    Canvas.SetLeft(paperLabel, pLeft + 5);
+                    Canvas.SetTop(paperLabel,  pTop  + 3);
+                    DiagramCanvas.Children.Add(paperLabel);
+                }
+            }
+
             // Cache for move-mode Y↔elevation conversion
             _drawMinElev = minElev;
             _drawRange   = range;

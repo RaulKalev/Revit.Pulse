@@ -86,16 +86,17 @@
                     <ComboBox x:Name="PaperSizeCombo"
                               DockPanel.Dock="Right"
                               Width="100"
-                              Height="22"
                               Margin="0,0,4,0"
-                              FontSize="10"
-                              DisplayMemberPath="Name"
+                              Style="{DynamicResource DarkComboBoxStyle}"
                               SelectedValuePath="Id"
                               ToolTip="Select paper size"
-                              Foreground="{DynamicResource ForegroundBrush}"
-                              Background="{DynamicResource SecondaryBackgroundBrush}"
-                              BorderBrush="{DynamicResource BorderBrush}"
-                              SelectionChanged="PaperSizeCombo_SelectionChanged"/>
+                              SelectionChanged="PaperSizeCombo_SelectionChanged">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
 
 
 
