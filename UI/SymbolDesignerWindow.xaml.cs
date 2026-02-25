@@ -2014,7 +2014,7 @@ namespace Pulse.UI
 
         // ─── Custom color swatches ──────────────────────────────────────────────────
 
-        private static readonly string _customSwatchesPath = Path.Combine(
+        private static readonly string _customSwatchesPath = System.IO.Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Pulse", "symbol-custom-colors.txt");
 
@@ -2036,7 +2036,7 @@ namespace Pulse.UI
         {
             try
             {
-                var dir = Path.GetDirectoryName(_customSwatchesPath);
+                var dir = System.IO.Path.GetDirectoryName(_customSwatchesPath);
                 if (dir != null && !Directory.Exists(dir)) Directory.CreateDirectory(dir);
                 File.WriteAllLines(_customSwatchesPath, _customSwatchColors);
             }
@@ -2062,7 +2062,7 @@ namespace Pulse.UI
                     ToolTip = h + " (right-click to remove)",
                     Style   = (Style)FindResource("SwatchButtonStyle"),
                 };
-                try   { btn.Background = new SolidColorBrush((Color)ColorConverter.ConvertFrom(h)); }
+                try   { btn.Background = new SolidColorBrush((Color)new ColorConverter().ConvertFrom(h)); }
                 catch { btn.Background = Brushes.Gray; }
                 btn.Click += isStroke
                     ? (RoutedEventHandler)StrokeSwatch_Click
@@ -2104,7 +2104,7 @@ namespace Pulse.UI
             if (string.IsNullOrWhiteSpace(input)) return null;
             try
             {
-                var c = (Color)ColorConverter.ConvertFrom(input.Trim());
+                var c = (Color)new ColorConverter().ConvertFrom(input.Trim());
                 return $"#{c.R:X2}{c.G:X2}{c.B:X2}";
             }
             catch { return null; }
