@@ -11,7 +11,7 @@ using Pulse.Core.Rules;
 using Pulse.Core.Settings;
 using Pulse.Core.Graph;
 using Pulse.Modules.FireAlarm;
-using Pulse.Revit.ExternalEvents;
+using Pulse.Revit.Services;
 using Pulse.Revit.Storage;
 using Pulse.UI;
 
@@ -19,42 +19,27 @@ namespace Pulse.UI.ViewModels
 {
     /// <summary>
     /// Root ViewModel for the Pulse main window.
-    /// Coordinates module selection, data collection, topology display, and inspector.
+    /// Owns UI bindings and commands; delegates orchestration to extracted services:
+    ///   - <see cref="PulseAppController"/>      — module registry, active module, settings state
+    ///   - <see cref="RefreshPipeline"/>          — collect/build/evaluate via ExternalEvent
+    ///   - <see cref="SelectionHighlightFacade"/> — select/highlight/reset in Revit
+    ///   - <see cref="StorageFacade"/>            — safe ES and JSON persistence
     /// </summary>
     public class MainViewModel : ViewModelBase
     {
         private readonly UIApplication _uiApp;
 
-        // Module infrastructure
-        private readonly List<IModuleDefinition> _modules = new List<IModuleDefinition>();
-        private IModuleDefinition _activeModule;
-        private ModuleSettings _activeSettings;
-        private ModuleData _currentData;
-
-        // ExternalEvent handlers
-        private readonly CollectDevicesHandler _collectHandler;
-        private readonly ExternalEvent _collectEvent;
-        private readonly SelectElementHandler _selectHandler;
-        private readonly ExternalEvent _selectEvent;
-        private readonly TemporaryOverrideHandler _overrideHandler;
-        private readonly ExternalEvent _overrideEvent;
-        private readonly ResetOverridesHandler _resetHandler;
-        private readonly ExternalEvent _resetEvent;
-        private readonly SaveSettingsHandler _saveSettingsHandler;
-        private readonly ExternalEvent _saveSettingsEvent;
-        private readonly WriteParameterHandler _writeParamHandler;
-        private readonly ExternalEvent _writeParamEvent;
-        private readonly SaveDiagramSettingsHandler _saveDiagramHandler;
-        private readonly ExternalEvent _saveDiagramEvent;
-        private readonly SaveTopologyAssignmentsHandler _saveAssignmentsHandler;
-        private readonly ExternalEvent _saveAssignmentsEvent;
+        // ── Orchestration services ───────────────────────────────────────────
+        private readonly PulseAppController _appController;
+        private readonly RefreshPipeline _refreshPipeline;
+        private readonly SelectionHighlightFacade _selectionFacade;
+        private readonly StorageFacade _storageFacade;
 
         /// <summary>Per-document topology assignments — loaded from ES at startup and kept in sync.</summary>
         private TopologyAssignmentsStore _topologyAssignments = new TopologyAssignmentsStore();
 
         /// <summary>Custom symbol library — loaded from %APPDATA%\Pulse\custom-symbols.json at startup.</summary>
-        private System.Collections.Generic.List<Pulse.Core.Settings.CustomSymbolDefinition> _symbolLibrary
-            = Pulse.Core.Settings.CustomSymbolLibraryService.Load();
+        private List<CustomSymbolDefinition> _symbolLibrary = CustomSymbolLibraryService.Load();
 
         // Child ViewModels
         public TopologyViewModel Topology { get; }
@@ -136,11 +121,14 @@ namespace Pulse.UI.ViewModels
         {
             _uiApp = uiApp ?? throw new ArgumentNullException(nameof(uiApp));
 
-            // Register modules
-            _modules.Add(new FireAlarmModuleDefinition());
-            _activeModule = _modules[0];
-            _activeSettings = _activeModule.GetDefaultSettings();
-            ActiveModuleName = _activeModule.DisplayName;
+            // ── Initialise orchestration services ────────────────────────────
+            _appController = new PulseAppController();
+            _appController.RegisterModule(new FireAlarmModuleDefinition());
+            ActiveModuleName = _appController.ActiveModule.DisplayName;
+
+            _refreshPipeline = new RefreshPipeline();
+            _selectionFacade = new SelectionHighlightFacade();
+            _storageFacade = new StorageFacade();
 
             // Create child ViewModels
             Topology = new TopologyViewModel();
@@ -152,44 +140,13 @@ namespace Pulse.UI.ViewModels
             Topology.ConfigAssigned   += OnTopologyConfigAssigned;
             Topology.WireAssigned     += OnTopologyWireAssigned;
 
-            // Create ExternalEvent handlers
-            _collectHandler = new CollectDevicesHandler();
-            _collectEvent = ExternalEvent.Create(_collectHandler);
-
-            _selectHandler = new SelectElementHandler();
-            _selectEvent = ExternalEvent.Create(_selectHandler);
-
-            _overrideHandler = new TemporaryOverrideHandler();
-            _overrideEvent = ExternalEvent.Create(_overrideHandler);
-
-            _resetHandler = new ResetOverridesHandler();
-            _resetEvent = ExternalEvent.Create(_resetHandler);
-
-            _saveSettingsHandler = new SaveSettingsHandler();
-            _saveSettingsEvent = ExternalEvent.Create(_saveSettingsHandler);
-
-            _writeParamHandler = new WriteParameterHandler();
-            _writeParamEvent   = ExternalEvent.Create(_writeParamHandler);
-
-            _saveDiagramHandler = new SaveDiagramSettingsHandler();
-            _saveDiagramEvent   = ExternalEvent.Create(_saveDiagramHandler);
-
-            _saveAssignmentsHandler = new SaveTopologyAssignmentsHandler();
-            _saveAssignmentsEvent   = ExternalEvent.Create(_saveAssignmentsHandler);
-
             // Wire diagram visibility saves
             Diagram.VisibilityChanged = () =>
-            {
-                _saveDiagramHandler.Settings = Diagram.Visibility;
-                _saveDiagramEvent.Raise();
-            };
+                _storageFacade.SaveDiagramSettings(Diagram.Visibility);
 
             // Wire topology assignment saves (panel/loop configs, flip states, etc.)
             Action saveAssignments = () =>
-            {
-                _saveAssignmentsHandler.Store = _topologyAssignments;
-                _saveAssignmentsEvent.Raise();
-            };
+                _storageFacade.SaveTopologyAssignments(_topologyAssignments);
             Topology.AssignmentsSaveRequested = saveAssignments;
             Diagram.AssignmentsSaveRequested = saveAssignments;
 
@@ -219,39 +176,31 @@ namespace Pulse.UI.ViewModels
 
         /// <summary>
         /// Execute a data refresh from Revit.
-        /// Raises an ExternalEvent that runs the module collector on the Revit API thread.
+        /// Delegates to <see cref="RefreshPipeline"/> which runs via ExternalEvent.
         /// </summary>
         private void ExecuteRefresh()
         {
-            if (IsLoading || _activeModule == null) return;
+            if (IsLoading || _appController.ActiveModule == null) return;
 
             IsLoading = true;
             StatusText = "Collecting data from Revit...";
 
-            _collectHandler.Collector = _activeModule.CreateCollector();
-            _collectHandler.TopologyBuilder = _activeModule.CreateTopologyBuilder();
-            _collectHandler.RulePack = _activeModule.CreateRulePack();
-            _collectHandler.Settings = _activeSettings;
-
-            _collectHandler.OnCompleted = data =>
-            {
-                // This callback may come from the Revit thread; marshal to UI thread
-                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+            _refreshPipeline.Execute(
+                _appController.ActiveModule,
+                _appController.ActiveSettings,
+                data =>
                 {
-                    OnDataCollected(data);
-                });
-            };
-
-            _collectHandler.OnError = ex =>
-            {
-                System.Windows.Application.Current?.Dispatcher?.Invoke(() =>
+                    // Callback may come from Revit thread; marshal to UI thread
+                    Application.Current?.Dispatcher?.Invoke(() => OnDataCollected(data));
+                },
+                ex =>
                 {
-                    StatusText = $"Error: {ex.Message}";
-                    IsLoading = false;
+                    Application.Current?.Dispatcher?.Invoke(() =>
+                    {
+                        StatusText = $"Error: {ex.Message}";
+                        IsLoading = false;
+                    });
                 });
-            };
-
-            _collectEvent.Raise();
         }
 
         /// <summary>
@@ -260,12 +209,12 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         private void OnDataCollected(ModuleData data)
         {
-            _currentData = data;
+            _appController.OnRefreshCompleted(data);
 
             // Reload topology assignments from Extensible Storage (the handler reads them
             // on the Revit API thread during Execute so they are fresh here).
-            if (_collectHandler.RefreshedAssignments != null)
-                _topologyAssignments = _collectHandler.RefreshedAssignments;
+            if (_refreshPipeline.RefreshedAssignments != null)
+                _topologyAssignments = _refreshPipeline.RefreshedAssignments;
 
             // Update statistics
             TotalDevices = data.Devices.Count;
@@ -308,14 +257,14 @@ namespace Pulse.UI.ViewModels
                 return;
             }
 
-            Inspector.LoadNode(node, _currentData);
+            Inspector.LoadNode(node, _appController.CurrentData);
 
             // If the node has a Revit element, select it in the model
             if (node.RevitElementId.HasValue)
             {
-                _selectHandler.ElementIdToSelect = node.RevitElementId.Value;
-                _selectHandler.ContextIds = GetNeighbourIds(node);
-                _selectEvent.Raise();
+                _selectionFacade.SelectElement(
+                    node.RevitElementId.Value,
+                    GetNeighbourIds(node));
             }
         }
 
@@ -327,16 +276,17 @@ namespace Pulse.UI.ViewModels
         private List<long> GetNeighbourIds(Node node)
         {
             var result = new List<long>();
+            var currentData = _appController.CurrentData;
 
-            if (_currentData == null || node.NodeType != "Device") return result;
+            if (currentData == null || node.NodeType != "Device") return result;
 
             // Find the device entry matching this node
-            var device = _currentData.Devices.Find(
+            var device = currentData.Devices.Find(
                 d => d.RevitElementId.HasValue && d.RevitElementId.Value == node.RevitElementId.Value);
             if (device == null) return result;
 
             // Get all sibling devices on the same loop, sorted by numeric address
-            var siblings = _currentData.Devices
+            var siblings = currentData.Devices
                 .FindAll(d => d.LoopId == device.LoopId && d.RevitElementId.HasValue);
 
             siblings.Sort((a, b) => ParseAddress(a.Address).CompareTo(ParseAddress(b.Address)));
@@ -371,8 +321,7 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public void SelectInRevit(long elementId)
         {
-            _selectHandler.ElementIdToSelect = elementId;
-            _selectEvent.Raise();
+            _selectionFacade.SelectElement(elementId);
         }
 
         /// <summary>
@@ -380,21 +329,7 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public void HighlightWarnings()
         {
-            if (_currentData == null) return;
-
-            var ids = _currentData.RuleResults
-                .Where(r => r.ElementId.HasValue && r.Severity >= Severity.Warning)
-                .Select(r => r.ElementId.Value)
-                .Distinct()
-                .ToList();
-
-            if (ids.Count == 0) return;
-
-            _overrideHandler.ElementIds = ids;
-            _overrideHandler.ColorR = 255;
-            _overrideHandler.ColorG = 100;
-            _overrideHandler.ColorB = 100;
-            _overrideEvent.Raise();
+            _selectionFacade.HighlightWarnings(_appController.CurrentData);
         }
 
         /// <summary>
@@ -402,8 +337,7 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         private void ExecuteResetOverrides()
         {
-            _resetHandler.OverrideService = _overrideHandler.OverrideService;
-            _resetEvent.Raise();
+            _selectionFacade.ResetOverrides();
         }
 
         /// <summary>
@@ -411,13 +345,14 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         private void ApplyFilter()
         {
-            if (_currentData == null) return;
+            var currentData = _appController.CurrentData;
+            if (currentData == null) return;
 
             if (ShowWarningsOnly)
             {
                 // Get entity IDs of items with warnings
                 var warningEntityIds = new HashSet<string>(
-                    _currentData.RuleResults
+                    currentData.RuleResults
                         .Where(r => r.Severity >= Severity.Warning && r.EntityId != null)
                         .Select(r => r.EntityId));
 
@@ -440,16 +375,14 @@ namespace Pulse.UI.ViewModels
             if (doc == null) return;
             try
             {
-                var service = new ExtensibleStorageService(doc);
-
                 // Parameter mappings are always loaded from local JSON (machine-wide).
                 var jsonStore = DeviceConfigService.Load();
-                if (jsonStore.ModuleSettings.TryGetValue(_activeModule.ModuleId, out var jsonSettings))
+                if (jsonStore.ModuleSettings.TryGetValue(_appController.ActiveModule.ModuleId, out var jsonSettings))
                 {
                     // Merge in any parameter keys present in defaults but absent in the saved
                     // settings (e.g. keys added in a newer version of the plugin).
-                    var defaults = _activeModule.GetDefaultSettings();
-                    var existingKeys = new System.Collections.Generic.HashSet<string>(
+                    var defaults = _appController.ActiveModule.GetDefaultSettings();
+                    var existingKeys = new HashSet<string>(
                         jsonSettings.ParameterMappings.ConvertAll(m => m.LogicalName),
                         StringComparer.OrdinalIgnoreCase);
                     foreach (var dm in defaults.ParameterMappings)
@@ -458,15 +391,15 @@ namespace Pulse.UI.ViewModels
                             jsonSettings.ParameterMappings.Add(dm);
                     }
 
-                    _activeSettings = jsonSettings;
+                    _appController.ApplySettings(jsonSettings);
                 }
 
-                var diagramSettings = service.ReadDiagramSettings();
+                var diagramSettings = _storageFacade.ReadDiagramSettings(doc);
                 if (diagramSettings != null)
                     Diagram.LoadVisibility(diagramSettings);
 
                 // Load per-document topology assignments
-                _topologyAssignments = service.ReadTopologyAssignments();
+                _topologyAssignments = _storageFacade.ReadTopologyAssignments(doc);
                 Inspector.DeviceStore = DeviceConfigService.Load();
                 Inspector.AssignmentsStore = _topologyAssignments;
             }
@@ -491,15 +424,13 @@ namespace Pulse.UI.ViewModels
         /// <summary>Open the Symbol Mapping dialog.</summary>
         private void ExecuteOpenSymbolMapping()
         {
-            var vm = new SymbolMappingViewModel(_currentData, _topologyAssignments.SymbolMappings, _symbolLibrary);
+            var vm = new SymbolMappingViewModel(_appController.CurrentData, _topologyAssignments.SymbolMappings, _symbolLibrary);
 
             vm.Saved += mappings =>
             {
                 _topologyAssignments.SymbolMappings =
-                    new System.Collections.Generic.Dictionary<string, string>(
-                        mappings, System.StringComparer.OrdinalIgnoreCase);
-                _saveAssignmentsHandler.Store = _topologyAssignments;
-                _saveAssignmentsEvent.Raise();
+                    new Dictionary<string, string>(mappings, StringComparer.OrdinalIgnoreCase);
+                _storageFacade.SaveTopologyAssignments(_topologyAssignments);
             };
 
             var win = new SymbolMappingWindow(vm)
@@ -512,7 +443,7 @@ namespace Pulse.UI.ViewModels
             {
                 _symbolLibrary.RemoveAll(s => s.Id == definition.Id || s.Name == definition.Name);
                 _symbolLibrary.Add(definition);
-                Pulse.Core.Settings.CustomSymbolLibraryService.Save(_symbolLibrary);
+                CustomSymbolLibraryService.Save(_symbolLibrary);
             };
 
             win.ShowDialog();
@@ -522,7 +453,7 @@ namespace Pulse.UI.ViewModels
         public void SaveExpandState()
         {
             var state = UiStateService.Load();
-            state.ExpandedNodeIds = new System.Collections.Generic.HashSet<string>(Topology.GetExpandedNodeIds());
+            state.ExpandedNodeIds = new HashSet<string>(Topology.GetExpandedNodeIds());
             UiStateService.Save(state);
         }
 
@@ -534,26 +465,27 @@ namespace Pulse.UI.ViewModels
         {
             if (vm == null) return;
 
+            var settings = _appController.ActiveSettings;
             string paramName = null;
             if (vm.NodeType == "Panel")
-                paramName = _activeSettings?.GetRevitParameterName(FireAlarmParameterKeys.PanelConfig);
+                paramName = settings?.GetRevitParameterName(FireAlarmParameterKeys.PanelConfig);
             else if (vm.NodeType == "Loop")
-                paramName = _activeSettings?.GetRevitParameterName(FireAlarmParameterKeys.LoopModuleConfig);
+                paramName = settings?.GetRevitParameterName(FireAlarmParameterKeys.LoopModuleConfig);
 
             if (string.IsNullOrEmpty(paramName)) return;
 
             var configName = vm.AssignedConfig ?? string.Empty;
 
-            System.Collections.Generic.List<(long, string, string)> writes;
+            List<(long, string, string)> writes;
             string writeTarget;
 
             if (vm.NodeType == "Panel")
             {
-                // Panel config → write to the panel board element itself.
+                // Panel config -> write to the panel board element itself.
                 // Fall back to descendant devices if no panel element was resolved.
                 if (vm.GraphNode.RevitElementId.HasValue)
                 {
-                    writes = new System.Collections.Generic.List<(long, string, string)>
+                    writes = new List<(long, string, string)>
                     {
                         (vm.GraphNode.RevitElementId.Value, paramName, configName)
                     };
@@ -574,9 +506,6 @@ namespace Pulse.UI.ViewModels
             }
             else // Loop
             {
-                // Loop module config → always write to all devices in the loop,
-                // same as wire assignment. The circuit element (RevitElementId) is
-                // a lookup helper and does not carry the loop-config parameter.
                 if (vm.DescendantDeviceElementIds.Count == 0)
                 {
                     StatusText = $"Config '{configName}' not written — no device elements resolved for '{vm.Label}'.";
@@ -588,19 +517,14 @@ namespace Pulse.UI.ViewModels
                 writeTarget = $"devices in {vm.Label}";
             }
 
-            _writeParamHandler.Writes = writes;
-
-            _writeParamHandler.OnCompleted = count =>
-                Application.Current?.Dispatcher?.Invoke(() =>
+            _storageFacade.WriteParameters(
+                writes,
+                count => Application.Current?.Dispatcher?.Invoke(() =>
                     StatusText = count > 0
                         ? $"Config '{configName}' written to {writeTarget} ({paramName})."
-                        : $"Write succeeded but 0 elements updated — check that '{paramName}' exists as a writable string parameter on the {writeTarget}.");
-
-            _writeParamHandler.OnError = ex =>
-                Application.Current?.Dispatcher?.Invoke(() =>
-                    StatusText = $"Could not write config: {ex.Message}");
-
-            _writeParamEvent.Raise();
+                        : $"Write succeeded but 0 elements updated — check that '{paramName}' exists as a writable string parameter on the {writeTarget}."),
+                ex => Application.Current?.Dispatcher?.Invoke(() =>
+                    StatusText = $"Could not write config: {ex.Message}"));
         }
 
         /// <summary>
@@ -611,7 +535,7 @@ namespace Pulse.UI.ViewModels
         {
             if (vm == null) return;
 
-            string paramName = _activeSettings?.GetRevitParameterName(FireAlarmParameterKeys.Wire);
+            string paramName = _appController.ActiveSettings?.GetRevitParameterName(FireAlarmParameterKeys.Wire);
             if (string.IsNullOrEmpty(paramName)) return;
 
             var wireName = vm.AssignedWire ?? string.Empty;
@@ -622,21 +546,14 @@ namespace Pulse.UI.ViewModels
                 return;
             }
 
-            _writeParamHandler.Writes = vm.DescendantDeviceElementIds
-                .Select(id => (id, paramName, wireName))
-                .ToList();
-
-            _writeParamHandler.OnCompleted = count =>
-                Application.Current?.Dispatcher?.Invoke(() =>
+            _storageFacade.WriteParameters(
+                vm.DescendantDeviceElementIds.Select(id => (id, paramName, wireName)).ToList(),
+                count => Application.Current?.Dispatcher?.Invoke(() =>
                     StatusText = count > 0
                         ? $"Wire '{wireName}' written to {count} device(s) ({paramName})."
-                        : $"Write succeeded but 0 elements updated — check that '{paramName}' exists as a writable string parameter on devices.");
-
-            _writeParamHandler.OnError = ex =>
-                Application.Current?.Dispatcher?.Invoke(() =>
-                    StatusText = $"Could not write wire: {ex.Message}");
-
-            _writeParamEvent.Raise();
+                        : $"Write succeeded but 0 elements updated — check that '{paramName}' exists as a writable string parameter on devices."),
+                ex => Application.Current?.Dispatcher?.Invoke(() =>
+                    StatusText = $"Could not write wire: {ex.Message}"));
 
             // Sync diagram canvas — update in-memory assignment and redraw
             Diagram.SyncLoopWire(vm.ParentLabel ?? string.Empty, vm.Label, vm.AssignedWire);
@@ -652,14 +569,15 @@ namespace Pulse.UI.ViewModels
             var topoNode = Topology.FindLoopNode(panelName, loopName);
             topoNode?.SetAssignedWireSilent(wireName ?? string.Empty);
 
-            if (_currentData == null) return;
+            var currentData = _appController.CurrentData;
+            if (currentData == null) return;
 
-            string paramName = _activeSettings?.GetRevitParameterName(
-                Modules.FireAlarm.FireAlarmParameterKeys.Wire);
+            string paramName = _appController.ActiveSettings?.GetRevitParameterName(
+                FireAlarmParameterKeys.Wire);
             if (string.IsNullOrEmpty(paramName)) return;
 
             // Find the loop by display name
-            var loop = _currentData.Loops.Find(l =>
+            var loop = currentData.Loops.Find(l =>
                 string.Equals(l.DisplayName, loopName, StringComparison.OrdinalIgnoreCase));
             if (loop == null) return;
 
@@ -674,31 +592,25 @@ namespace Pulse.UI.ViewModels
                 return;
             }
 
-            _writeParamHandler.Writes = elementIds
-                .Select(id => (id, paramName, wireName ?? string.Empty))
-                .ToList();
-
-            _writeParamHandler.OnCompleted = count =>
-                Application.Current?.Dispatcher?.Invoke(() =>
+            _storageFacade.WriteParameters(
+                elementIds.Select(id => (id, paramName, wireName ?? string.Empty)).ToList(),
+                count => Application.Current?.Dispatcher?.Invoke(() =>
                     StatusText = count > 0
                         ? $"Wire '{wireName}' written to {count} devices in loop '{loopName}' ({paramName})."
-                        : $"Wire '{wireName}' saved but 0 elements updated — check that '{paramName}' exists as a writable string parameter.");
-
-            _writeParamHandler.OnError = ex =>
-                Application.Current?.Dispatcher?.Invoke(() =>
-                    StatusText = $"Could not write wire: {ex.Message}");
-
-            _writeParamEvent.Raise();
+                        : $"Wire '{wireName}' saved but 0 elements updated — check that '{paramName}' exists as a writable string parameter."),
+                ex => Application.Current?.Dispatcher?.Invoke(() =>
+                    StatusText = $"Could not write wire: {ex.Message}"));
         }
 
         /// <summary>Open the Settings dialog for the active module.</summary>
         private void ExecuteOpenSettings()
         {
-            var defaults = _activeModule.GetDefaultSettings();
+            var activeModule = _appController.ActiveModule;
+            var defaults = activeModule.GetDefaultSettings();
             var settingsVm = new SettingsViewModel(
-                _activeSettings, defaults,
-                _activeModule.DisplayName,
-                _activeModule.Description);
+                _appController.ActiveSettings, defaults,
+                activeModule.DisplayName,
+                activeModule.Description);
 
             settingsVm.SettingsSaved += OnSettingsSaved;
 
@@ -715,15 +627,13 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         private void OnSettingsSaved(ModuleSettings newSettings)
         {
-            _activeSettings = newSettings;
+            _appController.ApplySettings(newSettings);
             StatusText = "Settings applied. Press Refresh to reload data.";
 
-            _saveSettingsHandler.Settings = newSettings;
-            _saveSettingsHandler.OnSaved = () =>
-                Application.Current?.Dispatcher?.Invoke(() => StatusText = "Settings saved to document.");
-            _saveSettingsHandler.OnError = ex =>
-                Application.Current?.Dispatcher?.Invoke(() => StatusText = $"Could not save settings: {ex.Message}");
-
-            _saveSettingsEvent.Raise();
-        }    }
+            _storageFacade.SaveSettings(
+                newSettings,
+                () => Application.Current?.Dispatcher?.Invoke(() => StatusText = "Settings saved to document."),
+                ex => Application.Current?.Dispatcher?.Invoke(() => StatusText = $"Could not save settings: {ex.Message}"));
+        }
+    }
 }
