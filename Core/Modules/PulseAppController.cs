@@ -107,5 +107,25 @@ namespace Pulse.Core.Modules
         {
             RefreshStarted?.Invoke();
         }
+
+        // ── Capability queries ───────────────────────────────────────────────
+
+        /// <summary>
+        /// Check whether the active module declares a specific capability.
+        /// Returns false if no module is active.
+        /// </summary>
+        public bool HasCapability(ModuleCapabilities cap)
+        {
+            return _activeModule != null && (_activeModule.Capabilities & cap) == cap;
+        }
+
+        /// <summary>
+        /// Try to obtain a feature interface from the active module.
+        /// Returns null if the module does not implement <typeparamref name="T"/>.
+        /// </summary>
+        public T GetFeature<T>() where T : class
+        {
+            return _activeModule as T;
+        }
     }
 }

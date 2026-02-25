@@ -7,13 +7,20 @@ namespace Pulse.Modules.FireAlarm
     /// Module definition for the Fire Alarm system.
     /// Registers the module with the Pulse platform and provides factory methods
     /// for creating collector, topology builder, and rule pack instances.
+    /// Implements optional feature interfaces to declare full capability support.
     /// </summary>
-    public class FireAlarmModuleDefinition : IModuleDefinition
+    public class FireAlarmModuleDefinition : IModuleDefinition,
+        IProvidesDiagramFeatures,
+        IProvidesWiringFeatures,
+        IProvidesSymbolMapping
     {
         public string ModuleId => "FireAlarm";
         public string DisplayName => "Fire Alarm";
         public string Description => "Addressable fire alarm system management — panels, loops, zones, and devices.";
         public string Version => "1.0.0";
+
+        /// <summary>Fire Alarm supports all platform capabilities.</summary>
+        public ModuleCapabilities Capabilities => ModuleCapabilities.All;
 
         /// <summary>
         /// Returns the default settings for the Fire Alarm module.
@@ -52,5 +59,8 @@ namespace Pulse.Modules.FireAlarm
         public IModuleCollector CreateCollector() => new FireAlarmCollector();
         public ITopologyBuilder CreateTopologyBuilder() => new FireAlarmTopologyBuilder();
         public IRulePack CreateRulePack() => new FireAlarmRulePack();
+
+        // ── IProvidesWiringFeatures ──────────────────────────────────────────
+        public string WireParameterKey => FireAlarmParameterKeys.Wire;
     }
 }

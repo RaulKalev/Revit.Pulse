@@ -20,6 +20,13 @@ namespace Pulse.Core.Modules
         /// <summary>Module version string.</summary>
         string Version { get; }
 
+        /// <summary>
+        /// Optional capabilities this module supports.
+        /// Defaults to <see cref="ModuleCapabilities.All"/> for backward compatibility.
+        /// New modules can declare a narrower set.
+        /// </summary>
+        ModuleCapabilities Capabilities { get; }
+
         /// <summary>Returns the default parameter mapping for this module.</summary>
         ModuleSettings GetDefaultSettings();
 
