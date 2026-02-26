@@ -134,28 +134,38 @@ namespace Pulse.Modules.FireAlarm
                 data.Nodes.Add(node);
             }
 
-            // Build lookups for sub-device reparenting:
-            //   1. loopId|address  → entityId  (exact match)
-            //   2. address         → [entityIds]  (fallback when Panel param is missing on sub-device)
-            var deviceByLoopAndAddress = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var deviceByAddressOnly    = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            // Build lookups for sub-device reparenting.
+            // Panel is often a read-only circuit-derived param that cannot be written,
+            // so the sub-device may land in a different LoopId bucket than its host.
+            // We therefore build three fallback tiers:
+            //   1. loopId|address          — exact (panel+loop+address)
+            //   2. loopValue|address       — loop value + address, ignoring panel (most useful fallback)
+            //   3. address                 — address only, preferring real-panel devices
+            var deviceByLoopAndAddress      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var deviceByLoopValueAndAddress = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var deviceByAddressOnly         = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (var device in data.Devices)
             {
                 if (!string.IsNullOrEmpty(device.LoopId) && !string.IsNullOrEmpty(device.Address))
                     deviceByLoopAndAddress[device.LoopId + "|" + device.Address] = device.EntityId;
                 if (!string.IsNullOrEmpty(device.Address))
                 {
-                    if (!deviceByAddressOnly.TryGetValue(device.Address, out var list))
-                        deviceByAddressOnly[device.Address] = list = new List<string>();
-                    list.Add(device.EntityId);
+                    // Tier-2 key: raw loop value (e.g. "1") stored by the collector as "_LoopValue"
+                    device.Properties.TryGetValue("_LoopValue", out string rawLoopVal);
+                    string lvKey = (rawLoopVal ?? string.Empty) + "|" + device.Address;
+                    if (!deviceByLoopValueAndAddress.TryGetValue(lvKey, out var lvList))
+                        deviceByLoopValueAndAddress[lvKey] = lvList = new List<string>();
+                    lvList.Add(device.EntityId);
+
+                    // Tier-3 key: address only
+                    if (!deviceByAddressOnly.TryGetValue(device.Address, out var addrList))
+                        deviceByAddressOnly[device.Address] = addrList = new List<string>();
+                    addrList.Add(device.EntityId);
                 }
             }
 
             // Emit edges: dotted-address devices (e.g. "001.1") become children of
             // the base-address device ("001") in the same loop; others connect to loop.
-            // Falls back to a cross-loop address match when the Panel param is absent on
-            // the sub-device (causing a different loop assignment) provided the address
-            // is unambiguous (only one device with that base address exists).
             foreach (var device in data.Devices)
             {
                 if (string.IsNullOrEmpty(device.LoopId)) continue;
@@ -168,38 +178,55 @@ namespace Pulse.Modules.FireAlarm
                     {
                         string parentAddress = device.Address.Substring(0, lastDot);
 
-                        // 1. Exact loop+address match (preferred)
+                        // Tier 1 — exact loopId + address
                         if (!deviceByLoopAndAddress.TryGetValue(device.LoopId + "|" + parentAddress, out parentId))
                         {
-                            // 2. Cross-loop fallback: the Panel param is often circuit-derived
-                            //    and cannot be written, so the sub-device may land in a different
-                            //    loop bucket.  Pick the candidate that is in the most "real" loop
-                            //    (i.e. not No-Panel / No-Loop), breaking ambiguity gracefully.
-                            if (deviceByAddressOnly.TryGetValue(parentAddress, out var candidates))
+                            // Tier 2 — same loop value (e.g. "1") + address, ignoring panel.
+                            // This handles the common case where Panel is circuit-derived/read-only
+                            // so the sub-device ends up in "(No Panel)::1" while the host is in
+                            // "ATS panel::1" — both share loop value "1".
+                            device.Properties.TryGetValue("_LoopValue", out string subLoopVal);
+                            string tier2Key = (subLoopVal ?? string.Empty) + "|" + parentAddress;
+                            if (deviceByLoopValueAndAddress.TryGetValue(tier2Key, out var tier2Candidates))
                             {
-                                if (candidates.Count == 1)
+                                // Pick the candidate in a real panel (not "(No Panel)") over placeholders
+                                foreach (var cId in tier2Candidates)
                                 {
-                                    parentId = candidates[0];
-                                }
-                                else
-                                {
-                                    // Prefer candidate in a real panel+loop over placeholder buckets
-                                    foreach (var cId in candidates)
+                                    if (cId == device.EntityId) continue; // skip self
+                                    var cand = data.Devices.FirstOrDefault(d => d.EntityId == cId);
+                                    if (cand != null
+                                        && !string.IsNullOrEmpty(cand.LoopId)
+                                        && !cand.LoopId.Contains("(No Panel)")
+                                        && !cand.LoopId.Contains("(No Loop)"))
                                     {
-                                        var cand = data.Devices.FirstOrDefault(d => d.EntityId == cId);
-                                        if (cand != null
-                                            && !string.IsNullOrEmpty(cand.LoopId)
-                                            && !cand.LoopId.Contains("(No Panel)")
-                                            && !cand.LoopId.Contains("(No Loop)"))
-                                        {
-                                            parentId = cId;
-                                            break;
-                                        }
+                                        parentId = cId;
+                                        break;
                                     }
-                                    // Last resort: first candidate
-                                    if (parentId == null)
-                                        parentId = candidates[0];
                                 }
+                                // Fallback within tier 2: take first non-self
+                                if (parentId == null)
+                                    parentId = tier2Candidates.FirstOrDefault(id => id != device.EntityId);
+                            }
+
+                            // Tier 3 — address only, prefer real-panel, as last resort
+                            if (parentId == null
+                                && deviceByAddressOnly.TryGetValue(parentAddress, out var tier3Candidates))
+                            {
+                                foreach (var cId in tier3Candidates)
+                                {
+                                    if (cId == device.EntityId) continue;
+                                    var cand = data.Devices.FirstOrDefault(d => d.EntityId == cId);
+                                    if (cand != null
+                                        && !string.IsNullOrEmpty(cand.LoopId)
+                                        && !cand.LoopId.Contains("(No Panel)")
+                                        && !cand.LoopId.Contains("(No Loop)"))
+                                    {
+                                        parentId = cId;
+                                        break;
+                                    }
+                                }
+                                if (parentId == null)
+                                    parentId = tier3Candidates.FirstOrDefault(id => id != device.EntityId);
                             }
                         }
                     }
