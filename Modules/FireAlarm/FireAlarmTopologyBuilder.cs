@@ -133,16 +133,28 @@ namespace Pulse.Modules.FireAlarm
                 data.Nodes.Add(node);
             }
 
-            // Build (loopId|address) → entityId lookup for sub-device reparenting
+            // Build lookups for sub-device reparenting:
+            //   1. loopId|address  → entityId  (exact match)
+            //   2. address         → [entityIds]  (fallback when Panel param is missing on sub-device)
             var deviceByLoopAndAddress = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var deviceByAddressOnly    = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (var device in data.Devices)
             {
                 if (!string.IsNullOrEmpty(device.LoopId) && !string.IsNullOrEmpty(device.Address))
                     deviceByLoopAndAddress[device.LoopId + "|" + device.Address] = device.EntityId;
+                if (!string.IsNullOrEmpty(device.Address))
+                {
+                    if (!deviceByAddressOnly.TryGetValue(device.Address, out var list))
+                        deviceByAddressOnly[device.Address] = list = new List<string>();
+                    list.Add(device.EntityId);
+                }
             }
 
             // Emit edges: dotted-address devices (e.g. "001.1") become children of
             // the base-address device ("001") in the same loop; others connect to loop.
+            // Falls back to a cross-loop address match when the Panel param is absent on
+            // the sub-device (causing a different loop assignment) provided the address
+            // is unambiguous (only one device with that base address exists).
             foreach (var device in data.Devices)
             {
                 if (string.IsNullOrEmpty(device.LoopId)) continue;
@@ -154,7 +166,14 @@ namespace Pulse.Modules.FireAlarm
                     if (lastDot > 0)
                     {
                         string parentAddress = device.Address.Substring(0, lastDot);
-                        deviceByLoopAndAddress.TryGetValue(device.LoopId + "|" + parentAddress, out parentId);
+
+                        // 1. Exact loop+address match (preferred)
+                        if (!deviceByLoopAndAddress.TryGetValue(device.LoopId + "|" + parentAddress, out parentId))
+                        {
+                            // 2. Cross-loop fallback — only when the address is unambiguous
+                            if (deviceByAddressOnly.TryGetValue(parentAddress, out var candidates) && candidates.Count == 1)
+                                parentId = candidates[0];
+                        }
                     }
                 }
 
