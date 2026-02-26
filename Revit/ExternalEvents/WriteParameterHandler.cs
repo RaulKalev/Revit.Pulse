@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 
@@ -85,13 +86,38 @@ namespace Pulse.Revit.ExternalEvents
 
         public string GetName() => "Pulse.WriteParameter";
 
+        /// <summary>
+        /// Writes a string value to a parameter whose storage type is String, Double, or Integer.
+        /// For Double/Integer the value string is parsed; an unparseable string writes 0.
+        /// </summary>
         private static bool TryWriteParam(Element element, string paramName, string value)
         {
             var param = element.LookupParameter(paramName);
-            if (param == null || param.IsReadOnly || param.StorageType != StorageType.String)
-                return false;
-            param.Set(value ?? string.Empty);
-            return true;
+            if (param == null || param.IsReadOnly) return false;
+
+            switch (param.StorageType)
+            {
+                case StorageType.String:
+                    param.Set(value ?? string.Empty);
+                    return true;
+
+                case StorageType.Double:
+                    double d = 0;
+                    if (!string.IsNullOrWhiteSpace(value))
+                        double.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out d);
+                    param.Set(d);
+                    return true;
+
+                case StorageType.Integer:
+                    int i = 0;
+                    if (!string.IsNullOrWhiteSpace(value))
+                        int.TryParse(value, NumberStyles.Any, CultureInfo.InvariantCulture, out i);
+                    param.Set(i);
+                    return true;
+
+                default:
+                    return false;
+            }
         }
     }
 }

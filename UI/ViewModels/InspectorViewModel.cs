@@ -1,3 +1,4 @@
+using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Pulse.Core.Graph;
@@ -106,6 +107,43 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _currentDrawAlarm, value);
         }
 
+        // ── Current draw inline editing ───────────────────────────────────
+
+        private bool _isEditingCurrentDrawNormal;
+        public bool IsEditingCurrentDrawNormal
+        {
+            get => _isEditingCurrentDrawNormal;
+            set => SetField(ref _isEditingCurrentDrawNormal, value);
+        }
+
+        private bool _isEditingCurrentDrawAlarm;
+        public bool IsEditingCurrentDrawAlarm
+        {
+            get => _isEditingCurrentDrawAlarm;
+            set => SetField(ref _isEditingCurrentDrawAlarm, value);
+        }
+
+        private string _editingCurrentDrawNormalText;
+        public string EditingCurrentDrawNormalText
+        {
+            get => _editingCurrentDrawNormalText;
+            set => SetField(ref _editingCurrentDrawNormalText, value);
+        }
+
+        private string _editingCurrentDrawAlarmText;
+        public string EditingCurrentDrawAlarmText
+        {
+            get => _editingCurrentDrawAlarmText;
+            set => SetField(ref _editingCurrentDrawAlarmText, value);
+        }
+
+        /// <summary>
+        /// Raised when the user commits an edited current-draw value.
+        /// Parameters: (revitElementId, isAlarm, newValue).
+        /// MainViewModel subscribes to write the value to the Revit element.
+        /// </summary>
+        public event Action<long, bool, string> CurrentDrawValueCommitted;
+
         private int _addressesUsed;
         public int AddressesUsed
         {
@@ -145,6 +183,9 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public void LoadNode(Node node, ModuleData data)
         {
+            // Cancel any in-progress edit when selection changes.
+            CancelEdit();
+
             if (node == null)
             {
                 Clear();
@@ -262,12 +303,58 @@ namespace Pulse.UI.ViewModels
             ShowCurrentDraw = false;
             CurrentDrawNormal = string.Empty;
             CurrentDrawAlarm = string.Empty;
+            IsEditingCurrentDrawNormal = false;
+            IsEditingCurrentDrawAlarm = false;
+            EditingCurrentDrawNormalText = string.Empty;
+            EditingCurrentDrawAlarmText = string.Empty;
             AddressesUsed = 0;
             AddressesMax  = 0;
             MaUsed        = 0;
             MaMax         = 0;
             Properties.Clear();
             Warnings.Clear();
+        }
+
+        // ── Current draw edit actions ─────────────────────────────────────
+
+        public void BeginEditNormal()
+        {
+            if (!RevitElementId.HasValue) return;
+            IsEditingCurrentDrawAlarm = false;
+            EditingCurrentDrawNormalText = CurrentDrawNormal ?? string.Empty;
+            IsEditingCurrentDrawNormal = true;
+        }
+
+        public void BeginEditAlarm()
+        {
+            if (!RevitElementId.HasValue) return;
+            IsEditingCurrentDrawNormal = false;
+            EditingCurrentDrawAlarmText = CurrentDrawAlarm ?? string.Empty;
+            IsEditingCurrentDrawAlarm = true;
+        }
+
+        public void CommitNormal()
+        {
+            if (!RevitElementId.HasValue || !IsEditingCurrentDrawNormal) return;
+            IsEditingCurrentDrawNormal = false;
+            var newVal = EditingCurrentDrawNormalText ?? string.Empty;
+            CurrentDrawNormal = newVal; // optimistic update
+            CurrentDrawValueCommitted?.Invoke(RevitElementId.Value, false, newVal);
+        }
+
+        public void CommitAlarm()
+        {
+            if (!RevitElementId.HasValue || !IsEditingCurrentDrawAlarm) return;
+            IsEditingCurrentDrawAlarm = false;
+            var newVal = EditingCurrentDrawAlarmText ?? string.Empty;
+            CurrentDrawAlarm = newVal; // optimistic update
+            CurrentDrawValueCommitted?.Invoke(RevitElementId.Value, true, newVal);
+        }
+
+        public void CancelEdit()
+        {
+            IsEditingCurrentDrawNormal = false;
+            IsEditingCurrentDrawAlarm = false;
         }
 
         // ── Gauge helpers ─────────────────────────────────────────────────

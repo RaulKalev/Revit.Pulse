@@ -161,10 +161,30 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Normal" FontSize="11"
                                            Foreground="{DynamicResource IconForegroundBrush}"
+                                           VerticalAlignment="Center"
                                            Margin="0,0,8,0"/>
-                                <TextBlock Grid.Column="1" Text="{Binding CurrentDrawNormal}" FontSize="11"
+                                <!-- Display: double-click to edit -->
+                                <TextBlock Grid.Column="1"
+                                           x:Name="CurrentDrawNormalDisplay"
+                                           Text="{Binding CurrentDrawNormal}" FontSize="11"
                                            Foreground="{DynamicResource ForegroundBrush}"
-                                           TextWrapping="Wrap"/>
+                                           TextWrapping="Wrap" Cursor="IBeam"
+                                           ToolTip="Double-click to edit"
+                                           Visibility="{Binding IsEditingCurrentDrawNormal, Converter={StaticResource InverseBoolToVis}}"
+                                           MouseLeftButtonDown="CurrentDrawNormalDisplay_MouseLeftButtonDown"/>
+                                <!-- Edit mode -->
+                                <TextBox Grid.Column="1"
+                                         x:Name="CurrentDrawNormalTextBox"
+                                         Text="{Binding EditingCurrentDrawNormalText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Visibility="{Binding IsEditingCurrentDrawNormal, Converter={StaticResource BoolToVis}}"
+                                         FontSize="11" Background="Transparent"
+                                         BorderThickness="0,0,0,1"
+                                         BorderBrush="{DynamicResource BorderBrush}"
+                                         Foreground="{DynamicResource ForegroundBrush}"
+                                         CaretBrush="{DynamicResource ForegroundBrush}"
+                                         KeyDown="CurrentDrawNormalTextBox_KeyDown"
+                                         LostFocus="CurrentDrawNormalTextBox_LostFocus"
+                                         IsVisibleChanged="CurrentDrawNormalTextBox_IsVisibleChanged"/>
                             </Grid>
                             <Grid Margin="0,2">
                                 <Grid.ColumnDefinitions>
@@ -173,10 +193,30 @@
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Alarm" FontSize="11"
                                            Foreground="{DynamicResource IconForegroundBrush}"
+                                           VerticalAlignment="Center"
                                            Margin="0,0,8,0"/>
-                                <TextBlock Grid.Column="1" Text="{Binding CurrentDrawAlarm}" FontSize="11"
+                                <!-- Display: double-click to edit -->
+                                <TextBlock Grid.Column="1"
+                                           x:Name="CurrentDrawAlarmDisplay"
+                                           Text="{Binding CurrentDrawAlarm}" FontSize="11"
                                            Foreground="{DynamicResource ForegroundBrush}"
-                                           TextWrapping="Wrap"/>
+                                           TextWrapping="Wrap" Cursor="IBeam"
+                                           ToolTip="Double-click to edit"
+                                           Visibility="{Binding IsEditingCurrentDrawAlarm, Converter={StaticResource InverseBoolToVis}}"
+                                           MouseLeftButtonDown="CurrentDrawAlarmDisplay_MouseLeftButtonDown"/>
+                                <!-- Edit mode -->
+                                <TextBox Grid.Column="1"
+                                         x:Name="CurrentDrawAlarmTextBox"
+                                         Text="{Binding EditingCurrentDrawAlarmText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Visibility="{Binding IsEditingCurrentDrawAlarm, Converter={StaticResource BoolToVis}}"
+                                         FontSize="11" Background="Transparent"
+                                         BorderThickness="0,0,0,1"
+                                         BorderBrush="{DynamicResource BorderBrush}"
+                                         Foreground="{DynamicResource ForegroundBrush}"
+                                         CaretBrush="{DynamicResource ForegroundBrush}"
+                                         KeyDown="CurrentDrawAlarmTextBox_KeyDown"
+                                         LostFocus="CurrentDrawAlarmTextBox_LostFocus"
+                                         IsVisibleChanged="CurrentDrawAlarmTextBox_IsVisibleChanged"/>
                             </Grid>
                         </StackPanel>
                     </Expander>

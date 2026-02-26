@@ -165,6 +165,7 @@ namespace Pulse.UI.ViewModels
             // Create child ViewModels
             Topology = new TopologyViewModel();
             Inspector = new InspectorViewModel();
+            Inspector.CurrentDrawValueCommitted += OnCurrentDrawValueCommitted;
             Diagram = new DiagramViewModel();
 
             // Wire up topology selection events
@@ -507,6 +508,52 @@ namespace Pulse.UI.ViewModels
             var state = UiStateService.Load();
             state.ExpandedNodeIds = new HashSet<string>(Topology.GetExpandedNodeIds());
             UiStateService.Save(state);
+        }
+
+        /// <summary>
+        /// Called when the user commits an inline edit of CurrentDrawNormal or CurrentDrawAlarm.
+        /// Looks up the Revit parameter name from settings, writes the value, then refreshes.
+        /// </summary>
+        private void OnCurrentDrawValueCommitted(long elementId, bool isAlarm, string newValue)
+        {
+            var settings = _appController.ActiveSettings;
+            if (settings == null) return;
+            string paramKey  = isAlarm ? FireAlarmParameterKeys.CurrentDrawAlarm : FireAlarmParameterKeys.CurrentDrawNormal;
+            string paramName = settings.GetRevitParameterName(paramKey);
+            if (string.IsNullOrEmpty(paramName))
+            {
+                StatusText = $"Cannot write: '{paramKey}' is not mapped to a Revit parameter in Settings.";
+                return;
+            }
+
+            string label = isAlarm ? "Current draw (alarm)" : "Current draw (normal)";
+            StatusText = $"Writing {label}...";
+
+            _storageFacade.WriteParameters(
+                new List<(long, string, string)> { (elementId, paramName, newValue) },
+                count =>
+                {
+                    // Use BeginInvoke so this runs AFTER WriteParameterHandler.Execute() has
+                    // fully returned — you cannot raise a second ExternalEvent from inside
+                    // another ExternalEvent's Execute() callback.
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        if (count > 0)
+                        {
+                            StatusText = $"{label} written to Revit.";
+                            ExecuteRefresh();
+                        }
+                        else
+                        {
+                            StatusText = $"{label}: write succeeded but 0 elements updated \u2014 check '{paramName}' exists on the element.";
+                        }
+                    }));
+                },
+                ex =>
+                {
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                        StatusText = $"Could not write {label}: {ex.Message}"));
+                });
         }
 
         /// <summary>

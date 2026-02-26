@@ -51,6 +51,9 @@ namespace Pulse.UI
             }
 
             TheDiagramPanel.PanelStateChanged += SavePlacement;
+
+            // Auto-load data on first open — no need to press Refresh manually.
+            _viewModel.RefreshCommand.Execute(null);
         }
 
         private void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
