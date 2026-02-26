@@ -218,6 +218,10 @@ namespace Pulse.UI.Controls
         // Left block MinWidth (551) + splitter (1).
         private const double LeftBlockReserved = 552;
 
+        // Minimum column width when the panel is expanded — must fit the header buttons
+        // (toggle 24 + paper combo 100 + settings ~70 + margins ≈ 210).
+        private const double ExpandedMinWidth = 210;
+
         private void SetParentColumnWidth(double width)
         {
             if (Parent is Grid parentGrid)
@@ -225,14 +229,17 @@ namespace Pulse.UI.Controls
                 int col = Grid.GetColumn(this);
                 if (col >= 0 && col < parentGrid.ColumnDefinitions.Count)
                 {
-                    var cd = parentGrid.ColumnDefinitions[col];
-                    cd.Width    = new GridLength(width);
-                    cd.MaxWidth = _isExpanded
-                        ? Math.Max(CollapsedWidth, parentGrid.ActualWidth - LeftBlockReserved)
+                    var cd      = parentGrid.ColumnDefinitions[col];
+                    double minW = _isExpanded ? ExpandedMinWidth : CollapsedWidth;
+                    double maxW = _isExpanded
+                        ? Math.Max(ExpandedMinWidth, parentGrid.ActualWidth - LeftBlockReserved)
                         : CollapsedWidth;
+                    cd.MinWidth = minW;
+                    cd.MaxWidth = maxW;
+                    cd.Width    = new GridLength(Math.Max(minW, Math.Min(width, maxW)));
                 }
 
-                // Keep MaxWidth current whenever the parent grid is resized.
+                // Keep MaxWidth (and clamped Width) current whenever the parent grid is resized.
                 parentGrid.SizeChanged -= OnParentGridSizeChanged;
                 if (_isExpanded)
                     parentGrid.SizeChanged += OnParentGridSizeChanged;
@@ -244,12 +251,15 @@ namespace Pulse.UI.Controls
             if (!(Parent is Grid parentGrid)) return;
             int col = Grid.GetColumn(this);
             if (col < 0 || col >= parentGrid.ColumnDefinitions.Count) return;
-            var cd = parentGrid.ColumnDefinitions[col];
-            double cap = Math.Max(CollapsedWidth, parentGrid.ActualWidth - LeftBlockReserved);
+            var cd     = parentGrid.ColumnDefinitions[col];
+            double cap = Math.Max(ExpandedMinWidth, parentGrid.ActualWidth - LeftBlockReserved);
             cd.MaxWidth = cap;
-            // Clamp current width if it now exceeds the cap.
-            if (cd.Width.Value > cap)
+            // Clamp current width into [ExpandedMinWidth, cap].
+            double cur = cd.Width.Value;
+            if (cur > cap)
                 cd.Width = new GridLength(cap);
+            else if (cur < ExpandedMinWidth)
+                cd.Width = new GridLength(ExpandedMinWidth);
         }
 
         // ── DataContext / Levels wiring ───────────────────────────────────
