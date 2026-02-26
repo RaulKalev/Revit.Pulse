@@ -29,13 +29,16 @@ strategy, and diagram scene-graph that form the backbone of Pulse.
 ├────────────────────────────────────────────────────┤
 │  Core/            — NO Revit dependency             │
 │    Modules        — PulseAppController, ModuleCatalog│
-│                     IModuleDefinition, Capabilities │
-│    Graph          — Node, Edge (topology tree)      │
-│    Graph/Canvas   — DiagramScene, LevelAnchor,      │
-│                     PanelCluster, LoopCluster …     │
-│    SystemModel    — Panel, Loop, AddressableDevice  │
-│    Rules          — IRule, RuleResult, Severity     │
-│    Settings       — ModuleSettings, TopologyStore   │
+│                     IModuleDefinition, Capabilities  │
+│                     TopologyAssignmentsService,      │
+│                     SymbolMappingOrchestrator        │
+│    Graph          — Node, Edge (topology tree)       │
+│    Graph/Canvas   — DiagramScene, CanvasGraphModel,  │
+│                     LevelAnchor, PanelCluster …      │
+│    SystemModel    — Panel, Loop, Zone, Device        │
+│    Rules          — IRule, RuleResult, Severity      │
+│    Settings       — ModuleSettings, TopologyAssignmentsStore│
+│                     DeviceConfigStore, LevelVisibility│
 │    Logging        — ILogger abstraction             │
 └────────────────────────────────────────────────────┘
 ```
@@ -66,8 +69,11 @@ PulseFireAlarm.Execute()            ← IExternalCommand entry point
             │
             ├─ Capability guards wired (Diagram, Wiring, SymbolMapping, ConfigAssignment)
             │
-            ├─ StorageFacade.ReadSettings(doc)
-            │    └─ PulseAppController.ApplySettings() → active module selected
+            ├─ DeviceConfigService.Load()            ← reads device-config.json
+            │    └─ PulseAppController.ApplySettings() → parameter mappings applied
+            │
+            ├─ StorageFacade.ReadDiagramSettings(doc) → DiagramViewModel.LoadVisibility
+            ├─ StorageFacade.ReadTopologyAssignments(doc) → TopologyAssignmentsService.Load
             │
             └─ Automatic first refresh via RefreshPipeline
 ```
@@ -83,11 +89,12 @@ RefreshPipeline.Execute(module, settings, onCompleted, onError)
   │    ├─ module.CreateRulePack().Rules.Evaluate(entities)
   │    └─ callback → ModuleData result
   │
-  └─ MainViewModel.RefreshCompleted(data)               ← Dispatcher thread
-       ├─ PulseAppController.DataCollected
+  └─ MainViewModel.OnDataCollected(data)               ← Dispatcher thread
+       ├─ PulseAppController.OnRefreshCompleted(data)
        ├─ DiagramViewModel.LoadLevels / LoadPanels
-       ├─ TopologyViewModel.BuildTree
-       ├─ InspectorViewModel refresh
+       ├─ TopologyViewModel.LoadFromModuleData
+       │    └─ CanvasGraphBuilder.Build() → TopologyViewModel.CanvasGraph
+       ├─ InspectorViewModel.LoadNode
        └─ StatusStrip counts
 ```
 
@@ -119,8 +126,8 @@ a hardcoded fallback list is used.
 | Member | Purpose |
 |--------|---------|
 | `ModuleId` | Unique string identifier |
-| `DisplayName` | User-facing name |
-| `Capabilities` | `ModuleCapabilities` flags |
+| `DisplayName` | User-facing name || `Description` | Short description of the module |
+| `Version` | Version string (semver) || `Capabilities` | `ModuleCapabilities` flags |
 | `GetDefaultSettings()` | Default categories + parameter mappings |
 | `CreateCollector()` | Factory → `IModuleCollector` |
 | `CreateTopologyBuilder()` | Factory → `ITopologyBuilder` |
