@@ -46,6 +46,7 @@
 
                 <!-- ── Selection content ── -->
                 <ScrollViewer Style="{StaticResource PulseScrollViewerStyle}"
+                              HorizontalScrollBarVisibility="Disabled"
                               Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
                 <StackPanel Margin="6,6,6,6">
 
@@ -126,6 +127,7 @@
                                         </Grid.ColumnDefinitions>
                                         <TextBlock Grid.Column="0" Text="{Binding Key}" FontSize="11"
                                                    Foreground="{DynamicResource IconForegroundBrush}"
+                                                   VerticalAlignment="Top"
                                                    Margin="0,0,8,0" TextWrapping="NoWrap"/>
                                         <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11"
                                                    Foreground="{DynamicResource ForegroundBrush}"

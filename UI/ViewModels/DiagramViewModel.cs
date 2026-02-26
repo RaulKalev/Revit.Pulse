@@ -194,12 +194,28 @@ namespace Pulse.UI.ViewModels
                         .Select(d => d.Address ?? string.Empty)
                         .ToList();
 
-                    // Group devices by (elevation, deviceType) for level heat-map data.
+                    // Group devices by level (using the device's level name → absolute elevation from the
+                    // already-loaded Levels list).  This ensures LoopLevelInfo.Elevation values are in the
+                    // same coordinate space as yLookup so that majority-level band detection is correct.
+                    var levelElevByName = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var lv in Levels)
+                        levelElevByName[lv.Name] = lv.Elevation;
+
                     var levelTypeMap = new Dictionary<double, Dictionary<string, int>>();
                     foreach (var d in sortedDevices)
                     {
-                        if (!d.Elevation.HasValue) continue;
-                        double key = Math.Round(d.Elevation.Value, 3);
+                        double key;
+                        if (!string.IsNullOrEmpty(d.LevelName) &&
+                            levelElevByName.TryGetValue(d.LevelName, out double lvElev))
+                        {
+                            key = lvElev;  // absolute level elevation in feet
+                        }
+                        else if (d.Elevation.HasValue)
+                        {
+                            key = Math.Round(d.Elevation.Value, 3);  // fallback: use stored offset
+                        }
+                        else continue;
+
                         if (!levelTypeMap.TryGetValue(key, out var typeMap))
                             levelTypeMap[key] = typeMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                         string dt = d.DeviceType ?? string.Empty;

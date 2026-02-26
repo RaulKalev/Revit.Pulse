@@ -274,7 +274,12 @@ namespace Pulse.Modules.FireAlarm
                 if (!string.IsNullOrEmpty(wireValue))
                     device.SetProperty("_Wire", wireValue);
 
-                // Capture the element's "Elevation from Level" offset (feet) directly on the device.
+                // Capture the element's level name so the diagram can group devices into the correct level band.
+                if (element.Parameters.TryGetValue("_LevelName", out string levelNameVal)
+                    && !string.IsNullOrWhiteSpace(levelNameVal))
+                    device.LevelName = levelNameVal;
+
+                // Capture the element's "Elevation from Level" offset (feet) for display in the inspector.
                 // Fall back to the host level's base elevation if the offset param is unavailable.
                 if (element.Parameters.TryGetValue("_ElevationFromLevel", out string elevFromLevelStr)
                     && double.TryParse(elevFromLevelStr,

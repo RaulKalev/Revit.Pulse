@@ -26,8 +26,11 @@ namespace Pulse.Core.SystemModel
         /// <summary>Current draw in mA (if available).</summary>
         public double? CurrentDraw { get; set; }
 
-        /// <summary>Elevation in Revit internal units (feet) of the Revit level the device is placed on.</summary>
+        /// <summary>Elevation offset from level in Revit internal units (feet).</summary>
         public double? Elevation { get; set; }
+
+        /// <summary>Name of the Revit level the device is hosted on.</summary>
+        public string LevelName { get; set; }
 
         /// <summary>Parent loop identifier.</summary>
         public string LoopId { get; set; }
