@@ -130,11 +130,35 @@ namespace Pulse.Modules.FireAlarm
                     node.Properties["Loop module"] = loopModule;
 
                 data.Nodes.Add(node);
+            }
 
-                if (!string.IsNullOrEmpty(device.LoopId))
+            // Build (loopId|address) → entityId lookup for sub-device reparenting
+            var deviceByLoopAndAddress = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var device in data.Devices)
+            {
+                if (!string.IsNullOrEmpty(device.LoopId) && !string.IsNullOrEmpty(device.Address))
+                    deviceByLoopAndAddress[device.LoopId + "|" + device.Address] = device.EntityId;
+            }
+
+            // Emit edges: dotted-address devices (e.g. "001.1") become children of
+            // the base-address device ("001") in the same loop; others connect to loop.
+            foreach (var device in data.Devices)
+            {
+                if (string.IsNullOrEmpty(device.LoopId)) continue;
+
+                string parentId = null;
+                if (!string.IsNullOrEmpty(device.Address))
                 {
-                    data.Edges.Add(new Edge(device.LoopId, device.EntityId, "contains"));
+                    int lastDot = device.Address.LastIndexOf('.');
+                    if (lastDot > 0)
+                    {
+                        string parentAddress = device.Address.Substring(0, lastDot);
+                        deviceByLoopAndAddress.TryGetValue(device.LoopId + "|" + parentAddress, out parentId);
+                    }
                 }
+
+                string sourceId = parentId ?? device.LoopId;
+                data.Edges.Add(new Edge(sourceId, device.EntityId, "contains"));
             }
         }
     }

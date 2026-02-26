@@ -259,10 +259,11 @@
                                                                         <DataTemplate>
                                                                             <!-- Device row -->
                                                                             <StackPanel Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
-                                                                                <!-- Main row: select button + "+" toggle -->
+                                                                                <!-- Main row: select button + expand chevron + "+" toggle -->
                                                                                 <Grid>
                                                                                     <Grid.ColumnDefinitions>
                                                                                         <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
                                                                                         <ColumnDefinition Width="Auto"/>
                                                                                     </Grid.ColumnDefinitions>
                                                                                     <Button Grid.Column="0"
@@ -293,8 +294,52 @@
                                                                                             </Border>
                                                                                         </StackPanel>
                                                                                     </Button>
+                                                                                    <!-- Expand chevron — only shown when device has children -->
+                                                                                    <ToggleButton Grid.Column="1"
+                                                                                                  IsChecked="{Binding IsExpanded, Mode=TwoWay}"
+                                                                                                  Visibility="{Binding Children.Count, Converter={StaticResource CountToVisibility}}"
+                                                                                                  OverridesDefaultStyle="True"
+                                                                                                  Cursor="Hand" Focusable="False"
+                                                                                                  Width="22" Background="Transparent"
+                                                                                                  BorderThickness="0" Margin="0,0,2,0">
+                                                                                        <ToggleButton.Template>
+                                                                                            <ControlTemplate TargetType="ToggleButton">
+                                                                                                <Border Background="Transparent">
+                                                                                                    <Path x:Name="DevChev" Data="M 0,0 L 4,4 L 8,0"
+                                                                                                          Stroke="{DynamicResource IconForegroundBrush}"
+                                                                                                          StrokeThickness="1.5" StrokeLineJoin="Round"
+                                                                                                          Width="8" Height="4"
+                                                                                                          HorizontalAlignment="Center"
+                                                                                                          VerticalAlignment="Center"
+                                                                                                          RenderTransformOrigin="0.5,0.5">
+                                                                                                        <Path.RenderTransform>
+                                                                                                            <RotateTransform x:Name="DevChevRot" Angle="0"/>
+                                                                                                        </Path.RenderTransform>
+                                                                                                    </Path>
+                                                                                                </Border>
+                                                                                                <ControlTemplate.Triggers>
+                                                                                                    <Trigger Property="IsChecked" Value="False">
+                                                                                                        <Trigger.EnterActions>
+                                                                                                            <BeginStoryboard><Storyboard>
+                                                                                                                <DoubleAnimation Storyboard.TargetName="DevChevRot"
+                                                                                                                                 Storyboard.TargetProperty="Angle"
+                                                                                                                                 To="-90" Duration="0:0:0.12"/>
+                                                                                                            </Storyboard></BeginStoryboard>
+                                                                                                        </Trigger.EnterActions>
+                                                                                                        <Trigger.ExitActions>
+                                                                                                            <BeginStoryboard><Storyboard>
+                                                                                                                <DoubleAnimation Storyboard.TargetName="DevChevRot"
+                                                                                                                                 Storyboard.TargetProperty="Angle"
+                                                                                                                                 To="0" Duration="0:0:0.12"/>
+                                                                                                            </Storyboard></BeginStoryboard>
+                                                                                                        </Trigger.ExitActions>
+                                                                                                    </Trigger>
+                                                                                                </ControlTemplate.Triggers>
+                                                                                            </ControlTemplate>
+                                                                                        </ToggleButton.Template>
+                                                                                    </ToggleButton>
                                                                                     <!-- "+" toggle button — always visible on device rows -->
-                                                                                    <Button Grid.Column="1"
+                                                                                    <Button Grid.Column="2"
                                                                                             Command="{Binding ToggleAddSlotCommand}"
                                                                                             ToolTip="Assign an unassigned device beneath this device"
                                                                                             Width="18" Height="18"
@@ -415,6 +460,37 @@
                                                                                         </Button>
                                                                                     </StackPanel>
                                                                                 </Border>
+                                                                                <!-- Sub-device children list (shown when expanded) -->
+                                                                                <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
+                                                                                    <ItemsControl ItemsSource="{Binding Children}" Margin="0,0,0,2">
+                                                                                        <ItemsControl.ItemTemplate>
+                                                                                            <DataTemplate>
+                                                                                                <Button Command="{Binding SelectCommand}"
+                                                                                                        Padding="36,4,8,4"
+                                                                                                        Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
+                                                                                                    <Button.Style>
+                                                                                                        <Style TargetType="Button" BasedOn="{StaticResource PulseNodeButtonStyle}">
+                                                                                                            <Style.Triggers>
+                                                                                                                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                                                    <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                                                                                                </DataTrigger>
+                                                                                                            </Style.Triggers>
+                                                                                                        </Style>
+                                                                                                    </Button.Style>
+                                                                                                    <StackPanel Orientation="Horizontal">
+                                                                                                        <materialDesign:PackIcon Kind="AccessPointNetwork"
+                                                                                                                                 Width="11" Height="11"
+                                                                                                                                 VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                                                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
+                                                                                                        <TextBlock Text="{Binding Label}" FontSize="10"
+                                                                                                                   Foreground="{DynamicResource ForegroundBrush}"
+                                                                                                                   VerticalAlignment="Center"/>
+                                                                                                    </StackPanel>
+                                                                                                </Button>
+                                                                                            </DataTemplate>
+                                                                                        </ItemsControl.ItemTemplate>
+                                                                                    </ItemsControl>
+                                                                                </StackPanel>
                                                                             </StackPanel>
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>

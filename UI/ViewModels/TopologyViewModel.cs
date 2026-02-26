@@ -312,6 +312,10 @@ namespace Pulse.UI.ViewModels
             if (node.NodeType == "Panel" || node.NodeType == "Loop")
                 CollectDescendantDeviceIds(vm);
 
+            // Auto-expand device nodes that have sub-device children
+            if (node.NodeType == "Device" && vm.Children.Count > 0)
+                vm.IsExpanded = true;
+
             return vm;
         }
 
