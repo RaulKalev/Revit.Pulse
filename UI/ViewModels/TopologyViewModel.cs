@@ -212,7 +212,8 @@ namespace Pulse.UI.ViewModels
                                           panelOptions, loopOptions, wireOptions,
                                           parentLabel: null,
                                           unassignedOptions: unassignedOptions,
-                                          onSubDeviceAssign: onSubDeviceAssign);
+                                          onSubDeviceAssign: onSubDeviceAssign,
+                                          onPickElementForDevice: onPickElementForDevice);
                     RootNodes.Add(vm);
                 }
             }
