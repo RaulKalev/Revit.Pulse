@@ -293,10 +293,9 @@
                                                                                             </Border>
                                                                                         </StackPanel>
                                                                                     </Button>
-                                                                                    <!-- "+" toggle button — only shown when unassigned devices exist -->
+                                                                                    <!-- "+" toggle button — always visible on device rows -->
                                                                                     <Button Grid.Column="1"
                                                                                             Command="{Binding ToggleAddSlotCommand}"
-                                                                                            Visibility="{Binding AvailableUnassigned.Count, Converter={StaticResource CountToVisibility}}"
                                                                                             ToolTip="Assign an unassigned device beneath this device"
                                                                                             Padding="4,4,4,4"
                                                                                             MinWidth="24">
@@ -328,11 +327,20 @@
                                                                                                    FontSize="10"
                                                                                                    Foreground="{DynamicResource IconForegroundBrush}"
                                                                                                    VerticalAlignment="Center"/>
+                                                                                        <!-- Combobox when options exist -->
                                                                                         <ComboBox Grid.Column="1"
                                                                                                   ItemsSource="{Binding AvailableUnassigned}"
                                                                                                   SelectedItem="{Binding SelectedUnassigned, Mode=TwoWay}"
                                                                                                   Style="{StaticResource DarkComboBoxStyle}"
-                                                                                                  VerticalAlignment="Center"/>
+                                                                                                  VerticalAlignment="Center"
+                                                                                                  Visibility="{Binding AvailableUnassigned.Count, Converter={StaticResource CountToVisibility}}"/>
+                                                                                        <!-- Placeholder when no unassigned devices -->
+                                                                                        <TextBlock Grid.Column="1"
+                                                                                                   Text="No unassigned devices"
+                                                                                                   FontSize="10" FontStyle="Italic"
+                                                                                                   Foreground="{DynamicResource IconForegroundBrush}"
+                                                                                                   VerticalAlignment="Center"
+                                                                                                   Visibility="{Binding AvailableUnassigned.Count, Converter={StaticResource CountToVisibility}, ConverterParameter=Invert}"/>
                                                                                     </Grid>
                                                                                 </Border>
                                                                             </StackPanel>
