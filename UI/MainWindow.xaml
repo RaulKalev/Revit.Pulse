@@ -11,7 +11,7 @@
     Title="Pulse"
     Width="1200"
     Height="650"
-    MinWidth="700"
+    MinWidth="920"
     MinHeight="500"
     AllowsTransparency="True"
     Background="Transparent"
@@ -150,7 +150,7 @@
                 </Border>
 
                 <!-- Row 2: Main Content (Topology + Inspector | Diagram) -->
-                <Grid Grid.Row="2">
+                <Grid Grid.Row="2" ClipToBounds="True">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="450" />   <!-- Left block: Topology + Inspector -->
                         <ColumnDefinition Width="1" />                   <!-- Splitter -->
