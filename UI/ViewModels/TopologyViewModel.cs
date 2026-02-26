@@ -37,6 +37,21 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         private List<TopologyNodeViewModel> _allNodes = new List<TopologyNodeViewModel>();
 
+        /// <summary>
+        /// Node IDs that must be expanded on the next <see cref="RestoreExpandState"/> call,
+        /// regardless of whether they were in the snapshot.
+        /// Set by MainViewModel before triggering a refresh (e.g. after assigning a sub-device).
+        /// Consumed and cleared by <see cref="RestoreExpandState"/>.
+        /// </summary>
+        private readonly HashSet<string> _scheduledExpandIds = new HashSet<string>();
+
+        /// <summary>Marks a node ID to be force-expanded on the next RestoreExpandState call.</summary>
+        public void ScheduleExpand(string nodeId)
+        {
+            if (!string.IsNullOrEmpty(nodeId))
+                _scheduledExpandIds.Add(nodeId);
+        }
+
         /// <summary>Current device config store — kept in sync after each load (library data only).</summary>
         private DeviceConfigStore _deviceStore = new DeviceConfigStore();
 
@@ -378,6 +393,13 @@ namespace Pulse.UI.ViewModels
         public void RestoreExpandState(IEnumerable<string> ids)
         {
             var idSet = new HashSet<string>(ids ?? Enumerable.Empty<string>());
+            // Merge any nodes explicitly scheduled to be expanded (e.g. host device after sub-device assign)
+            if (_scheduledExpandIds.Count > 0)
+            {
+                foreach (var id in _scheduledExpandIds)
+                    idSet.Add(id);
+                _scheduledExpandIds.Clear();
+            }
             foreach (var node in _allNodes)
             {
                 if (idSet.Contains(node.GraphNode.Id))

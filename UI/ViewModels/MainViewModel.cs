@@ -571,6 +571,7 @@ namespace Pulse.UI.ViewModels
 
             string loopParamName = settings.GetRevitParameterName(FireAlarmParameterKeys.Loop);
             string addrParamName = settings.GetRevitParameterName(FireAlarmParameterKeys.Address);
+            string panelParamName = settings.GetRevitParameterName(FireAlarmParameterKeys.Panel);
 
             if (string.IsNullOrEmpty(loopParamName) || string.IsNullOrEmpty(addrParamName))
             {
@@ -579,15 +580,20 @@ namespace Pulse.UI.ViewModels
             }
 
             hostVm.GraphNode.Properties.TryGetValue("Loop", out string loopValue);
+            hostVm.GraphNode.Properties.TryGetValue("Panel", out string panelValue);
             string newAddress = hostVm.NextSubAddress;
 
             StatusText = $"Assigning {option.Label} as sub-device…";
+
+            // Force-expand the host device node after rebuild so the new child is visible
+            Topology.ScheduleExpand(hostVm.GraphNode.Id);
 
             _storageFacade.WriteParameters(
                 new List<(long, string, string)>
                 {
                     (option.ElementId, loopParamName, loopValue ?? string.Empty),
                     (option.ElementId, addrParamName, newAddress),
+                    (option.ElementId, panelParamName, panelValue ?? string.Empty),
                 },
                 count =>
                 {
@@ -626,14 +632,16 @@ namespace Pulse.UI.ViewModels
 
             string loopParamName = settings.GetRevitParameterName(FireAlarmParameterKeys.Loop);
             string addrParamName = settings.GetRevitParameterName(FireAlarmParameterKeys.Address);
+            string panelParamName = settings.GetRevitParameterName(FireAlarmParameterKeys.Panel);
 
             if (string.IsNullOrEmpty(loopParamName) || string.IsNullOrEmpty(addrParamName))
             {
-                StatusText = "Cannot assign: Loop or Address parameter is not mapped in Settings.";
+                StatusText = "Cannot assign sub-device: Loop or Address parameter is not mapped in Settings.";
                 return;
             }
 
             hostVm.GraphNode.Properties.TryGetValue("Loop", out string loopValue);
+            hostVm.GraphNode.Properties.TryGetValue("Panel", out string panelPickValue);
             string newAddress = hostVm.NextSubAddress;
 
             // Minimise the plugin window so the user can click in the Revit viewport
@@ -644,6 +652,9 @@ namespace Pulse.UI.ViewModels
             });
 
             StatusText = "Pick a device in the Revit viewport…";
+
+            // Force-expand the host device node after rebuild so the new child is visible
+            Topology.ScheduleExpand(hostVm.GraphNode.Id);
 
             _storageFacade.PickElement(
                 "Select a device to assign to " + (hostVm.Label ?? "this device"),
@@ -666,6 +677,7 @@ namespace Pulse.UI.ViewModels
                             {
                                 (pickedElementId, loopParamName, loopValue ?? string.Empty),
                                 (pickedElementId, addrParamName, newAddress),
+                                (pickedElementId, panelParamName, panelPickValue ?? string.Empty),
                             },
                             count =>
                             {
