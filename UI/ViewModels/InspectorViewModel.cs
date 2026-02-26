@@ -92,11 +92,18 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _showCurrentDraw, value);
         }
 
-        private string _currentDrawValue;
-        public string CurrentDrawValue
+        private string _currentDrawNormal;
+        public string CurrentDrawNormal
         {
-            get => _currentDrawValue;
-            set => SetField(ref _currentDrawValue, value);
+            get => _currentDrawNormal;
+            set => SetField(ref _currentDrawNormal, value);
+        }
+
+        private string _currentDrawAlarm;
+        public string CurrentDrawAlarm
+        {
+            get => _currentDrawAlarm;
+            set => SetField(ref _currentDrawAlarm, value);
         }
 
         private int _addressesUsed;
@@ -153,15 +160,22 @@ namespace Pulse.UI.ViewModels
             // Load properties
             Properties.Clear();
             ShowCurrentDraw = false;
-            CurrentDrawValue = string.Empty;
+            CurrentDrawNormal = string.Empty;
+            CurrentDrawAlarm = string.Empty;
 
             foreach (var kvp in node.Properties)
             {
-                // "Current draw" is surfaced in its own dedicated section, not the flat list.
-                if (kvp.Key == "Current draw")
+                // Current draw values are surfaced in their own dedicated section.
+                if (kvp.Key == "Current draw normal")
                 {
                     ShowCurrentDraw = true;
-                    CurrentDrawValue = kvp.Value;
+                    CurrentDrawNormal = kvp.Value;
+                    continue;
+                }
+                if (kvp.Key == "Current draw alarm")
+                {
+                    ShowCurrentDraw = true;
+                    CurrentDrawAlarm = kvp.Value;
                     continue;
                 }
                 Properties.Add(new PropertyItem { Key = kvp.Key, Value = kvp.Value });
@@ -246,7 +260,8 @@ namespace Pulse.UI.ViewModels
             ChildDeviceCount = 0;
             ShowGauges    = false;
             ShowCurrentDraw = false;
-            CurrentDrawValue = string.Empty;
+            CurrentDrawNormal = string.Empty;
+            CurrentDrawAlarm = string.Empty;
             AddressesUsed = 0;
             AddressesMax  = 0;
             MaUsed        = 0;

@@ -267,9 +267,14 @@ namespace Pulse.UI.ViewModels
             TotalErrors = data.ErrorCount;
 
             // Update topology (assignments must be set before LoadFromModuleData builds the tree)
+            // Capture expand state from live memory before rebuilding (disk copy may be stale).
+            var previouslyExpandedIds = Topology.GetExpandedNodeIds();
             Topology.LoadAssignments(_topologyAssignments);
             Topology.LoadFromModuleData(data);
-            Topology.RestoreExpandState(UiStateService.Load().ExpandedNodeIds);
+            IEnumerable<string> idsToRestore = previouslyExpandedIds.Count > 0
+                ? (IEnumerable<string>)previouslyExpandedIds
+                : UiStateService.Load().ExpandedNodeIds;
+            Topology.RestoreExpandState(idsToRestore);
 
             // Update diagram levels and panels
             var devStore = DeviceConfigService.Load();
@@ -424,9 +429,14 @@ namespace Pulse.UI.ViewModels
                 var jsonStore = DeviceConfigService.Load();
                 if (jsonStore.ModuleSettings.TryGetValue(_appController.ActiveModule.ModuleId, out var jsonSettings))
                 {
-                    // Merge in any parameter keys present in defaults but absent in the saved
-                    // settings (e.g. keys added in a newer version of the plugin).
+                    // Prune stale keys and merge in new defaults.
                     var defaults = _appController.ActiveModule.GetDefaultSettings();
+                    var defaultKeySet = new HashSet<string>(
+                        defaults.ParameterMappings.ConvertAll(m => m.LogicalName),
+                        StringComparer.OrdinalIgnoreCase);
+                    // Remove any mappings whose LogicalName no longer exists in defaults.
+                    jsonSettings.ParameterMappings.RemoveAll(m => !defaultKeySet.Contains(m.LogicalName));
+                    // Add any new defaults not yet present in the stored settings.
                     var existingKeys = new HashSet<string>(
                         jsonSettings.ParameterMappings.ConvertAll(m => m.LogicalName),
                         StringComparer.OrdinalIgnoreCase);
@@ -670,7 +680,9 @@ namespace Pulse.UI.ViewModels
         private void OnSettingsSaved(ModuleSettings newSettings)
         {
             _appController.ApplySettings(newSettings);
-            StatusText = "Settings applied. Press Refresh to reload data.";
+
+            // Auto-refresh so the new parameter mappings take effect immediately.
+            ExecuteRefresh();
 
             _storageFacade.SaveSettings(
                 newSettings,

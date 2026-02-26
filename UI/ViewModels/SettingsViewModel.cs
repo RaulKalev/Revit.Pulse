@@ -94,8 +94,17 @@ namespace Pulse.UI.ViewModels
             // Seed from current settings (fall back to defaults if current is null)
             var source = current ?? defaults;
             RevitCategory = source.Categories?.Count > 0 ? source.Categories[0] : string.Empty;
+
+            // Only load mappings whose LogicalName still exists in defaults.
+            // This prunes stale keys (e.g. CurrentDraw removed in a newer build) automatically.
+            var defaultKeys = new HashSet<string>(
+                defaults.ParameterMappings.Select(m => m.LogicalName),
+                StringComparer.OrdinalIgnoreCase);
             foreach (var m in source.ParameterMappings ?? defaults.ParameterMappings)
-                Mappings.Add(new ParameterMappingViewModel(m));
+            {
+                if (defaultKeys.Contains(m.LogicalName))
+                    Mappings.Add(new ParameterMappingViewModel(m));
+            }
 
             // Merge-in any keys that exist in defaults but are absent from the stored settings.
             // This ensures newly added parameter keys appear in the UI without requiring a reset.

@@ -120,8 +120,10 @@ namespace Pulse.Modules.FireAlarm
                 }
 
                 // Emit relabeled semantic properties after the bulk copy.
-                device.Properties.TryGetValue("_CurrentDraw", out string currentDraw);
-                node.Properties["Current draw"] = currentDraw ?? string.Empty;
+                device.Properties.TryGetValue("_CurrentDrawNormal", out string currentDrawNormal);
+                device.Properties.TryGetValue("_CurrentDrawAlarm", out string currentDrawAlarm);
+                node.Properties["Current draw normal"] = currentDrawNormal ?? string.Empty;
+                node.Properties["Current draw alarm"] = currentDrawAlarm ?? string.Empty;
                 if (device.Properties.TryGetValue("_Wire", out string wire) && !string.IsNullOrEmpty(wire))
                     node.Properties["Wire"] = wire;
                 if (device.Properties.TryGetValue("_LoopModuleConfig", out string loopModule) && !string.IsNullOrEmpty(loopModule))

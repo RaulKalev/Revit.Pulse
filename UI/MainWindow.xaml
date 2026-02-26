@@ -162,7 +162,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" MinWidth="250" />    <!-- Topology -->
                             <ColumnDefinition Width="1" />                    <!-- Splitter -->
-                            <ColumnDefinition Width="280" MinWidth="180" />  <!-- Inspector -->
+                            <ColumnDefinition Width="300" MinWidth="300" MaxWidth="300" />  <!-- Inspector -->
                         </Grid.ColumnDefinitions>
 
                         <controls:TopologyView Grid.Column="0" DataContext="{Binding Topology}" Margin="4"/>

@@ -124,7 +124,8 @@ namespace Pulse.Modules.FireAlarm
             string loopParam            = settings.GetRevitParameterName(FireAlarmParameterKeys.Loop);
             string addressParam         = settings.GetRevitParameterName(FireAlarmParameterKeys.Address);
             string deviceTypeParam      = settings.GetRevitParameterName(FireAlarmParameterKeys.DeviceType);
-            string currentDrawParam     = settings.GetRevitParameterName(FireAlarmParameterKeys.CurrentDraw);
+            string currentDrawNormalParam = settings.GetRevitParameterName(FireAlarmParameterKeys.CurrentDrawNormal);
+            string currentDrawAlarmParam  = settings.GetRevitParameterName(FireAlarmParameterKeys.CurrentDrawAlarm);
             string deviceIdParam        = settings.GetRevitParameterName(FireAlarmParameterKeys.DeviceId);
             string circuitElementIdParam = settings.GetRevitParameterName(FireAlarmParameterKeys.CircuitElementId);
             string panelConfigParam      = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelConfig);
@@ -145,7 +146,6 @@ namespace Pulse.Modules.FireAlarm
                 string loopValue = GetParam(element, loopParam);
                 string addressValue = GetParam(element, addressParam);
                 string deviceTypeValue = GetParam(element, deviceTypeParam);
-                string currentDrawValue = GetParam(element, currentDrawParam);
                 string deviceIdValue = GetParam(element, deviceIdParam);
 
                 // Create or find panel
@@ -196,14 +196,15 @@ namespace Pulse.Modules.FireAlarm
                     PanelId = panel.EntityId,
                 };
 
-                // Parse current draw
-                if (!string.IsNullOrWhiteSpace(currentDrawValue) && double.TryParse(
-                    currentDrawValue,
+                // Parse normal current draw for device.CurrentDraw (used by gauge calculations).
+                string currentDrawNormalRaw = GetParam(element, currentDrawNormalParam);
+                if (!string.IsNullOrWhiteSpace(currentDrawNormalRaw) && double.TryParse(
+                    currentDrawNormalRaw,
                     System.Globalization.NumberStyles.Any,
                     System.Globalization.CultureInfo.InvariantCulture,
-                    out double currentDraw))
+                    out double currentDrawNormalParsed))
                 {
-                    device.CurrentDraw = currentDraw;
+                    device.CurrentDraw = currentDrawNormalParsed;
                 }
 
                 // Store all extracted properties on the device.
@@ -224,8 +225,11 @@ namespace Pulse.Modules.FireAlarm
                     if (!string.IsNullOrEmpty(deviceTypeParam) &&
                         string.Equals(kvp.Key, deviceTypeParam, StringComparison.OrdinalIgnoreCase))
                         continue;
-                    if (!string.IsNullOrEmpty(currentDrawParam) &&
-                        string.Equals(kvp.Key, currentDrawParam, StringComparison.OrdinalIgnoreCase))
+                    if (!string.IsNullOrEmpty(currentDrawNormalParam) &&
+                        string.Equals(kvp.Key, currentDrawNormalParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(currentDrawAlarmParam) &&
+                        string.Equals(kvp.Key, currentDrawAlarmParam, StringComparison.OrdinalIgnoreCase))
                         continue;
                     if (!string.IsNullOrEmpty(panelConfigParam) &&
                         string.Equals(kvp.Key, panelConfigParam, StringComparison.OrdinalIgnoreCase))
@@ -254,8 +258,12 @@ namespace Pulse.Modules.FireAlarm
                 // Store relabeled/semantic values under internal keys for the topology builder.
                 if (!string.IsNullOrEmpty(loopValue))
                     device.SetProperty("_LoopValue", loopValue);
-                if (!string.IsNullOrEmpty(currentDrawValue))
-                    device.SetProperty("_CurrentDraw", currentDrawValue);
+                string currentDrawNormalValue = GetParam(element, currentDrawNormalParam);
+                if (!string.IsNullOrEmpty(currentDrawNormalValue))
+                    device.SetProperty("_CurrentDrawNormal", currentDrawNormalValue);
+                string currentDrawAlarmValue = GetParam(element, currentDrawAlarmParam);
+                if (!string.IsNullOrEmpty(currentDrawAlarmValue))
+                    device.SetProperty("_CurrentDrawAlarm", currentDrawAlarmValue);
                 string panelConfigValue = GetParam(element, panelConfigParam);
                 if (!string.IsNullOrEmpty(panelConfigValue))
                     device.SetProperty("_PanelConfig", panelConfigValue);

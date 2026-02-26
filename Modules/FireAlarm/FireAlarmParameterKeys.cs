@@ -22,8 +22,11 @@ namespace Pulse.Modules.FireAlarm
         /// <summary>Logical key for the device type parameter.</summary>
         public const string DeviceType = "DeviceType";
 
-        /// <summary>Logical key for the current draw parameter.</summary>
-        public const string CurrentDraw = "CurrentDraw";
+        /// <summary>Logical key for the normal-mode current draw parameter.</summary>
+        public const string CurrentDrawNormal = "CurrentDrawNormal";
+
+        /// <summary>Logical key for the alarm-mode current draw parameter.</summary>
+        public const string CurrentDrawAlarm = "CurrentDrawAlarm";
 
         /// <summary>Logical key for the device id parameter.</summary>
         public const string DeviceId = "DeviceId";
