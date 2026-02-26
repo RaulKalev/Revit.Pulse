@@ -80,7 +80,12 @@ namespace Pulse.UI.ViewModels
         /// MainViewModel writes Loop + Address to Revit and calls <see cref="TopologyNodeViewModel.MarkSubDeviceAdded"/> on success.
         /// </summary>
         public event Action<TopologyNodeViewModel, UnassignedDeviceOption> SubDeviceAssignRequested;
-
+        /// <summary>
+        /// Fired when the user clicks "Pick from Revit" on a device row.
+        /// MainViewModel minimises the window, opens the Revit pick session, then writes
+        /// Loop + Address when an element is selected.
+        /// </summary>
+        public event Action<TopologyNodeViewModel> PickElementForDeviceRequested;
         /// <summary>
         /// Returns the Loop node whose parent matches <paramref name="panelName"/> and
         /// label matches <paramref name="loopName"/>, or null if not found.
@@ -194,6 +199,9 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = (vm, option) =>
                 SubDeviceAssignRequested?.Invoke(vm, option);
 
+            Action<TopologyNodeViewModel> onPickElementForDevice = vm =>
+                PickElementForDeviceRequested?.Invoke(vm);
+
             // Build the tree recursively
             foreach (string rootId in rootIds)
             {
@@ -226,7 +234,8 @@ namespace Pulse.UI.ViewModels
             IReadOnlyList<string> wireOptions,
             string parentLabel,
             IReadOnlyList<UnassignedDeviceOption> unassignedOptions = null,
-            Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null)
+            Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null,
+            Action<TopologyNodeViewModel> onPickElementForDevice = null)
         {
             // Determine available config options and current assignment for this node type
             IReadOnlyList<string> availableConfigs = null;
@@ -253,8 +262,9 @@ namespace Pulse.UI.ViewModels
             var vm = new TopologyNodeViewModel(
                 node, onSelect, onAssignConfig, availableConfigs, initialAssignment,
                 onAssignWire, availableWires, initialWire, parentLabel,
-                availableUnassigned: node.NodeType == "Device" ? unassignedOptions : null,
-                onSubDeviceAssign:   node.NodeType == "Device" ? onSubDeviceAssign : null);
+                availableUnassigned:      node.NodeType == "Device" ? unassignedOptions : null,
+                onSubDeviceAssign:        node.NodeType == "Device" ? onSubDeviceAssign : null,
+                onPickElementForDevice:   node.NodeType == "Device" ? onPickElementForDevice : null);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -291,7 +301,8 @@ namespace Pulse.UI.ViewModels
                                                panelOptions, loopOptions, wireOptions,
                                                parentLabel: node.Label,
                                                unassignedOptions: unassignedOptions,
-                                               onSubDeviceAssign: onSubDeviceAssign);
+                                               onSubDeviceAssign: onSubDeviceAssign,
+                                               onPickElementForDevice: onPickElementForDevice);
                     vm.Children.Add(childVm);
                 }
             }
@@ -487,6 +498,7 @@ namespace Pulse.UI.ViewModels
 
         private readonly Action<TopologyNodeViewModel> _onAssignConfig;
         private readonly Action<TopologyNodeViewModel> _onAssignWire;
+        private readonly Action<TopologyNodeViewModel> _onPickElementForDevice;
 
         private string _assignedConfig;
         /// <summary>The currently assigned config name. Setting this triggers a save + Revit write.</summary>
@@ -543,6 +555,9 @@ namespace Pulse.UI.ViewModels
         /// <summary>Toggles the add-slot row open/closed.</summary>
         public ICommand ToggleAddSlotCommand { get; private set; }
 
+        /// <summary>Starts a Revit element pick session for this device.</summary>
+        public ICommand PickFromRevitCommand { get; private set; }
+
         private readonly Action<TopologyNodeViewModel, UnassignedDeviceOption> _onSubDeviceAssign;
         private int _subDeviceCount;
 
@@ -583,6 +598,17 @@ namespace Pulse.UI.ViewModels
             IsAddSlotOpen = false;
         }
 
+        /// <summary>
+        /// Called after a successful "pick from Revit" assign.
+        /// Increments the sub-device counter (updates NextSubAddress) and closes the slot.
+        /// </summary>
+        public void IncrementSubDeviceCount()
+        {
+            _subDeviceCount++;
+            OnPropertyChanged(nameof(NextSubAddress));
+            IsAddSlotOpen = false;
+        }
+
         public TopologyNodeViewModel(
             Node graphNode,
             Action<TopologyNodeViewModel> onSelect = null,
@@ -594,15 +620,18 @@ namespace Pulse.UI.ViewModels
             string initialWire = null,
             string parentLabel = null,
             IReadOnlyList<UnassignedDeviceOption> availableUnassigned = null,
-            Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null)
+            Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null,
+            Action<TopologyNodeViewModel> onPickElementForDevice = null)
         {
             GraphNode = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
-            _onAssignConfig     = onAssignConfig;
-            _onAssignWire       = onAssignWire;
-            _onSubDeviceAssign  = onSubDeviceAssign;
-            ParentLabel         = parentLabel;
-            ToggleAddSlotCommand = new RelayCommand(_ => IsAddSlotOpen = !IsAddSlotOpen);
+            _onAssignConfig         = onAssignConfig;
+            _onAssignWire           = onAssignWire;
+            _onSubDeviceAssign      = onSubDeviceAssign;
+            _onPickElementForDevice = onPickElementForDevice;
+            ParentLabel             = parentLabel;
+            ToggleAddSlotCommand    = new RelayCommand(_ => IsAddSlotOpen = !IsAddSlotOpen);
+            PickFromRevitCommand    = new RelayCommand(_ => { IsAddSlotOpen = false; _onPickElementForDevice?.Invoke(this); });
 
             // Populate config combobox options: blank entry first (= no assignment)
             if (availableConfigs != null && availableConfigs.Count > 0)

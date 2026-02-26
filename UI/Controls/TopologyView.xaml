@@ -335,36 +335,85 @@
                                                                                                                  Foreground="{DynamicResource IconForegroundBrush}"/>
                                                                                     </Button>
                                                                                 </Grid>
-                                                                                <!-- Add-slot row: combobox to pick an unassigned device -->
+                                                                                <!-- Add-slot panel: two assignment options -->
                                                                                 <Border Visibility="{Binding IsAddSlotOpen, Converter={StaticResource BoolToVis}}"
-                                                                                        Margin="28,0,4,4" Padding="4,3"
+                                                                                        Margin="28,0,4,4" Padding="6,5"
                                                                                         BorderBrush="{DynamicResource BorderBrush}"
                                                                                         BorderThickness="1" CornerRadius="3">
-                                                                                    <Grid>
-                                                                                        <Grid.ColumnDefinitions>
-                                                                                            <ColumnDefinition Width="Auto"/>
-                                                                                            <ColumnDefinition Width="*"/>
-                                                                                        </Grid.ColumnDefinitions>
-                                                                                        <TextBlock Grid.Column="0"
-                                                                                                   Text="Assign → "
-                                                                                                   FontSize="10"
-                                                                                                   Foreground="{DynamicResource IconForegroundBrush}"
-                                                                                                   VerticalAlignment="Center"/>
-                                                                                        <!-- Combobox when options exist -->
-                                                                                        <ComboBox Grid.Column="1"
-                                                                                                  ItemsSource="{Binding AvailableUnassigned}"
-                                                                                                  SelectedItem="{Binding SelectedUnassigned, Mode=TwoWay}"
-                                                                                                  Style="{StaticResource DarkComboBoxStyle}"
-                                                                                                  VerticalAlignment="Center"
-                                                                                                  Visibility="{Binding AvailableUnassigned.Count, Converter={StaticResource CountToVisibility}}"/>
-                                                                                        <!-- Placeholder when no unassigned devices -->
-                                                                                        <TextBlock Grid.Column="1"
-                                                                                                   Text="No unassigned devices"
-                                                                                                   FontSize="10" FontStyle="Italic"
-                                                                                                   Foreground="{DynamicResource IconForegroundBrush}"
-                                                                                                   VerticalAlignment="Center"
-                                                                                                   Visibility="{Binding AvailableUnassigned.Count, Converter={StaticResource CountToVisibility}, ConverterParameter=Invert}"/>
-                                                                                    </Grid>
+                                                                                    <StackPanel>
+                                                                                        <!-- Option 1: pick from unassigned pool -->
+                                                                                        <Grid Margin="0,0,0,4">
+                                                                                            <Grid.ColumnDefinitions>
+                                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                                <ColumnDefinition Width="*"/>
+                                                                                            </Grid.ColumnDefinitions>
+                                                                                            <TextBlock Grid.Column="0"
+                                                                                                       Text="Unassigned: "
+                                                                                                       FontSize="10"
+                                                                                                       Foreground="{DynamicResource IconForegroundBrush}"
+                                                                                                       VerticalAlignment="Center"/>
+                                                                                            <!-- Combobox when options exist -->
+                                                                                            <ComboBox Grid.Column="1"
+                                                                                                      ItemsSource="{Binding AvailableUnassigned}"
+                                                                                                      SelectedItem="{Binding SelectedUnassigned, Mode=TwoWay}"
+                                                                                                      Style="{StaticResource DarkComboBoxStyle}"
+                                                                                                      VerticalAlignment="Center"
+                                                                                                      Visibility="{Binding AvailableUnassigned.Count, Converter={StaticResource CountToVisibility}}"/>
+                                                                                            <!-- Placeholder when no unassigned devices -->
+                                                                                            <TextBlock Grid.Column="1"
+                                                                                                       Text="(none available)"
+                                                                                                       FontSize="10" FontStyle="Italic"
+                                                                                                       Foreground="{DynamicResource IconForegroundBrush}"
+                                                                                                       VerticalAlignment="Center"
+                                                                                                       Visibility="{Binding AvailableUnassigned.Count, Converter={StaticResource CountToVisibility}, ConverterParameter=Invert}"/>
+                                                                                        </Grid>
+                                                                                        <!-- Divider -->
+                                                                                        <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,4"/>
+                                                                                        <!-- Option 2: pick directly in Revit viewport -->
+                                                                                        <Button Command="{Binding PickFromRevitCommand}"
+                                                                                                HorizontalAlignment="Stretch"
+                                                                                                Cursor="Hand"
+                                                                                                FocusVisualStyle="{x:Null}"
+                                                                                                Padding="6,4">
+                                                                                            <Button.Style>
+                                                                                                <Style TargetType="Button">
+                                                                                                    <Setter Property="OverridesDefaultStyle" Value="True"/>
+                                                                                                    <Setter Property="Template">
+                                                                                                        <Setter.Value>
+                                                                                                            <ControlTemplate TargetType="Button">
+                                                                                                                <Border x:Name="Bd"
+                                                                                                                        Background="Transparent"
+                                                                                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                                                                                        BorderThickness="1" CornerRadius="3"
+                                                                                                                        Padding="{TemplateBinding Padding}">
+                                                                                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                                                                </Border>
+                                                                                                                <ControlTemplate.Triggers>
+                                                                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HighlightBrush}"/>
+                                                                                                                    </Trigger>
+                                                                                                                    <Trigger Property="IsPressed" Value="True">
+                                                                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                                                                                                    </Trigger>
+                                                                                                                </ControlTemplate.Triggers>
+                                                                                                            </ControlTemplate>
+                                                                                                        </Setter.Value>
+                                                                                                    </Setter>
+                                                                                                </Style>
+                                                                                            </Button.Style>
+                                                                                            <StackPanel Orientation="Horizontal">
+                                                                                                <materialDesign:PackIcon Kind="CursorDefaultClick"
+                                                                                                                         Width="12" Height="12"
+                                                                                                                         VerticalAlignment="Center"
+                                                                                                                         Foreground="{DynamicResource IconForegroundBrush}"
+                                                                                                                         Margin="0,0,5,0"/>
+                                                                                                <TextBlock Text="Pick from Revit"
+                                                                                                           FontSize="10"
+                                                                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                                                                           VerticalAlignment="Center"/>
+                                                                                            </StackPanel>
+                                                                                        </Button>
+                                                                                    </StackPanel>
                                                                                 </Border>
                                                                             </StackPanel>
                                                                         </DataTemplate>

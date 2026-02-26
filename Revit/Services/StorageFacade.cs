@@ -36,6 +36,10 @@ namespace Pulse.Revit.Services
         private readonly SaveTopologyAssignmentsHandler _saveAssignmentsHandler;
         private readonly ExternalEvent _saveAssignmentsEvent;
 
+        // Pick element from Revit viewport
+        private readonly PickElementHandler _pickElementHandler;
+        private readonly ExternalEvent _pickElementEvent;
+
         private readonly ILogger _logger;
 
         public StorageFacade(ILogger logger = null)
@@ -53,6 +57,9 @@ namespace Pulse.Revit.Services
 
             _saveAssignmentsHandler = new SaveTopologyAssignmentsHandler();
             _saveAssignmentsEvent = ExternalEvent.Create(_saveAssignmentsHandler);
+
+            _pickElementHandler = new PickElementHandler();
+            _pickElementEvent = ExternalEvent.Create(_pickElementHandler);
         }
 
         // ─── Read helpers (call from Revit API thread or construction) ───────
@@ -179,6 +186,23 @@ namespace Pulse.Revit.Services
         {
             _saveAssignmentsHandler.Store = store;
             _saveAssignmentsEvent.Raise();
+        }
+
+        /// <summary>
+        /// Lets the user pick a single element in the Revit viewport.
+        /// Minimise the plugin window before calling; restore it in the callbacks.
+        /// </summary>
+        public void PickElement(
+            string prompt,
+            Action<long> onPicked,
+            Action onCancelled = null,
+            Action<Exception> onError = null)
+        {
+            _pickElementHandler.PromptMessage = prompt ?? "Select an element";
+            _pickElementHandler.OnPicked      = onPicked;
+            _pickElementHandler.OnCancelled   = onCancelled;
+            _pickElementHandler.OnError       = onError;
+            _pickElementEvent.Raise();
         }
     }
 }

@@ -166,7 +166,8 @@ namespace Pulse.UI.ViewModels
             Topology = new TopologyViewModel();
             Inspector = new InspectorViewModel();
             Inspector.CurrentDrawValueCommitted += OnCurrentDrawValueCommitted;
-            Topology.SubDeviceAssignRequested   += OnSubDeviceAssignRequested;
+            Topology.SubDeviceAssignRequested      += OnSubDeviceAssignRequested;
+            Topology.PickElementForDeviceRequested += OnPickElementForDeviceRequested;
             Diagram = new DiagramViewModel();
 
             // Wire up topology selection events
@@ -608,6 +609,110 @@ namespace Pulse.UI.ViewModels
                 {
                     Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                         StatusText = $"Could not assign sub-device: {ex.Message}"));
+                });
+        }
+
+        /// <summary>
+        /// Called when the user clicks "Pick from Revit" on a device row.
+        /// Minimises the plugin window, starts a Revit pick session, then writes
+        /// Loop + Address when the user selects an element.
+        /// </summary>
+        private void OnPickElementForDeviceRequested(TopologyNodeViewModel hostVm)
+        {
+            if (hostVm == null) return;
+
+            var settings = _appController.ActiveSettings;
+            if (settings == null) return;
+
+            string loopParamName = settings.GetRevitParameterName(FireAlarmParameterKeys.Loop);
+            string addrParamName = settings.GetRevitParameterName(FireAlarmParameterKeys.Address);
+
+            if (string.IsNullOrEmpty(loopParamName) || string.IsNullOrEmpty(addrParamName))
+            {
+                StatusText = "Cannot assign: Loop or Address parameter is not mapped in Settings.";
+                return;
+            }
+
+            hostVm.GraphNode.Properties.TryGetValue("Loop", out string loopValue);
+            string newAddress = hostVm.NextSubAddress;
+
+            // Minimise the plugin window so the user can click in the Revit viewport
+            _ownerWindow?.Dispatcher.Invoke(() =>
+            {
+                if (_ownerWindow != null)
+                    _ownerWindow.WindowState = System.Windows.WindowState.Minimized;
+            });
+
+            StatusText = "Pick a device in the Revit viewport…";
+
+            _storageFacade.PickElement(
+                "Select a device to assign to " + (hostVm.Label ?? "this device"),
+                onPicked: pickedElementId =>
+                {
+                    // Still on the Revit API thread — marshal to UI thread
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        // Restore window
+                        if (_ownerWindow != null)
+                        {
+                            _ownerWindow.WindowState = System.Windows.WindowState.Normal;
+                            _ownerWindow.Activate();
+                        }
+
+                        StatusText = $"Writing Loop + Address to picked element…";
+
+                        _storageFacade.WriteParameters(
+                            new List<(long, string, string)>
+                            {
+                                (pickedElementId, loopParamName, loopValue ?? string.Empty),
+                                (pickedElementId, addrParamName, newAddress),
+                            },
+                            count =>
+                            {
+                                Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                                {
+                                    if (count > 0)
+                                    {
+                                        StatusText = $"Picked element assigned to {newAddress}.";
+                                        hostVm.IncrementSubDeviceCount();
+                                        ExecuteRefresh();
+                                    }
+                                    else
+                                    {
+                                        StatusText = "Write succeeded but 0 elements updated — check Loop/Address params exist on the element.";
+                                    }
+                                }));
+                            },
+                            ex =>
+                            {
+                                Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                                    StatusText = $"Could not write to picked element: {ex.Message}"));
+                            });
+                    }));
+                },
+                onCancelled: () =>
+                {
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        if (_ownerWindow != null)
+                        {
+                            _ownerWindow.WindowState = System.Windows.WindowState.Normal;
+                            _ownerWindow.Activate();
+                        }
+                        StatusText = "Pick cancelled.";
+                    }));
+                },
+                onError: ex =>
+                {
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        if (_ownerWindow != null)
+                        {
+                            _ownerWindow.WindowState = System.Windows.WindowState.Normal;
+                            _ownerWindow.Activate();
+                        }
+                        StatusText = $"Pick failed: {ex.Message}";
+                    }));
                 });
         }
 
