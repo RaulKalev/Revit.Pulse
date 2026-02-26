@@ -214,6 +214,10 @@ namespace Pulse.UI.Controls
             }
         }
 
+        // Minimum width the remaining columns (left block + splitter) must keep.
+        // Left block MinWidth (551) + splitter (1).
+        private const double LeftBlockReserved = 552;
+
         private void SetParentColumnWidth(double width)
         {
             if (Parent is Grid parentGrid)
@@ -223,9 +227,29 @@ namespace Pulse.UI.Controls
                 {
                     var cd = parentGrid.ColumnDefinitions[col];
                     cd.Width    = new GridLength(width);
-                    cd.MaxWidth = _isExpanded ? double.PositiveInfinity : CollapsedWidth;
+                    cd.MaxWidth = _isExpanded
+                        ? Math.Max(CollapsedWidth, parentGrid.ActualWidth - LeftBlockReserved)
+                        : CollapsedWidth;
                 }
+
+                // Keep MaxWidth current whenever the parent grid is resized.
+                parentGrid.SizeChanged -= OnParentGridSizeChanged;
+                if (_isExpanded)
+                    parentGrid.SizeChanged += OnParentGridSizeChanged;
             }
+        }
+
+        private void OnParentGridSizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (!(Parent is Grid parentGrid)) return;
+            int col = Grid.GetColumn(this);
+            if (col < 0 || col >= parentGrid.ColumnDefinitions.Count) return;
+            var cd = parentGrid.ColumnDefinitions[col];
+            double cap = Math.Max(CollapsedWidth, parentGrid.ActualWidth - LeftBlockReserved);
+            cd.MaxWidth = cap;
+            // Clamp current width if it now exceeds the cap.
+            if (cd.Width.Value > cap)
+                cd.Width = new GridLength(cap);
         }
 
         // ── DataContext / Levels wiring ───────────────────────────────────
