@@ -48,12 +48,26 @@ namespace Pulse.Revit.Services
                 // matchers can use it without requiring a configured parameter.
                 data.Parameters["_Name"] = element.Name ?? string.Empty;
 
-                // Inject the elevation (feet) of the element's host level when available.
+                // Inject the elevation (feet) and name of the element's host level,
+                // plus the element's own "Elevation from Level" offset parameter.
                 if (element is FamilyInstance fi && fi.LevelId != ElementId.InvalidElementId)
                 {
                     if (_doc.GetElement(fi.LevelId) is Level hostLevel)
+                    {
                         data.Parameters["_LevelElevation"] =
                             hostLevel.Elevation.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        data.Parameters["_LevelName"] = hostLevel.Name ?? string.Empty;
+                    }
+
+                    // "Elevation from Level" – try several built-in candidates so that
+                    // floor-based, wall-based and face-based families are all handled.
+                    Parameter offsetParam =
+                        fi.get_Parameter(BuiltInParameter.FAMILY_BASE_LEVEL_OFFSET_PARAM)
+                        ?? fi.get_Parameter(BuiltInParameter.INSTANCE_FREE_HOST_OFFSET_PARAM)
+                        ?? fi.LookupParameter("Elevation from Level");
+                    if (offsetParam != null && offsetParam.StorageType == StorageType.Double)
+                        data.Parameters["_ElevationFromLevel"] =
+                            offsetParam.AsDouble().ToString(System.Globalization.CultureInfo.InvariantCulture);
                 }
 
                 foreach (string paramName in parameterNames)

@@ -136,8 +136,36 @@
                         </ItemsControl>
                     </Expander>
 
-                    <!-- ╔══════════════════════════╗ -->
-                    <!-- ║  WARNINGS CARD            ║ -->
+                    <!-- ╔══════════════════════════╗ -->                    <!-- ║  CURRENT DRAW CARD         ║ -->
+                    <!-- ╚═════════════════════════╝ -->
+                    <Expander Style="{StaticResource PulseExpanderStyle}"
+                              IsExpanded="True"
+                              Visibility="{Binding ShowCurrentDraw, Converter={StaticResource BoolToVis}}">
+                        <Expander.Header>
+                            <StackPanel Orientation="Horizontal">
+                                <materialDesign:PackIcon Kind="FlashOutline" Width="13" Height="13"
+                                                         VerticalAlignment="Center" Margin="0,0,5,0"
+                                                         Foreground="{DynamicResource IconForegroundBrush}"/>
+                                <TextBlock Text="CURRENT DRAW" FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Expander.Header>
+                        <Grid Margin="0,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="80" MaxWidth="110"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Current draw" FontSize="11"
+                                       Foreground="{DynamicResource IconForegroundBrush}"
+                                       Margin="0,0,8,0"/>
+                            <TextBlock Grid.Column="1" Text="{Binding CurrentDrawValue}" FontSize="11"
+                                       Foreground="{DynamicResource ForegroundBrush}"
+                                       TextWrapping="Wrap"/>
+                        </Grid>
+                    </Expander>
+
+                    <!-- ╔═════════════════════════╗ -->                    <!-- ║  WARNINGS CARD            ║ -->
                     <!-- ╚══════════════════════════╝ -->
                     <Expander Style="{StaticResource PulseExpanderStyle}"
                               IsExpanded="True"

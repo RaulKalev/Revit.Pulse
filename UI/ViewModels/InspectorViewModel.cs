@@ -83,6 +83,22 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _showGauges, value);
         }
 
+        // ── Current draw (Device only) ────────────────────────────────────
+
+        private bool _showCurrentDraw;
+        public bool ShowCurrentDraw
+        {
+            get => _showCurrentDraw;
+            set => SetField(ref _showCurrentDraw, value);
+        }
+
+        private string _currentDrawValue;
+        public string CurrentDrawValue
+        {
+            get => _currentDrawValue;
+            set => SetField(ref _currentDrawValue, value);
+        }
+
         private int _addressesUsed;
         public int AddressesUsed
         {
@@ -136,9 +152,45 @@ namespace Pulse.UI.ViewModels
 
             // Load properties
             Properties.Clear();
+            ShowCurrentDraw = false;
+            CurrentDrawValue = string.Empty;
+
             foreach (var kvp in node.Properties)
             {
+                // "Current draw" is surfaced in its own dedicated section, not the flat list.
+                if (kvp.Key == "Current draw")
+                {
+                    ShowCurrentDraw = true;
+                    CurrentDrawValue = kvp.Value;
+                    continue;
+                }
                 Properties.Add(new PropertyItem { Key = kvp.Key, Value = kvp.Value });
+            }
+
+            // For Device nodes, resolve "Panel type" from the live assignments store
+            // (FA_Panel_Config on the Revit element is only populated after a Revit write-back).
+            if (node.NodeType == "Device")
+            {
+                ShowCurrentDraw = true; // always show the section for devices
+                var panelTypeProp = Properties.FirstOrDefault(p => p.Key == "Panel type");
+                string panelName = node.Properties.TryGetValue("Panel", out string pn) ? pn : null;
+                if (!string.IsNullOrEmpty(panelName)
+                    && AssignmentsStore.PanelAssignments.TryGetValue(panelName, out string assignedConfig)
+                    && !string.IsNullOrEmpty(assignedConfig))
+                {
+                    if (panelTypeProp != null)
+                        panelTypeProp.Value = assignedConfig;
+                    else
+                    {
+                        // Insert after "Panel" row
+                        int panelIdx = Properties.IndexOf(Properties.FirstOrDefault(p => p.Key == "Panel"));
+                        var item = new PropertyItem { Key = "Panel type", Value = assignedConfig };
+                        if (panelIdx >= 0)
+                            Properties.Insert(panelIdx + 1, item);
+                        else
+                            Properties.Add(item);
+                    }
+                }
             }
 
             // Load warnings for this entity
@@ -193,6 +245,8 @@ namespace Pulse.UI.ViewModels
             WarningCount  = 0;
             ChildDeviceCount = 0;
             ShowGauges    = false;
+            ShowCurrentDraw = false;
+            CurrentDrawValue = string.Empty;
             AddressesUsed = 0;
             AddressesMax  = 0;
             MaUsed        = 0;

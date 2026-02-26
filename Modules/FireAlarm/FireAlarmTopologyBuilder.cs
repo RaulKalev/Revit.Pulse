@@ -1,3 +1,4 @@
+using System;
 using Pulse.Core.Graph;
 using Pulse.Core.Modules;
 using Pulse.Core.SystemModel;
@@ -63,21 +64,68 @@ namespace Pulse.Modules.FireAlarm
                     RevitElementId = device.RevitElementId,
                 };
 
-                // Copy device properties to the node
+
+                // ── Pinned top-7 properties (inserted first to control display order) ──
+
+                // 1. "Name" = device type label.
+                if (!string.IsNullOrEmpty(device.DeviceType))
+                    node.Properties["Name"] = device.DeviceType;
+                else if (device.Properties.TryGetValue("_Name", out string rawName))
+                    node.Properties["Name"] = rawName;
+
+                // 2. "Level" = Revit level name the device is placed on.
+                if (device.Properties.TryGetValue("_LevelName", out string levelName)
+                    && !string.IsNullOrEmpty(levelName))
+                    node.Properties["Level"] = levelName;
+
+                // 3. "Elevation" = offset from level, converted from feet to metres.
+                if (device.Elevation.HasValue)
+                {
+                    double metres = device.Elevation.Value * 0.3048;
+                    node.Properties["Elevation"] = metres.ToString("F2",
+                        System.Globalization.CultureInfo.InvariantCulture) + " m";
+                }
+
+                // 4. "Panel" = the panel display name the device is assigned to.
+                Panel panel = null;
+                if (!string.IsNullOrEmpty(device.PanelId))
+                    panel = data.Panels.Find(p => p.EntityId == device.PanelId);
+                if (panel != null)
+                    node.Properties["Panel"] = panel.DisplayName;
+
+                // 5. "Panel type" = the PanelConfig value from the device's own param (written by topology assignments).
+                device.Properties.TryGetValue("_PanelConfig", out string panelConfig);
+                node.Properties["Panel type"] = panelConfig ?? string.Empty;
+
+                // 6. "Loop" = the loop number/label the device belongs to.
+                if (device.Properties.TryGetValue("_LoopValue", out string loopValue)
+                    && !string.IsNullOrEmpty(loopValue))
+                    node.Properties["Loop"] = loopValue;
+
+                // 7. "Address" = device address within the loop.
+                if (!string.IsNullOrEmpty(device.Address))
+                    node.Properties["Address"] = device.Address;
+
+
+                // ── Remaining Revit parameters ──
+                // Skip internal "_" keys and any already-pinned keys above.
                 foreach (var kvp in device.Properties)
                 {
-                    node.Properties[kvp.Key] = kvp.Value;
+                    if (kvp.Key.StartsWith("_"))
+                        continue;
+                    if (string.Equals(kvp.Key, "DeviceType", StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!node.Properties.ContainsKey(kvp.Key))
+                        node.Properties[kvp.Key] = kvp.Value;
                 }
 
-                if (!string.IsNullOrEmpty(device.Address))
-                {
-                    node.Properties["Address"] = device.Address;
-                }
-
-                if (!string.IsNullOrEmpty(device.DeviceType))
-                {
-                    node.Properties["DeviceType"] = device.DeviceType;
-                }
+                // Emit relabeled semantic properties after the bulk copy.
+                device.Properties.TryGetValue("_CurrentDraw", out string currentDraw);
+                node.Properties["Current draw"] = currentDraw ?? string.Empty;
+                if (device.Properties.TryGetValue("_Wire", out string wire) && !string.IsNullOrEmpty(wire))
+                    node.Properties["Wire"] = wire;
+                if (device.Properties.TryGetValue("_LoopModuleConfig", out string loopModule) && !string.IsNullOrEmpty(loopModule))
+                    node.Properties["Loop module"] = loopModule;
 
                 data.Nodes.Add(node);
 

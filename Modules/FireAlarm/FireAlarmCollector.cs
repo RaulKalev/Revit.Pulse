@@ -127,6 +127,12 @@ namespace Pulse.Modules.FireAlarm
             string currentDrawParam     = settings.GetRevitParameterName(FireAlarmParameterKeys.CurrentDraw);
             string deviceIdParam        = settings.GetRevitParameterName(FireAlarmParameterKeys.DeviceId);
             string circuitElementIdParam = settings.GetRevitParameterName(FireAlarmParameterKeys.CircuitElementId);
+            string panelConfigParam      = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelConfig);
+            string loopModuleConfigParam = settings.GetRevitParameterName(FireAlarmParameterKeys.LoopModuleConfig);
+            string wireParam             = settings.GetRevitParameterName(FireAlarmParameterKeys.Wire);
+            // Hidden-from-display params (values captured internally but not shown in properties panel)
+            string panelElementCategoryParam = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelElementCategory);
+            string panelElementNameParam     = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelElementNameParam);
 
             // Track panels and loops for deduplication
             var panelMap = new Dictionary<string, Panel>(StringComparer.OrdinalIgnoreCase);
@@ -200,14 +206,77 @@ namespace Pulse.Modules.FireAlarm
                     device.CurrentDraw = currentDraw;
                 }
 
-                // Store all extracted properties on the device
+                // Store all extracted properties on the device.
+                // Skip raw Revit param names for semantically-captured and relabeled values —
+                // they are re-emitted with friendly display labels by the topology builder.
+                // Also skip params hidden from the properties panel entirely.
                 foreach (var kvp in element.Parameters)
                 {
+                    if (!string.IsNullOrEmpty(panelParam) &&
+                        string.Equals(kvp.Key, panelParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(loopParam) &&
+                        string.Equals(kvp.Key, loopParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(addressParam) &&
+                        string.Equals(kvp.Key, addressParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(deviceTypeParam) &&
+                        string.Equals(kvp.Key, deviceTypeParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(currentDrawParam) &&
+                        string.Equals(kvp.Key, currentDrawParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(panelConfigParam) &&
+                        string.Equals(kvp.Key, panelConfigParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(loopModuleConfigParam) &&
+                        string.Equals(kvp.Key, loopModuleConfigParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(wireParam) &&
+                        string.Equals(kvp.Key, wireParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(deviceIdParam) &&
+                        string.Equals(kvp.Key, deviceIdParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(circuitElementIdParam) &&
+                        string.Equals(kvp.Key, circuitElementIdParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(panelElementCategoryParam) &&
+                        string.Equals(kvp.Key, panelElementCategoryParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    if (!string.IsNullOrEmpty(panelElementNameParam) &&
+                        string.Equals(kvp.Key, panelElementNameParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
                     device.SetProperty(kvp.Key, kvp.Value);
                 }
 
-                // Capture the Revit level elevation directly on the device
-                if (element.Parameters.TryGetValue("_LevelElevation", out string devElevStr)
+                // Store relabeled/semantic values under internal keys for the topology builder.
+                if (!string.IsNullOrEmpty(loopValue))
+                    device.SetProperty("_LoopValue", loopValue);
+                if (!string.IsNullOrEmpty(currentDrawValue))
+                    device.SetProperty("_CurrentDraw", currentDrawValue);
+                string panelConfigValue = GetParam(element, panelConfigParam);
+                if (!string.IsNullOrEmpty(panelConfigValue))
+                    device.SetProperty("_PanelConfig", panelConfigValue);
+                string loopModuleConfigValue = GetParam(element, loopModuleConfigParam);
+                if (!string.IsNullOrEmpty(loopModuleConfigValue))
+                    device.SetProperty("_LoopModuleConfig", loopModuleConfigValue);
+                string wireValue = GetParam(element, wireParam);
+                if (!string.IsNullOrEmpty(wireValue))
+                    device.SetProperty("_Wire", wireValue);
+
+                // Capture the element's "Elevation from Level" offset (feet) directly on the device.
+                // Fall back to the host level's base elevation if the offset param is unavailable.
+                if (element.Parameters.TryGetValue("_ElevationFromLevel", out string elevFromLevelStr)
+                    && double.TryParse(elevFromLevelStr,
+                           System.Globalization.NumberStyles.Any,
+                           System.Globalization.CultureInfo.InvariantCulture,
+                           out double elevFromLevel))
+                {
+                    device.Elevation = elevFromLevel;
+                }
+                else if (element.Parameters.TryGetValue("_LevelElevation", out string devElevStr)
                     && double.TryParse(devElevStr,
                            System.Globalization.NumberStyles.Any,
                            System.Globalization.CultureInfo.InvariantCulture,

@@ -29,11 +29,11 @@ Framework-agnostic contracts and models:
 | Namespace | Purpose |
 |-----------|---------|
 | `Core.Graph` | `Node` and `Edge` — topology graph primitives |
-| `Core.Graph.Canvas` | `DiagramScene` — logical scene graph for the diagram canvas |
+| `Core.Graph.Canvas` | `DiagramScene`, `CanvasGraphModel`, `CanvasGraphBuilder` — diagram and topology scene graphs |
 | `Core.SystemModel` | `ISystemEntity`, `Panel`, `Loop`, `Zone`, `AddressableDevice` |
 | `Core.Rules` | `IRule`, `RuleResult`, `Severity` — validation engine |
-| `Core.Modules` | `IModuleDefinition`, `PulseAppController`, `ModuleCatalog`, `ModuleCapabilities` |
-| `Core.Settings` | `ModuleSettings`, `ParameterMapping` — configurable parameter names |
+| `Core.Modules` | `IModuleDefinition`, `PulseAppController`, `ModuleCatalog`, `ModuleCapabilities`, `TopologyAssignmentsService`, `SymbolMappingOrchestrator` |
+| `Core.Settings` | `ModuleSettings`, `ParameterMapping`, `TopologyAssignmentsStore`, `DeviceConfigStore`, `CustomSymbolDefinition`, `LevelVisibilitySettings`, `DiagramCanvasSettings`, `UiStateService` |
 | `Core.Logging` | `ILogger` abstraction |
 
 ### Pulse.Revit
@@ -49,7 +49,7 @@ Revit API integration:
 | `SelectionService` | Selects elements in the Revit model |
 | `TemporaryOverrideService` | Applies/resets graphic overrides to highlight elements |
 | `ExtensibleStorageService` | Reads/writes module settings to Revit Extensible Storage (single-schema, Public access) |
-| `ExternalEvent handlers` | `CollectDevicesHandler`, `SelectElementHandler`, `TemporaryOverrideHandler`, `ResetOverridesHandler` |
+| `ExternalEvent handlers` | `CollectDevicesHandler`, `SelectElementHandler`, `TemporaryOverrideHandler`, `ResetOverridesHandler`, `SaveSettingsHandler`, `SaveDiagramSettingsHandler`, `SaveTopologyAssignmentsHandler`, `WriteParameterHandler` |
 
 All Revit write operations use `ExternalEvent` to ensure they run on the Revit API thread.
 
@@ -60,12 +60,19 @@ WPF user interface using Material Design:
 | Component | Purpose |
 |-----------|---------|
 | `MainWindow` | Borderless window shell with title bar, resize grips, theme support |
-| `TopologyView` | TreeView displaying Panel -> Loop -> Device hierarchy |
-| `InspectorPanel` | Shows selected entity details, properties, and warnings |
+| `TopologyView` | TreeView control — Panel → Loop → Device hierarchy |
+| `InspectorPanel` | Entity details, properties, warnings, capacity gauges |
+| `DiagramPanel` | Schematic wiring diagram canvas |
 | `StatusStrip` | Bottom bar with status text, device/warning/error counts |
-| `MainViewModel` | Root ViewModel coordinating modules, refresh, and selection |
-| `TopologyViewModel` | Manages the topology tree data |
-| `InspectorViewModel` | Manages the inspector panel data |
+| `MainViewModel` | Root ViewModel — holds service refs, wires callbacks, exposes bindings/commands |
+| `TopologyViewModel` | Topology tree + internal `CanvasGraphModel` projection |
+| `DiagramViewModel` | Diagram canvas state: levels, panels, loops, flip/wire/rank assignments |
+| `InspectorViewModel` | Selected entity details and capacity data |
+| `SettingsViewModel` | Parameter mapping editor |
+| `DeviceConfigViewModel` | Panels / Loop Modules / Wires / Paper Sizes configurator |
+| `SymbolMappingViewModel` | Device-type to custom symbol mapping |
+| `SymbolDesignerViewModel` | Custom symbol drawing canvas |
+| `DiagramFeatureService` | Diagram ↔ topology wire-assignment orchestration |
 
 ### Pulse.Modules.FireAlarm
 
@@ -118,6 +125,12 @@ Default Fire Alarm parameter mappings:
 | DeviceType | Device type | No |
 | CurrentDraw | Current draw | No |
 | DeviceId | id | No |
+| PanelConfig | FA_Panel_Config | No |
+| LoopModuleConfig | FA_Loop_Config | No |
+| Wire | FA_Wire | No |
+| PanelElementCategory | Electrical Equipment | No |
+| PanelElementNameParam | Mark | No |
+| CircuitElementId | FA_Circuit_ElementId | No |
 
 ---
 
