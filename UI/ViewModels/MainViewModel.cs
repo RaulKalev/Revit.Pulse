@@ -175,6 +175,7 @@ namespace Pulse.UI.ViewModels
             Inspector.CurrentDrawValueCommitted += OnCurrentDrawValueCommitted;
             Topology.SubDeviceAssignRequested      += OnSubDeviceAssignRequested;
             Topology.PickElementForDeviceRequested += OnPickElementForDeviceRequested;
+            Topology.SubDeviceRemoveRequested      += OnSubDeviceRemoveRequested;
             Diagram = new DiagramViewModel();
 
             // Wire up topology selection events
@@ -766,6 +767,46 @@ namespace Pulse.UI.ViewModels
                         }
                         StatusText = $"Pick failed: {ex.Message}";
                     }));
+                });
+        }
+
+        /// <summary>
+        /// Called when the user clicks the "-" button on a sub-device row.
+        /// Clears Loop and Address params on the element, reverting it to unassigned.
+        /// </summary>
+        private void OnSubDeviceRemoveRequested(TopologyNodeViewModel subDeviceVm)
+        {
+            if (subDeviceVm?.GraphNode?.RevitElementId == null) return;
+
+            var settings = _appController.ActiveSettings;
+            if (settings == null) return;
+
+            long elementId   = subDeviceVm.GraphNode.RevitElementId.Value;
+            string loopParam = settings.GetRevitParameterName(FireAlarmParameterKeys.Loop);
+            string addrParam = settings.GetRevitParameterName(FireAlarmParameterKeys.Address);
+
+            StatusText = $"Removing sub-device '{subDeviceVm.Label}'\u2026";
+
+            _storageFacade.WriteParameters(
+                new List<(long, string, string)>
+                {
+                    (elementId, loopParam, string.Empty),
+                    (elementId, addrParam, string.Empty),
+                },
+                count =>
+                {
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        StatusText = count > 0
+                            ? $"Sub-device '{subDeviceVm.Label}' removed."
+                            : "Remove failed \u2014 Loop/Address params could not be cleared.";
+                        ExecuteRefresh();
+                    }));
+                },
+                ex =>
+                {
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                        StatusText = $"Could not remove sub-device: {ex.Message}"));
                 });
         }
 

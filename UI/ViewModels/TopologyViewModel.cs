@@ -101,6 +101,12 @@ namespace Pulse.UI.ViewModels
         /// Loop + Address when an element is selected.
         /// </summary>
         public event Action<TopologyNodeViewModel> PickElementForDeviceRequested;
+
+        /// <summary>
+        /// Fired when the user clicks the "-" button on a sub-device row.
+        /// MainViewModel clears Loop + Address params in Revit and calls ExecuteRefresh.
+        /// </summary>
+        public event Action<TopologyNodeViewModel> SubDeviceRemoveRequested;
         /// <summary>
         /// Returns the Loop node whose parent matches <paramref name="panelName"/> and
         /// label matches <paramref name="loopName"/>, or null if not found.
@@ -217,6 +223,9 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onPickElementForDevice = vm =>
                 PickElementForDeviceRequested?.Invoke(vm);
 
+            Action<TopologyNodeViewModel> onRemoveSubDevice = vm =>
+                SubDeviceRemoveRequested?.Invoke(vm);
+
             // Build the tree recursively
             foreach (string rootId in rootIds)
             {
@@ -228,7 +237,8 @@ namespace Pulse.UI.ViewModels
                                           parentLabel: null,
                                           unassignedOptions: unassignedOptions,
                                           onSubDeviceAssign: onSubDeviceAssign,
-                                          onPickElementForDevice: onPickElementForDevice);
+                                          onPickElementForDevice: onPickElementForDevice,
+                                          onRemoveSubDevice: onRemoveSubDevice);
                     RootNodes.Add(vm);
                 }
             }
@@ -251,7 +261,8 @@ namespace Pulse.UI.ViewModels
             string parentLabel,
             IReadOnlyList<UnassignedDeviceOption> unassignedOptions = null,
             Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null,
-            Action<TopologyNodeViewModel> onPickElementForDevice = null)
+            Action<TopologyNodeViewModel> onPickElementForDevice = null,
+            Action<TopologyNodeViewModel> onRemoveSubDevice = null)
         {
             // Determine available config options and current assignment for this node type
             IReadOnlyList<string> availableConfigs = null;
@@ -280,7 +291,8 @@ namespace Pulse.UI.ViewModels
                 onAssignWire, availableWires, initialWire, parentLabel,
                 availableUnassigned:      node.NodeType == "Device" ? unassignedOptions : null,
                 onSubDeviceAssign:        node.NodeType == "Device" ? onSubDeviceAssign : null,
-                onPickElementForDevice:   node.NodeType == "Device" ? onPickElementForDevice : null);
+                onPickElementForDevice:   node.NodeType == "Device" ? onPickElementForDevice : null,
+                onRemoveSubDevice:        node.NodeType == "Device" ? onRemoveSubDevice : null);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -318,7 +330,8 @@ namespace Pulse.UI.ViewModels
                                                parentLabel: node.Label,
                                                unassignedOptions: unassignedOptions,
                                                onSubDeviceAssign: onSubDeviceAssign,
-                                               onPickElementForDevice: onPickElementForDevice);
+                                               onPickElementForDevice: onPickElementForDevice,
+                                               onRemoveSubDevice: onRemoveSubDevice);
                     vm.Children.Add(childVm);
                 }
             }
@@ -594,6 +607,9 @@ namespace Pulse.UI.ViewModels
         /// <summary>Starts a Revit element pick session for this device.</summary>
         public ICommand PickFromRevitCommand { get; private set; }
 
+        /// <summary>Removes this sub-device's Loop + Address assignment in Revit.</summary>
+        public ICommand RemoveSubDeviceCommand { get; private set; }
+
         private readonly Action<TopologyNodeViewModel, UnassignedDeviceOption> _onSubDeviceAssign;
         private int _subDeviceCount;
 
@@ -658,7 +674,8 @@ namespace Pulse.UI.ViewModels
             string parentLabel = null,
             IReadOnlyList<UnassignedDeviceOption> availableUnassigned = null,
             Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null,
-            Action<TopologyNodeViewModel> onPickElementForDevice = null)
+            Action<TopologyNodeViewModel> onPickElementForDevice = null,
+            Action<TopologyNodeViewModel> onRemoveSubDevice = null)
         {
             GraphNode = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
@@ -667,8 +684,9 @@ namespace Pulse.UI.ViewModels
             _onSubDeviceAssign      = onSubDeviceAssign;
             _onPickElementForDevice = onPickElementForDevice;
             ParentLabel             = parentLabel;
-            ToggleAddSlotCommand    = new RelayCommand(_ => IsAddSlotOpen = !IsAddSlotOpen);
-            PickFromRevitCommand    = new RelayCommand(_ => { IsAddSlotOpen = false; _onPickElementForDevice?.Invoke(this); });
+            ToggleAddSlotCommand      = new RelayCommand(_ => IsAddSlotOpen = !IsAddSlotOpen);
+            PickFromRevitCommand      = new RelayCommand(_ => { IsAddSlotOpen = false; _onPickElementForDevice?.Invoke(this); });
+            RemoveSubDeviceCommand    = new RelayCommand(_ => onRemoveSubDevice?.Invoke(this), _ => onRemoveSubDevice != null);
 
             // Populate config combobox options: blank entry first (= no assignment)
             if (availableConfigs != null && availableConfigs.Count > 0)
