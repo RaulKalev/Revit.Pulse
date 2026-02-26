@@ -16,7 +16,7 @@
         </ResourceDictionary>
     </UserControl.Resources>
 
-    <Border Style="{DynamicResource CardBorderStyle}" Padding="0">
+    <Border Style="{DynamicResource CardBorderStyle}" Padding="0" ClipToBounds="True">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="32"/>   <!-- Header -->

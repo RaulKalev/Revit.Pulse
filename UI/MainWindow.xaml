@@ -152,7 +152,7 @@
                 <!-- Row 2: Main Content (Topology + Inspector | Diagram) -->
                 <Grid Grid.Row="2" ClipToBounds="True">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="450" />   <!-- Left block: Topology + Inspector -->
+                        <ColumnDefinition Width="*" MinWidth="551" />   <!-- Left block: Topology + Inspector (min: inspector 300 + splitter 1 + topology 250) -->
                         <ColumnDefinition Width="1" />                   <!-- Splitter -->
                         <ColumnDefinition Width="300" MinWidth="46" />  <!-- Diagram -->
                     </Grid.ColumnDefinitions>
