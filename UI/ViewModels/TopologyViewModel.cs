@@ -372,12 +372,21 @@ namespace Pulse.UI.ViewModels
         public List<string> GetExpandedNodeIds()
             => _allNodes.Where(n => n.IsExpanded).Select(n => n.GraphNode.Id).ToList();
 
-        /// <summary>Restores expand state for any node whose ID is in the provided set.</summary>
+        /// <summary>Restores expand state for any node whose ID is in the provided set.
+        /// Device nodes that were auto-expanded by BuildNodeTree (they have children) are
+        /// left expanded even if they were not in the saved snapshot.</summary>
         public void RestoreExpandState(IEnumerable<string> ids)
         {
             var idSet = new HashSet<string>(ids ?? Enumerable.Empty<string>());
             foreach (var node in _allNodes)
-                node.IsExpanded = idSet.Contains(node.GraphNode.Id);
+            {
+                if (idSet.Contains(node.GraphNode.Id))
+                    node.IsExpanded = true;
+                else if (node.NodeType == "Device" && node.Children.Count > 0)
+                    node.IsExpanded = true; // keep auto-expand set by BuildNodeTree
+                else
+                    node.IsExpanded = false;
+            }
         }
 
         /// <summary>
@@ -591,27 +600,28 @@ namespace Pulse.UI.ViewModels
         /// <summary>
         /// Called by MainViewModel after the Revit write succeeds.
         /// Removes the assigned option from the combobox and resets selection.
+        /// The refresh that follows will rebuild the node with the sub-device as a child.
         /// </summary>
         public void MarkSubDeviceAdded(UnassignedDeviceOption option)
         {
             _subDeviceCount++;
             OnPropertyChanged(nameof(NextSubAddress));
             AvailableUnassigned.Remove(option);
-            // Reset without re-firing the callback
+            // Reset selection without re-firing the callback
             _selectedUnassigned = null;
             OnPropertyChanged(nameof(SelectedUnassigned));
-            IsAddSlotOpen = false;
+            // Do NOT close IsAddSlotOpen — the node is rebuilt on refresh anyway
         }
 
         /// <summary>
         /// Called after a successful "pick from Revit" assign.
-        /// Increments the sub-device counter (updates NextSubAddress) and closes the slot.
+        /// Increments the sub-device counter so NextSubAddress is correct if the user assigns again.
         /// </summary>
         public void IncrementSubDeviceCount()
         {
             _subDeviceCount++;
             OnPropertyChanged(nameof(NextSubAddress));
-            IsAddSlotOpen = false;
+            // Do NOT close IsAddSlotOpen — the node is rebuilt on refresh anyway
         }
 
         public TopologyNodeViewModel(
