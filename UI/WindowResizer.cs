@@ -16,7 +16,7 @@ namespace Pulse.UI
         private Point _startPoint;
         private bool _isResizing;
 
-        private const double MIN_WIDTH = 920;
+        private const double MIN_WIDTH = 1060;
         private const double MIN_HEIGHT = 400;
 
         /// <summary>

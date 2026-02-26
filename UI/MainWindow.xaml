@@ -11,7 +11,7 @@
     Title="Pulse"
     Width="1200"
     Height="650"
-    MinWidth="920"
+    MinWidth="1060"
     MinHeight="500"
     AllowsTransparency="True"
     Background="Transparent"

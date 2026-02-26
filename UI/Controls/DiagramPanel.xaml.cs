@@ -218,9 +218,8 @@ namespace Pulse.UI.Controls
         // Left block MinWidth (551) + splitter (1).
         private const double LeftBlockReserved = 552;
 
-        // Minimum column width when the panel is expanded — must fit the header buttons:
-        // DockPanel margin(12) + toggle(28) + paper combo(104) + settings(~69) + breathing room = 280.
-        private const double ExpandedMinWidth = 280;
+        // Minimum column width when the panel is expanded.
+        private const double ExpandedMinWidth = 500;
 
         private void SetParentColumnWidth(double width)
         {
