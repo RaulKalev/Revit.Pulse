@@ -320,10 +320,15 @@ namespace Pulse.UI.ViewModels
                 }
                 else
                 {
-                    // Confirm which loop/panel it landed in, so the user can see if Panel was written
+                    // Check what parent the topology builder actually wired it to
                     string loopId = found.LoopId ?? "(none)";
-                    StatusText = $"\u2713 Element '{found.DisplayName}' collected with address '{found.Address}' in loop '{loopId}'. " +
-                                  "It should now appear nested under its host device.";
+                    var edge = data.Edges.FirstOrDefault(e => e.TargetId == found.EntityId);
+                    string parentEntityId = edge?.SourceId ?? "(no edge)";
+                    bool parentIsDevice = data.Devices.Any(d => d.EntityId == parentEntityId);
+                    string parentLabel = parentIsDevice
+                        ? data.Devices.First(d => d.EntityId == parentEntityId).DisplayName
+                        : parentEntityId;
+                    StatusText = $"\u2139 '{found.DisplayName}' addr='{found.Address}' loopId='{loopId}' → parent='{parentLabel}' (isDevice={parentIsDevice})";
                 }
             }
 
