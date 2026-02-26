@@ -45,6 +45,13 @@ namespace Pulse.UI.ViewModels
         /// <summary>Compatibility shortcut — returns the live store from the assignments service.</summary>
         private TopologyAssignmentsStore _topologyAssignments => _assignmentsService.Store;
 
+        /// <summary>
+        /// When set, OnDataCollected will check whether this element ID was collected
+        /// and produce a diagnostic status message so the user knows exactly why a
+        /// sub-device assignment did or did not appear in the tree.
+        /// </summary>
+        private long? _pendingSubDeviceElementId;
+
         // Child ViewModels
         public TopologyViewModel Topology { get; }
         public InspectorViewModel Inspector { get; }
@@ -292,6 +299,33 @@ namespace Pulse.UI.ViewModels
             int panelCount = data.Panels.Count;
             int loopCount = data.Loops.Count;
             StatusText = $"{TotalDevices} devices | {panelCount} panels | {loopCount} loops | {TotalWarnings} warnings | {TotalErrors} errors";
+
+            // Sub-device assignment diagnostic: tell the user exactly why a pick did/didn't appear.
+            if (_pendingSubDeviceElementId.HasValue)
+            {
+                long checkId = _pendingSubDeviceElementId.Value;
+                _pendingSubDeviceElementId = null;
+
+                var found = data.Devices.FirstOrDefault(d => d.RevitElementId == checkId);
+                if (found == null)
+                {
+                    StatusText = $"\u26a0 Element {checkId} was NOT collected after refresh. " +
+                                  "Its Revit category is probably not listed in Settings \u2192 Categories. " +
+                                  "Add the category and refresh again.";
+                }
+                else if (string.IsNullOrEmpty(found.Address) || !found.Address.Contains('.'))
+                {
+                    StatusText = $"\u26a0 Element collected as '{found.DisplayName}' but Address='{found.Address ?? "(none)"}'. " +
+                                  "The Address parameter write may have failed — check the shared parameter exists on the family.";
+                }
+                else
+                {
+                    // Confirm which loop/panel it landed in, so the user can see if Panel was written
+                    string loopId = found.LoopId ?? "(none)";
+                    StatusText = $"\u2713 Element '{found.DisplayName}' collected with address '{found.Address}' in loop '{loopId}'. " +
+                                  "It should now appear nested under its host device.";
+                }
+            }
 
             // Apply current filter
             ApplyFilter();
@@ -601,13 +635,14 @@ namespace Pulse.UI.ViewModels
                     {
                         if (count > 0)
                         {
-                            StatusText = $"Sub-device '{option.Label}' assigned to {newAddress}.";
+                            StatusText = $"Sub-device '{option.Label}' → {newAddress} ({count}/3 params written). Refreshing…";
+                            _pendingSubDeviceElementId = option.ElementId;
                             hostVm.MarkSubDeviceAdded(option);
                             ExecuteRefresh();
                         }
                         else
                         {
-                            StatusText = $"Write succeeded but 0 elements updated — check Loop/Address params exist on the element.";
+                            StatusText = $"Write failed (0/3 params) — '{option.Label}' does not have Loop/Address/Panel parameters. Add the shared params to its family.";
                         }
                     }));
                 },
@@ -685,13 +720,14 @@ namespace Pulse.UI.ViewModels
                                 {
                                     if (count > 0)
                                     {
-                                        StatusText = $"Picked element assigned to {newAddress}.";
+                                        StatusText = $"Picked element → {newAddress} ({count}/3 params written). Refreshing…";
+                                        _pendingSubDeviceElementId = pickedElementId;
                                         hostVm.IncrementSubDeviceCount();
                                         ExecuteRefresh();
                                     }
                                     else
                                     {
-                                        StatusText = "Write succeeded but 0 elements updated — check Loop/Address params exist on the element.";
+                                        StatusText = $"Write failed (0/3 params) — picked element does not have Loop/Address/Panel parameters. Add the shared params to its family.";
                                     }
                                 }));
                             },
