@@ -214,9 +214,9 @@ namespace Pulse.UI.Controls
             }
         }
 
-        // Minimum width the remaining columns (left block + splitter) must keep.
-        // Left block MinWidth (551) + splitter (1).
-        private const double LeftBlockReserved = 552;
+        // Minimum width the remaining columns must keep:
+        // topology MinWidth(250) + Margin(4) + splitter(1) + inspector(300) + Margin(4) + outer splitter(1) = 560.
+        private const double LeftBlockReserved = 560;
 
         // Minimum column width when the panel is expanded.
         private const double ExpandedMinWidth = 500;

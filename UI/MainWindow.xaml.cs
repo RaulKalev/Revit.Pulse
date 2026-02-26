@@ -1,3 +1,4 @@
+using System;
 using System.Windows;
 using System.Windows.Input;
 using Autodesk.Revit.UI;
@@ -40,8 +41,8 @@ namespace Pulse.UI
             {
                 Left   = p.Left;
                 Top    = p.Top;
-                Width  = p.Width;
-                Height = p.Height;
+                Width  = Math.Max(p.Width,  WindowResizer.MIN_WIDTH);
+                Height = Math.Max(p.Height, WindowResizer.MIN_HEIGHT);
                 TheDiagramPanel.RestoreState(p.DiagramPanelWidth);
             }
             else
