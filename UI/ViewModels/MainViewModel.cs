@@ -166,6 +166,7 @@ namespace Pulse.UI.ViewModels
             Topology = new TopologyViewModel();
             Inspector = new InspectorViewModel();
             Inspector.CurrentDrawValueCommitted += OnCurrentDrawValueCommitted;
+            Topology.SubDeviceAssignRequested   += OnSubDeviceAssignRequested;
             Diagram = new DiagramViewModel();
 
             // Wire up topology selection events
@@ -553,6 +554,60 @@ namespace Pulse.UI.ViewModels
                 {
                     Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                         StatusText = $"Could not write {label}: {ex.Message}"));
+                });
+        }
+
+        /// <summary>
+        /// Called when the user picks an unassigned device from the add-slot combobox on a device row.
+        /// Writes the Loop and Address parameters to Revit, then refreshes.
+        /// </summary>
+        private void OnSubDeviceAssignRequested(TopologyNodeViewModel hostVm, UnassignedDeviceOption option)
+        {
+            if (hostVm == null || option == null) return;
+
+            var settings = _appController.ActiveSettings;
+            if (settings == null) return;
+
+            string loopParamName = settings.GetRevitParameterName(FireAlarmParameterKeys.Loop);
+            string addrParamName = settings.GetRevitParameterName(FireAlarmParameterKeys.Address);
+
+            if (string.IsNullOrEmpty(loopParamName) || string.IsNullOrEmpty(addrParamName))
+            {
+                StatusText = "Cannot assign sub-device: Loop or Address parameter is not mapped in Settings.";
+                return;
+            }
+
+            hostVm.GraphNode.Properties.TryGetValue("Loop", out string loopValue);
+            string newAddress = hostVm.NextSubAddress;
+
+            StatusText = $"Assigning {option.Label} as sub-device…";
+
+            _storageFacade.WriteParameters(
+                new List<(long, string, string)>
+                {
+                    (option.ElementId, loopParamName, loopValue ?? string.Empty),
+                    (option.ElementId, addrParamName, newAddress),
+                },
+                count =>
+                {
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        if (count > 0)
+                        {
+                            StatusText = $"Sub-device '{option.Label}' assigned to {newAddress}.";
+                            hostVm.MarkSubDeviceAdded(option);
+                            ExecuteRefresh();
+                        }
+                        else
+                        {
+                            StatusText = $"Write succeeded but 0 elements updated — check Loop/Address params exist on the element.";
+                        }
+                    }));
+                },
+                ex =>
+                {
+                    Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                        StatusText = $"Could not assign sub-device: {ex.Message}"));
                 });
         }
 

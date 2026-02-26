@@ -75,6 +75,13 @@ namespace Pulse.UI.ViewModels
         public event Action<TopologyNodeViewModel> WireAssigned;
 
         /// <summary>
+        /// Fired when the user selects an unassigned device to attach beneath a host device.
+        /// Carries: (hostDeviceVm, selectedOption).
+        /// MainViewModel writes Loop + Address to Revit and calls <see cref="TopologyNodeViewModel.MarkSubDeviceAdded"/> on success.
+        /// </summary>
+        public event Action<TopologyNodeViewModel, UnassignedDeviceOption> SubDeviceAssignRequested;
+
+        /// <summary>
         /// Returns the Loop node whose parent matches <paramref name="panelName"/> and
         /// label matches <paramref name="loopName"/>, or null if not found.
         /// </summary>
@@ -178,6 +185,15 @@ namespace Pulse.UI.ViewModels
                 WireAssigned?.Invoke(vm);
             };
 
+            // Build unassigned device pool (devices not connected to any loop)
+            var unassignedOptions = data.Devices
+                .Where(d => string.IsNullOrEmpty(d.LoopId) && d.RevitElementId.HasValue)
+                .Select(d => new UnassignedDeviceOption(d.DisplayName, d.RevitElementId.Value))
+                .ToList();
+
+            Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = (vm, option) =>
+                SubDeviceAssignRequested?.Invoke(vm, option);
+
             // Build the tree recursively
             foreach (string rootId in rootIds)
             {
@@ -186,7 +202,9 @@ namespace Pulse.UI.ViewModels
                     var vm = BuildNodeTree(rootNode, nodeMap, children, data, onSelect,
                                           onAssignConfig, onAssignWire,
                                           panelOptions, loopOptions, wireOptions,
-                                          parentLabel: null);
+                                          parentLabel: null,
+                                          unassignedOptions: unassignedOptions,
+                                          onSubDeviceAssign: onSubDeviceAssign);
                     RootNodes.Add(vm);
                 }
             }
@@ -206,7 +224,9 @@ namespace Pulse.UI.ViewModels
             IReadOnlyList<string> panelOptions,
             IReadOnlyList<string> loopOptions,
             IReadOnlyList<string> wireOptions,
-            string parentLabel)
+            string parentLabel,
+            IReadOnlyList<UnassignedDeviceOption> unassignedOptions = null,
+            Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null)
         {
             // Determine available config options and current assignment for this node type
             IReadOnlyList<string> availableConfigs = null;
@@ -230,8 +250,11 @@ namespace Pulse.UI.ViewModels
                 _assignmentsStore.LoopWireAssignments.TryGetValue(wireKey, out initialWire);
             }
 
-            var vm = new TopologyNodeViewModel(node, onSelect, onAssignConfig, availableConfigs, initialAssignment,
-                                               onAssignWire, availableWires, initialWire, parentLabel);
+            var vm = new TopologyNodeViewModel(
+                node, onSelect, onAssignConfig, availableConfigs, initialAssignment,
+                onAssignWire, availableWires, initialWire, parentLabel,
+                availableUnassigned: node.NodeType == "Device" ? unassignedOptions : null,
+                onSubDeviceAssign:   node.NodeType == "Device" ? onSubDeviceAssign : null);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -266,7 +289,9 @@ namespace Pulse.UI.ViewModels
                     var childVm = BuildNodeTree(childNode, nodeMap, children, data, onSelect,
                                                onAssignConfig, onAssignWire,
                                                panelOptions, loopOptions, wireOptions,
-                                               parentLabel: node.Label);
+                                               parentLabel: node.Label,
+                                               unassignedOptions: unassignedOptions,
+                                               onSubDeviceAssign: onSubDeviceAssign);
                     vm.Children.Add(childVm);
                 }
             }
@@ -391,6 +416,16 @@ namespace Pulse.UI.ViewModels
         }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    /// <summary>A device from the unassigned pool that can be dropped onto a host device.</summary>
+    public class UnassignedDeviceOption
+    {
+        public string Label { get; }
+        public long ElementId { get; }
+        public UnassignedDeviceOption(string label, long elementId) { Label = label; ElementId = elementId; }
+        public override string ToString() => Label;
+    }
+
     /// <summary>
     /// ViewModel for a single node in the topology tree.
     /// </summary>
@@ -491,6 +526,63 @@ namespace Pulse.UI.ViewModels
 
         public ObservableCollection<TopologyNodeViewModel> Children { get; } = new ObservableCollection<TopologyNodeViewModel>();
 
+        // ── Sub-device assignment slot (Device nodes only) ────────────────────
+
+        /// <summary>Unassigned devices available to assign beneath this device.</summary>
+        public ObservableCollection<UnassignedDeviceOption> AvailableUnassigned { get; }
+            = new ObservableCollection<UnassignedDeviceOption>();
+
+        private bool _isAddSlotOpen;
+        /// <summary>Whether the add-slot combobox row is visible beneath this device row.</summary>
+        public bool IsAddSlotOpen
+        {
+            get => _isAddSlotOpen;
+            set => SetField(ref _isAddSlotOpen, value);
+        }
+
+        /// <summary>Toggles the add-slot row open/closed.</summary>
+        public ICommand ToggleAddSlotCommand { get; private set; }
+
+        private readonly Action<TopologyNodeViewModel, UnassignedDeviceOption> _onSubDeviceAssign;
+        private int _subDeviceCount;
+
+        /// <summary>Address suffix the next assigned sub-device will receive (e.g. "001.1").</summary>
+        public string NextSubAddress
+        {
+            get
+            {
+                GraphNode.Properties.TryGetValue("Address", out string addr);
+                return (addr ?? "") + "." + (_subDeviceCount + 1);
+            }
+        }
+
+        private UnassignedDeviceOption _selectedUnassigned;
+        /// <summary>The option the user picked in the add-slot combobox; fires the assign callback.</summary>
+        public UnassignedDeviceOption SelectedUnassigned
+        {
+            get => _selectedUnassigned;
+            set
+            {
+                if (SetField(ref _selectedUnassigned, value) && value != null)
+                    _onSubDeviceAssign?.Invoke(this, value);
+            }
+        }
+
+        /// <summary>
+        /// Called by MainViewModel after the Revit write succeeds.
+        /// Removes the assigned option from the combobox and resets selection.
+        /// </summary>
+        public void MarkSubDeviceAdded(UnassignedDeviceOption option)
+        {
+            _subDeviceCount++;
+            OnPropertyChanged(nameof(NextSubAddress));
+            AvailableUnassigned.Remove(option);
+            // Reset without re-firing the callback
+            _selectedUnassigned = null;
+            OnPropertyChanged(nameof(SelectedUnassigned));
+            IsAddSlotOpen = false;
+        }
+
         public TopologyNodeViewModel(
             Node graphNode,
             Action<TopologyNodeViewModel> onSelect = null,
@@ -500,13 +592,17 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onAssignWire = null,
             IReadOnlyList<string> availableWires = null,
             string initialWire = null,
-            string parentLabel = null)
+            string parentLabel = null,
+            IReadOnlyList<UnassignedDeviceOption> availableUnassigned = null,
+            Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null)
         {
             GraphNode = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
-            _onAssignConfig = onAssignConfig;
-            _onAssignWire   = onAssignWire;
-            ParentLabel     = parentLabel;
+            _onAssignConfig     = onAssignConfig;
+            _onAssignWire       = onAssignWire;
+            _onSubDeviceAssign  = onSubDeviceAssign;
+            ParentLabel         = parentLabel;
+            ToggleAddSlotCommand = new RelayCommand(_ => IsAddSlotOpen = !IsAddSlotOpen);
 
             // Populate config combobox options: blank entry first (= no assignment)
             if (availableConfigs != null && availableConfigs.Count > 0)
@@ -527,6 +623,13 @@ namespace Pulse.UI.ViewModels
             // Seed assignments without firing callbacks
             _assignedConfig = initialAssignment ?? string.Empty;
             _assignedWire   = initialWire ?? string.Empty;
+
+            // Populate unassigned pool (Device nodes only)
+            if (availableUnassigned != null)
+            {
+                foreach (var opt in availableUnassigned)
+                    AvailableUnassigned.Add(opt);
+            }
         }
 
         /// <summary>Returns a display icon path or character based on node type.</summary>

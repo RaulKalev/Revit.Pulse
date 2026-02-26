@@ -258,34 +258,84 @@
                                                                     <ItemsControl.ItemTemplate>
                                                                         <DataTemplate>
                                                                             <!-- Device row -->
-                                                                            <Button Command="{Binding SelectCommand}"
-                                                                                    Padding="20,5,8,5"
-                                                                                    Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
-                                                                                <Button.Style>
-                                                                                    <Style TargetType="Button" BasedOn="{StaticResource PulseNodeButtonStyle}">
-                                                                                        <Style.Triggers>
-                                                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                                                <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
-                                                                                            </DataTrigger>
-                                                                                        </Style.Triggers>
-                                                                                    </Style>
-                                                                                </Button.Style>
-                                                                                <StackPanel Orientation="Horizontal">
-                                                                                    <materialDesign:PackIcon Kind="AccessPoint"
-                                                                                                             Width="12" Height="12"
-                                                                                                             VerticalAlignment="Center" Margin="0,0,6,0"
-                                                                                                             Foreground="{DynamicResource IconForegroundBrush}"/>
-                                                                                    <TextBlock Text="{Binding Label}" FontSize="11"
-                                                                                               Foreground="{DynamicResource ForegroundBrush}"
-                                                                                               VerticalAlignment="Center"/>
-                                                                                    <Border Style="{DynamicResource WarningBadgeStyle}"
-                                                                                            Visibility="{Binding WarningCount, Converter={StaticResource CountToVisibility}}"
-                                                                                            Margin="6,0,0,0">
-                                                                                        <TextBlock Text="{Binding WarningCount}" FontSize="9"
-                                                                                                   FontWeight="Bold" Foreground="Black"/>
-                                                                                    </Border>
-                                                                                </StackPanel>
-                                                                            </Button>
+                                                                            <StackPanel Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
+                                                                                <!-- Main row: select button + "+" toggle -->
+                                                                                <Grid>
+                                                                                    <Grid.ColumnDefinitions>
+                                                                                        <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
+                                                                                    </Grid.ColumnDefinitions>
+                                                                                    <Button Grid.Column="0"
+                                                                                            Command="{Binding SelectCommand}"
+                                                                                            Padding="20,5,8,5">
+                                                                                        <Button.Style>
+                                                                                            <Style TargetType="Button" BasedOn="{StaticResource PulseNodeButtonStyle}">
+                                                                                                <Style.Triggers>
+                                                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                                        <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                                                                                    </DataTrigger>
+                                                                                                </Style.Triggers>
+                                                                                            </Style>
+                                                                                        </Button.Style>
+                                                                                        <StackPanel Orientation="Horizontal">
+                                                                                            <materialDesign:PackIcon Kind="AccessPoint"
+                                                                                                                     Width="12" Height="12"
+                                                                                                                     VerticalAlignment="Center" Margin="0,0,6,0"
+                                                                                                                     Foreground="{DynamicResource IconForegroundBrush}"/>
+                                                                                            <TextBlock Text="{Binding Label}" FontSize="11"
+                                                                                                       Foreground="{DynamicResource ForegroundBrush}"
+                                                                                                       VerticalAlignment="Center"/>
+                                                                                            <Border Style="{DynamicResource WarningBadgeStyle}"
+                                                                                                    Visibility="{Binding WarningCount, Converter={StaticResource CountToVisibility}}"
+                                                                                                    Margin="6,0,0,0">
+                                                                                                <TextBlock Text="{Binding WarningCount}" FontSize="9"
+                                                                                                           FontWeight="Bold" Foreground="Black"/>
+                                                                                            </Border>
+                                                                                        </StackPanel>
+                                                                                    </Button>
+                                                                                    <!-- "+" toggle button — only shown when unassigned devices exist -->
+                                                                                    <Button Grid.Column="1"
+                                                                                            Command="{Binding ToggleAddSlotCommand}"
+                                                                                            Visibility="{Binding AvailableUnassigned.Count, Converter={StaticResource CountToVisibility}}"
+                                                                                            ToolTip="Assign an unassigned device beneath this device"
+                                                                                            Padding="4,4,4,4"
+                                                                                            MinWidth="24">
+                                                                                        <Button.Style>
+                                                                                            <Style TargetType="Button" BasedOn="{StaticResource PulseNodeButtonStyle}">
+                                                                                                <Style.Triggers>
+                                                                                                    <DataTrigger Binding="{Binding IsAddSlotOpen}" Value="True">
+                                                                                                        <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                                                                                    </DataTrigger>
+                                                                                                </Style.Triggers>
+                                                                                            </Style>
+                                                                                        </Button.Style>
+                                                                                        <materialDesign:PackIcon Kind="Plus" Width="10" Height="10"
+                                                                                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
+                                                                                    </Button>
+                                                                                </Grid>
+                                                                                <!-- Add-slot row: combobox to pick an unassigned device -->
+                                                                                <Border Visibility="{Binding IsAddSlotOpen, Converter={StaticResource BoolToVis}}"
+                                                                                        Margin="28,0,4,4" Padding="4,3"
+                                                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                                                        BorderThickness="1" CornerRadius="3">
+                                                                                    <Grid>
+                                                                                        <Grid.ColumnDefinitions>
+                                                                                            <ColumnDefinition Width="Auto"/>
+                                                                                            <ColumnDefinition Width="*"/>
+                                                                                        </Grid.ColumnDefinitions>
+                                                                                        <TextBlock Grid.Column="0"
+                                                                                                   Text="Assign → "
+                                                                                                   FontSize="10"
+                                                                                                   Foreground="{DynamicResource IconForegroundBrush}"
+                                                                                                   VerticalAlignment="Center"/>
+                                                                                        <ComboBox Grid.Column="1"
+                                                                                                  ItemsSource="{Binding AvailableUnassigned}"
+                                                                                                  SelectedItem="{Binding SelectedUnassigned, Mode=TwoWay}"
+                                                                                                  Style="{StaticResource DarkComboBoxStyle}"
+                                                                                                  VerticalAlignment="Center"/>
+                                                                                    </Grid>
+                                                                                </Border>
+                                                                            </StackPanel>
                                                                         </DataTemplate>
                                                                     </ItemsControl.ItemTemplate>
                                                                 </ItemsControl>
