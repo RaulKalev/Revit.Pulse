@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Pulse.Core.Graph;
 using Pulse.Core.Modules;
 using Pulse.Core.SystemModel;
