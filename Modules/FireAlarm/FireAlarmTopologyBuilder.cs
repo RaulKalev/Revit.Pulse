@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Pulse.Core.Graph;
 using Pulse.Core.Modules;
 using Pulse.Core.SystemModel;
@@ -170,9 +171,36 @@ namespace Pulse.Modules.FireAlarm
                         // 1. Exact loop+address match (preferred)
                         if (!deviceByLoopAndAddress.TryGetValue(device.LoopId + "|" + parentAddress, out parentId))
                         {
-                            // 2. Cross-loop fallback — only when the address is unambiguous
-                            if (deviceByAddressOnly.TryGetValue(parentAddress, out var candidates) && candidates.Count == 1)
-                                parentId = candidates[0];
+                            // 2. Cross-loop fallback: the Panel param is often circuit-derived
+                            //    and cannot be written, so the sub-device may land in a different
+                            //    loop bucket.  Pick the candidate that is in the most "real" loop
+                            //    (i.e. not No-Panel / No-Loop), breaking ambiguity gracefully.
+                            if (deviceByAddressOnly.TryGetValue(parentAddress, out var candidates))
+                            {
+                                if (candidates.Count == 1)
+                                {
+                                    parentId = candidates[0];
+                                }
+                                else
+                                {
+                                    // Prefer candidate in a real panel+loop over placeholder buckets
+                                    foreach (var cId in candidates)
+                                    {
+                                        var cand = data.Devices.FirstOrDefault(d => d.EntityId == cId);
+                                        if (cand != null
+                                            && !string.IsNullOrEmpty(cand.LoopId)
+                                            && !cand.LoopId.Contains("(No Panel)")
+                                            && !cand.LoopId.Contains("(No Loop)"))
+                                        {
+                                            parentId = cId;
+                                            break;
+                                        }
+                                    }
+                                    // Last resort: first candidate
+                                    if (parentId == null)
+                                        parentId = candidates[0];
+                                }
+                            }
                         }
                     }
                 }
