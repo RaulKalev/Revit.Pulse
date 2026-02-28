@@ -75,16 +75,19 @@ namespace Pulse.UI
         {
             if (expanded)
             {
-                MetricsSplitterRow.Height = new System.Windows.GridLength(1);
-                MetricsRow.Height         = new System.Windows.GridLength(Math.Max(height, 80));
+                MetricsSplitterRow.Height   = new System.Windows.GridLength(1);
+                MetricsSplitter.IsEnabled   = true;
+                MetricsRow.Height           = new System.Windows.GridLength(Math.Max(height, 80));
             }
             else
             {
                 // Snapshot current height before collapsing so we can restore it later.
                 if (MetricsRow.ActualHeight > 28)
                     _metricsHeight = MetricsRow.ActualHeight;
-                MetricsSplitterRow.Height = new System.Windows.GridLength(0);
-                MetricsRow.Height         = new System.Windows.GridLength(28);
+                // Keep the 1px line visible but lock resizing.
+                MetricsSplitterRow.Height   = new System.Windows.GridLength(1);
+                MetricsSplitter.IsEnabled   = false;
+                MetricsRow.Height           = new System.Windows.GridLength(28);
             }
         }
 

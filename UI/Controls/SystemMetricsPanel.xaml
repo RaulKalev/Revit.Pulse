@@ -21,7 +21,11 @@
     </UserControl.Resources>
 
     <!-- Outer container —  the GridSplitter above is already the visual separator -->
-    <Border Background="{DynamicResource SecondaryBackgroundBrush}">
+    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+            BorderBrush="{DynamicResource BorderBrush}"
+            BorderThickness="1"
+            CornerRadius="5"
+            ClipToBounds="True">
         <StackPanel>
 
             <!-- ── Header row (always visible) ── -->
