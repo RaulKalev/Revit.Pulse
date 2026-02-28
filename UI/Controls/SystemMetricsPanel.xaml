@@ -24,7 +24,7 @@
     <Border Background="{DynamicResource SecondaryBackgroundBrush}"
             BorderBrush="{DynamicResource BorderBrush}"
             BorderThickness="1"
-            CornerRadius="5"
+            CornerRadius="5,5,0,0"
             ClipToBounds="True">
         <StackPanel>
 
