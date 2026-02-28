@@ -40,6 +40,10 @@ namespace Pulse.Revit.Services
         private readonly PickElementHandler _pickElementHandler;
         private readonly ExternalEvent _pickElementEvent;
 
+        // Draw wire routing visualisation (model lines)
+        private readonly DrawWireRoutingHandler _drawWireHandler;
+        private readonly ExternalEvent _drawWireEvent;
+
         private readonly ILogger _logger;
 
         public StorageFacade(ILogger logger = null)
@@ -60,6 +64,9 @@ namespace Pulse.Revit.Services
 
             _pickElementHandler = new PickElementHandler();
             _pickElementEvent = ExternalEvent.Create(_pickElementHandler);
+
+            _drawWireHandler = new DrawWireRoutingHandler();
+            _drawWireEvent = ExternalEvent.Create(_drawWireHandler);
         }
 
         // ─── Read helpers (call from Revit API thread or construction) ───────
@@ -203,6 +210,23 @@ namespace Pulse.Revit.Services
             _pickElementHandler.OnCancelled   = onCancelled;
             _pickElementHandler.OnError       = onError;
             _pickElementEvent.Raise();
+        }
+        /// <summary>
+        /// Draw (or clear) Manhattan-routed model lines for a single loop.
+        /// </summary>
+        public void DrawWireRouting(
+            string loopKey,
+            List<(double X, double Y, double Z)> waypoints,
+            bool clearOnly = false,
+            Action<int> onCompleted = null,
+            Action<Exception> onError = null)
+        {
+            _drawWireHandler.LoopKey = loopKey;
+            _drawWireHandler.Waypoints = waypoints;
+            _drawWireHandler.ClearOnly = clearOnly;
+            _drawWireHandler.OnCompleted = onCompleted;
+            _drawWireHandler.OnError = onError;
+            _drawWireEvent.Raise();
         }
     }
 }

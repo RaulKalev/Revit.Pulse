@@ -49,7 +49,8 @@ Revit API integration:
 | `SelectionService` | Selects elements in the Revit model |
 | `TemporaryOverrideService` | Applies/resets graphic overrides to highlight elements |
 | `ExtensibleStorageService` | Reads/writes module settings to Revit Extensible Storage (single-schema, Public access) |
-| `ExternalEvent handlers` | `CollectDevicesHandler`, `SelectElementHandler`, `TemporaryOverrideHandler`, `ResetOverridesHandler`, `SaveSettingsHandler`, `SaveDiagramSettingsHandler`, `SaveTopologyAssignmentsHandler`, `WriteParameterHandler` |
+| `ExternalEvent handlers` | `CollectDevicesHandler`, `SelectElementHandler`, `TemporaryOverrideHandler`, `ResetOverridesHandler`, `SaveSettingsHandler`, `SaveDiagramSettingsHandler`, `SaveTopologyAssignmentsHandler`, `WriteParameterHandler`, `DrawWireRoutingHandler` |
+| `DrawWireRoutingHandler` | Draws or clears Manhattan-routed model lines in Revit for a single loop; each loop gets its own line-style subcategory so loops can be toggled independently |
 
 All Revit write operations use `ExternalEvent` to ensure they run on the Revit API thread.
 
@@ -82,9 +83,32 @@ First implemented module:
 |-----------|---------|
 | `FireAlarmModuleDefinition` | Registers the module and provides factory methods |
 | `FireAlarmCollector` | Collects fire alarm devices from configured Revit categories |
-| `FireAlarmTopologyBuilder` | Builds Panel -> Loop -> Device graph |
+| `FireAlarmTopologyBuilder` | Builds Panel → Loop → Device graph; attaches cable length to each loop node |
+| `CableLengthCalculator` | Calculates per-loop cable length using Manhattan (right-angle) routing in Revit internal units, returns metres |
 | `FireAlarmRulePack` | Validates data with 5 rules |
 | `FireAlarmParameterKeys` | Centralized logical parameter key constants |
+
+---
+
+## Features
+
+### Cable Length Calculation
+
+The Fire Alarm module calculates the total cable length for each loop using **Manhattan (right-angle) routing**:
+
+- Route: Panel origin → devices sorted by address → return to Panel
+- Distance metric: |Δx| + |Δy| + |Δz| in Revit internal units (feet), converted to metres
+- Result is displayed in each loop card header as `XX.X m`
+- Powered by `CableLengthCalculator.CalculateAll(panels)`
+
+### Per-Loop 3D Wire Routing Visualisation
+
+Each loop card header contains a **wire routing toggle button**. Clicking it draws orthogonal model lines in the active Revit 3D view — one set per loop:
+
+- Each loop's lines use a dedicated line-style subcategory (`Pulse Wire – {panel} - {loop}`) so they can be toggled on/off independently
+- Lines follow the same Panel → devices → Panel Manhattan route as the cable calculator
+- **State is persisted** to Revit Extensible Storage (`LoopWireRoutingVisible` in `TopologyAssignmentsStore`) — re-opening the plugin restores all visible loops automatically
+- The toggle icon turns red when wires are visible; clicking again clears only that loop's lines
 
 ---
 
@@ -145,6 +169,19 @@ for both read and write:
 | Module Settings | `A7E3B1C2-…-0E1F2A3B4C5E` | `SchemaVersion` (int) + `SettingsJson` (string) |
 | Diagram Settings | `B8F4C2D3-…-1F2A3B4C5D6E` | `DiagramSchemaVersion` (int) + `DiagramSettingsJson` (string) |
 | Topology Assignments | `C9D5E3F4-…-2A3B4C5D6E7F` | `TopologyAssignmentsVersion` (int) + `TopologyAssignmentsJson` (string) |
+
+The `TopologyAssignmentsStore` JSON blob includes:
+
+| Key | Type | Purpose |
+|-----|------|---------|
+| `PanelAssignments` | `Dict<string, string>` | Panel → config name |
+| `LoopAssignments` | `Dict<string, string>` | Loop → module config name |
+| `LoopWireAssignments` | `Dict<string, string>` | `panel::loop` → wire type name |
+| `LoopFlipStates` | `Dict<string, bool>` | Diagram flip state per loop |
+| `LoopWireRoutingVisible` | `Dict<string, bool>` | `panel::loop` → wire routing lines visible |
+| `LoopExtraLines` / `LoopRankOverrides` | `Dict<string, *>` | Diagram layout overrides |
+| `LevelElevationOffsets` | `Dict<string, double>` | Per-level elevation adjustments |
+| `SymbolMappings` | `Dict<string, string>` | Device type → custom symbol |
 
 All data resides on a single `DataStorage` element named `"PulseSettings"`.
 

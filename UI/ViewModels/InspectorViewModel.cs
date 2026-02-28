@@ -219,6 +219,12 @@ namespace Pulse.UI.ViewModels
                     CurrentDrawAlarm = kvp.Value;
                     continue;
                 }
+                // Format cable length with unit suffix for display.
+                if (kvp.Key == "CableLength")
+                {
+                    Properties.Add(new PropertyItem { Key = "Cable length", Value = kvp.Value + " m" });
+                    continue;
+                }
                 Properties.Add(new PropertyItem { Key = kvp.Key, Value = kvp.Value });
             }
 

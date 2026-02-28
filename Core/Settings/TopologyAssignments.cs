@@ -46,5 +46,9 @@ namespace Pulse.Core.Settings
         /// <summary>DeviceType string → symbol key. Each device type maps to one symbol for display.</summary>
         public Dictionary<string, string> SymbolMappings { get; set; }
             = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>"panelName::loopName" → true when 3-D wire routing model lines are shown for that loop.</summary>
+        public Dictionary<string, bool> LoopWireRoutingVisible { get; set; }
+            = new Dictionary<string, bool>(System.StringComparer.OrdinalIgnoreCase);
     }
 }

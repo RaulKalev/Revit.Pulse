@@ -20,6 +20,15 @@ namespace Pulse.Core.SystemModel
         /// </summary>
         public double? Elevation { get; set; }
 
+        /// <summary>X coordinate in Revit internal units (feet). Null if not resolved.</summary>
+        public double? LocationX { get; set; }
+
+        /// <summary>Y coordinate in Revit internal units (feet). Null if not resolved.</summary>
+        public double? LocationY { get; set; }
+
+        /// <summary>Absolute Z coordinate in Revit internal units (feet). Null if not resolved.</summary>
+        public double? LocationZ { get; set; }
+
         private readonly Dictionary<string, string> _properties = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public IReadOnlyDictionary<string, string> Properties => _properties;
 

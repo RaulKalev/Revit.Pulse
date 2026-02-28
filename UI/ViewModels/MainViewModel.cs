@@ -189,6 +189,9 @@ namespace Pulse.UI.ViewModels
             if (_appController.HasCapability(ModuleCapabilities.Wiring))
                 Topology.WireAssigned += OnTopologyWireAssigned;
 
+            // Per-loop wire routing toggle (draw/clear model lines)
+            Topology.WireRoutingToggled += OnWireRoutingToggled;
+
             // Wire diagram visibility saves (guarded by Diagram capability)
             if (_appController.HasCapability(ModuleCapabilities.Diagram))
             {
@@ -335,6 +338,9 @@ namespace Pulse.UI.ViewModels
 
             // Apply current filter
             ApplyFilter();
+
+            // Restore wire routing lines for any loops that were visible before
+            RestoreWireRoutingFromStore();
 
             IsLoading = false;
         }
@@ -972,6 +978,152 @@ namespace Pulse.UI.ViewModels
                 Owner = _ownerWindow
             };
             settingsWin.ShowDialog();
+        }
+
+        /// <summary>
+        /// Handle per-loop wire routing toggle from the topology view.
+        /// Draws or clears model lines for a single loop.
+        /// </summary>
+        private void OnWireRoutingToggled(TopologyNodeViewModel loopVm)
+        {
+            string loopKey = (loopVm.ParentLabel ?? string.Empty) + "::" + loopVm.Label;
+
+            if (!loopVm.IsWireRoutingVisible)
+            {
+                // Clear lines for this loop
+                StatusText = $"Clearing wire routing for {loopVm.Label}…";
+                _storageFacade.DrawWireRouting(
+                    loopKey,
+                    waypoints: null,
+                    clearOnly: true,
+                    onCompleted: count => Application.Current?.Dispatcher?.Invoke(() =>
+                        StatusText = $"Wire routing cleared for {loopVm.Label} ({count} lines removed)."),
+                    onError: ex => Application.Current?.Dispatcher?.Invoke(() =>
+                        StatusText = $"Could not clear wire routing: {ex.Message}"));
+                return;
+            }
+
+            // Build waypoints for this specific loop
+            var waypoints = BuildWaypointsForLoop(loopVm);
+            if (waypoints == null || waypoints.Count < 2)
+            {
+                StatusText = $"No device coordinates for '{loopVm.Label}' (parent='{loopVm.ParentLabel}') — refresh first.";
+                // Revert the toggle since we can't draw
+                loopVm.SetWireRoutingVisibleSilent(false);
+                return;
+            }
+
+            StatusText = $"Drawing wire routing for {loopVm.Label} ({waypoints.Count} waypoints)…";
+            _storageFacade.DrawWireRouting(
+                loopKey,
+                waypoints,
+                clearOnly: false,
+                onCompleted: count => Application.Current?.Dispatcher?.Invoke(() =>
+                    StatusText = $"Wire routing for {loopVm.Label}: {count} model line(s) drawn."),
+                onError: ex => Application.Current?.Dispatcher?.Invoke(() =>
+                {
+                    loopVm.SetWireRoutingVisibleSilent(false);
+                    StatusText = $"Could not draw wire routing: {ex.Message}";
+                }));
+        }
+
+        /// <summary>
+        /// Build ordered waypoints for a single loop node using its parent panel
+        /// and child devices from the current ModuleData.
+        /// </summary>
+        private List<(double X, double Y, double Z)> BuildWaypointsForLoop(TopologyNodeViewModel loopVm)
+        {
+            var data = _appController.CurrentData;
+            if (data == null) return null;
+
+            // Find the matching panel + loop in the data model
+            foreach (var panel in data.Panels)
+            {
+                if (!string.Equals(panel.DisplayName, loopVm.ParentLabel, StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                foreach (var loop in panel.Loops)
+                {
+                    if (!string.Equals(loop.DisplayName, loopVm.Label, StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    var waypoints = new List<(double X, double Y, double Z)>();
+
+                    (double X, double Y, double Z)? panelOrigin = null;
+                    if (panel.LocationX.HasValue && panel.LocationY.HasValue && panel.LocationZ.HasValue)
+                        panelOrigin = (panel.LocationX.Value, panel.LocationY.Value, panel.LocationZ.Value);
+
+                    if (panelOrigin.HasValue)
+                        waypoints.Add(panelOrigin.Value);
+
+                    var ordered = loop.Devices
+                        .Where(d => d.LocationX.HasValue && d.LocationY.HasValue && d.LocationZ.HasValue)
+                        .OrderBy(d => ParseAddressSortKey(d.Address))
+                        .ThenBy(d => d.Address, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    foreach (var device in ordered)
+                        waypoints.Add((device.LocationX.Value, device.LocationY.Value, device.LocationZ.Value));
+
+                    if (panelOrigin.HasValue && waypoints.Count > 1)
+                        waypoints.Add(panelOrigin.Value);
+
+                    return waypoints.Count >= 2 ? waypoints : null;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Restore wire routing model lines for all loops that were marked visible
+        /// in Extensible Storage. Called after data reload.
+        /// </summary>
+        private void RestoreWireRoutingFromStore()
+        {
+            if (_topologyAssignments.LoopWireRoutingVisible.Count == 0) return;
+
+            var data = _appController.CurrentData;
+            if (data == null) return;
+
+            // Find every loop node whose key appears in the store and redraw its wires
+            foreach (var panelVm in Topology.RootNodes)
+            {
+                foreach (var loopVm in panelVm.Children.Where(c => c.NodeType == "Loop"))
+                {
+                    string key = (loopVm.ParentLabel ?? string.Empty) + "::" + loopVm.Label;
+                    if (_topologyAssignments.LoopWireRoutingVisible.TryGetValue(key, out bool vis) && vis)
+                    {
+                        var waypoints = BuildWaypointsForLoop(loopVm);
+                        if (waypoints != null && waypoints.Count >= 2)
+                        {
+                            _storageFacade.DrawWireRouting(key, waypoints, clearOnly: false);
+                        }
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Extract a numeric sort key from a device address string for routing order.
+        /// </summary>
+        private static int ParseAddressSortKey(string address)
+        {
+            if (string.IsNullOrWhiteSpace(address))
+                return int.MaxValue;
+            if (int.TryParse(address, out int intVal))
+                return intVal;
+            for (int i = address.Length - 1; i >= 0; i--)
+            {
+                if (!char.IsDigit(address[i]))
+                {
+                    string tail = address.Substring(i + 1);
+                    if (tail.Length > 0 && int.TryParse(tail, out int tailVal))
+                        return tailVal;
+                    break;
+                }
+            }
+            return int.MaxValue;
         }
 
         /// <summary>

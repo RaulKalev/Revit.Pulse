@@ -70,6 +70,15 @@ namespace Pulse.Revit.Services
                             offsetParam.AsDouble().ToString(System.Globalization.CultureInfo.InvariantCulture);
                 }
 
+                // Inject the element's XYZ location point for cable-length calculations.
+                if (element.Location is LocationPoint locPoint)
+                {
+                    XYZ pt = locPoint.Point;
+                    data.Parameters["_LocationX"] = pt.X.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    data.Parameters["_LocationY"] = pt.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    data.Parameters["_LocationZ"] = pt.Z.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+
                 foreach (string paramName in parameterNames)
                 {
                     string value = GetParameterValue(element, paramName);

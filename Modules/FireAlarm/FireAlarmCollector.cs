@@ -109,6 +109,23 @@ namespace Pulse.Modules.FireAlarm
                     {
                         matched.Elevation = elev;
                     }
+
+                    // Capture the panel element's XYZ location for cable-length routing.
+                    if (!matched.LocationX.HasValue
+                        && element.Parameters.TryGetValue("_LocationX", out string plxStr)
+                        && double.TryParse(plxStr, System.Globalization.NumberStyles.Any,
+                               System.Globalization.CultureInfo.InvariantCulture, out double plx))
+                        matched.LocationX = plx;
+                    if (!matched.LocationY.HasValue
+                        && element.Parameters.TryGetValue("_LocationY", out string plyStr)
+                        && double.TryParse(plyStr, System.Globalization.NumberStyles.Any,
+                               System.Globalization.CultureInfo.InvariantCulture, out double ply))
+                        matched.LocationY = ply;
+                    if (!matched.LocationZ.HasValue
+                        && element.Parameters.TryGetValue("_LocationZ", out string plzStr)
+                        && double.TryParse(plzStr, System.Globalization.NumberStyles.Any,
+                               System.Globalization.CultureInfo.InvariantCulture, out double plz))
+                        matched.LocationZ = plz;
                 }
             }
         }
@@ -297,6 +314,20 @@ namespace Pulse.Modules.FireAlarm
                 {
                     device.Elevation = devElev;
                 }
+
+                // Capture the element's XYZ location for cable-length routing calculations.
+                if (element.Parameters.TryGetValue("_LocationX", out string lxStr)
+                    && double.TryParse(lxStr, System.Globalization.NumberStyles.Any,
+                           System.Globalization.CultureInfo.InvariantCulture, out double lx))
+                    device.LocationX = lx;
+                if (element.Parameters.TryGetValue("_LocationY", out string lyStr)
+                    && double.TryParse(lyStr, System.Globalization.NumberStyles.Any,
+                           System.Globalization.CultureInfo.InvariantCulture, out double ly))
+                    device.LocationY = ly;
+                if (element.Parameters.TryGetValue("_LocationZ", out string lzStr)
+                    && double.TryParse(lzStr, System.Globalization.NumberStyles.Any,
+                           System.Globalization.CultureInfo.InvariantCulture, out double lz))
+                    device.LocationZ = lz;
 
                 loop.Devices.Add(device);
                 data.Devices.Add(device);

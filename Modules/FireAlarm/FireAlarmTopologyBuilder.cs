@@ -30,6 +30,9 @@ namespace Pulse.Modules.FireAlarm
             }
 
             // Create loop nodes and connect to panels
+            // Pre-calculate cable lengths for all loops (keyed by loop EntityId).
+            var cableLengths = CableLengthCalculator.CalculateAll(data.Panels);
+
             foreach (Loop loop in data.Loops)
             {
                 var node = new Node(loop.EntityId, loop.DisplayName, "Loop")
@@ -37,6 +40,15 @@ namespace Pulse.Modules.FireAlarm
                     RevitElementId = loop.RevitElementId,
                 };
                 node.Properties["DeviceCount"] = loop.Devices.Count.ToString();
+
+                // Attach cable length to the node so the UI can show it.
+                if (cableLengths.TryGetValue(loop.EntityId, out var cableResult)
+                    && cableResult.RoutedDeviceCount > 0)
+                {
+                    node.Properties["CableLength"] = cableResult.TotalLengthMetres.ToString(
+                        "F1", System.Globalization.CultureInfo.InvariantCulture);
+                }
+
                 data.Nodes.Add(node);
 
                 if (!string.IsNullOrEmpty(loop.PanelId))

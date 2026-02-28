@@ -107,6 +107,12 @@ namespace Pulse.UI.ViewModels
         /// MainViewModel clears Loop + Address params in Revit and calls ExecuteRefresh.
         /// </summary>
         public event Action<TopologyNodeViewModel> SubDeviceRemoveRequested;
+
+        /// <summary>
+        /// Fired when the user toggles wire routing visibility for a loop.
+        /// MainViewModel draws or clears the model lines and persists the state.
+        /// </summary>
+        public event Action<TopologyNodeViewModel> WireRoutingToggled;
         /// <summary>
         /// Returns the Loop node whose parent matches <paramref name="panelName"/> and
         /// label matches <paramref name="loopName"/>, or null if not found.
@@ -226,6 +232,18 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onRemoveSubDevice = vm =>
                 SubDeviceRemoveRequested?.Invoke(vm);
 
+            Action<TopologyNodeViewModel> onToggleWireRouting = vm =>
+            {
+                string key = (vm.ParentLabel ?? string.Empty) + "::" + vm.Label;
+                if (vm.IsWireRoutingVisible)
+                    _assignmentsStore.LoopWireRoutingVisible[key] = true;
+                else
+                    _assignmentsStore.LoopWireRoutingVisible.Remove(key);
+                AssignmentsSaveRequested?.Invoke();
+
+                WireRoutingToggled?.Invoke(vm);
+            };
+
             // Build the tree recursively
             foreach (string rootId in rootIds)
             {
@@ -238,7 +256,8 @@ namespace Pulse.UI.ViewModels
                                           unassignedOptions: unassignedOptions,
                                           onSubDeviceAssign: onSubDeviceAssign,
                                           onPickElementForDevice: onPickElementForDevice,
-                                          onRemoveSubDevice: onRemoveSubDevice);
+                                          onRemoveSubDevice: onRemoveSubDevice,
+                                          onToggleWireRouting: onToggleWireRouting);
                     RootNodes.Add(vm);
                 }
             }
@@ -262,7 +281,8 @@ namespace Pulse.UI.ViewModels
             IReadOnlyList<UnassignedDeviceOption> unassignedOptions = null,
             Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null,
             Action<TopologyNodeViewModel> onPickElementForDevice = null,
-            Action<TopologyNodeViewModel> onRemoveSubDevice = null)
+            Action<TopologyNodeViewModel> onRemoveSubDevice = null,
+            Action<TopologyNodeViewModel> onToggleWireRouting = null)
         {
             // Determine available config options and current assignment for this node type
             IReadOnlyList<string> availableConfigs = null;
@@ -286,22 +306,38 @@ namespace Pulse.UI.ViewModels
                 _assignmentsStore.LoopWireAssignments.TryGetValue(wireKey, out initialWire);
             }
 
+            // Seed wire routing visibility from stored state (Loop nodes only)
+            bool initialWireRoutingVisible = false;
+            if (node.NodeType == "Loop")
+            {
+                string wrKey = (parentLabel ?? string.Empty) + "::" + node.Label;
+                _assignmentsStore.LoopWireRoutingVisible.TryGetValue(wrKey, out initialWireRoutingVisible);
+            }
+
             var vm = new TopologyNodeViewModel(
                 node, onSelect, onAssignConfig, availableConfigs, initialAssignment,
                 onAssignWire, availableWires, initialWire, parentLabel,
                 availableUnassigned:      node.NodeType == "Device" ? unassignedOptions : null,
                 onSubDeviceAssign:        node.NodeType == "Device" ? onSubDeviceAssign : null,
                 onPickElementForDevice:   node.NodeType == "Device" ? onPickElementForDevice : null,
-                onRemoveSubDevice:        node.NodeType == "Device" ? onRemoveSubDevice : null);
+                onRemoveSubDevice:        node.NodeType == "Device" ? onRemoveSubDevice : null,
+                onToggleWireRouting:      node.NodeType == "Loop" ? onToggleWireRouting : null,
+                initialWireRoutingVisible: initialWireRoutingVisible);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
             vm.WarningCount = warningCount;
 
-            // Add child count info for loops
-            if (node.NodeType == "Loop" && node.Properties.TryGetValue("DeviceCount", out string dc))
+            // Add child count info and cable length for loops
+            if (node.NodeType == "Loop")
             {
-                vm.SubInfo = $"({dc} devices)";
+                string info = "";
+                if (node.Properties.TryGetValue("DeviceCount", out string dc))
+                    info = $"({dc} devices)";
+                if (node.Properties.TryGetValue("CableLength", out string cl))
+                    info += (info.Length > 0 ? "  " : "") + $"~{cl} m";
+                if (info.Length > 0)
+                    vm.SubInfo = info;
             }
 
             _allNodes.Add(vm);
@@ -331,7 +367,8 @@ namespace Pulse.UI.ViewModels
                                                unassignedOptions: unassignedOptions,
                                                onSubDeviceAssign: onSubDeviceAssign,
                                                onPickElementForDevice: onPickElementForDevice,
-                                               onRemoveSubDevice: onRemoveSubDevice);
+                                               onRemoveSubDevice: onRemoveSubDevice,
+                                               onToggleWireRouting: onToggleWireRouting);
                     vm.Children.Add(childVm);
                 }
             }
@@ -548,6 +585,30 @@ namespace Pulse.UI.ViewModels
         private readonly Action<TopologyNodeViewModel> _onAssignConfig;
         private readonly Action<TopologyNodeViewModel> _onAssignWire;
         private readonly Action<TopologyNodeViewModel> _onPickElementForDevice;
+        private readonly Action<TopologyNodeViewModel> _onToggleWireRouting;
+
+        private bool _isWireRoutingVisible;
+        /// <summary>Whether 3-D wire routing model lines are currently shown for this loop.</summary>
+        public bool IsWireRoutingVisible
+        {
+            get => _isWireRoutingVisible;
+            set
+            {
+                if (SetField(ref _isWireRoutingVisible, value))
+                    _onToggleWireRouting?.Invoke(this);
+            }
+        }
+
+        /// <summary>Toggle wire routing visibility for this loop node.</summary>
+        public ICommand ToggleWireRoutingCommand { get; }
+
+        /// <summary>Set <see cref="IsWireRoutingVisible"/> without firing the callback (used to seed from store).</summary>
+        public void SetWireRoutingVisibleSilent(bool value)
+        {
+            if (_isWireRoutingVisible == value) return;
+            _isWireRoutingVisible = value;
+            OnPropertyChanged(nameof(IsWireRoutingVisible));
+        }
 
         private string _assignedConfig;
         /// <summary>The currently assigned config name. Setting this triggers a save + Revit write.</summary>
@@ -675,7 +736,9 @@ namespace Pulse.UI.ViewModels
             IReadOnlyList<UnassignedDeviceOption> availableUnassigned = null,
             Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null,
             Action<TopologyNodeViewModel> onPickElementForDevice = null,
-            Action<TopologyNodeViewModel> onRemoveSubDevice = null)
+            Action<TopologyNodeViewModel> onRemoveSubDevice = null,
+            Action<TopologyNodeViewModel> onToggleWireRouting = null,
+            bool initialWireRoutingVisible = false)
         {
             GraphNode = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
@@ -683,10 +746,12 @@ namespace Pulse.UI.ViewModels
             _onAssignWire           = onAssignWire;
             _onSubDeviceAssign      = onSubDeviceAssign;
             _onPickElementForDevice = onPickElementForDevice;
+            _onToggleWireRouting    = onToggleWireRouting;
             ParentLabel             = parentLabel;
             ToggleAddSlotCommand      = new RelayCommand(_ => IsAddSlotOpen = !IsAddSlotOpen);
             PickFromRevitCommand      = new RelayCommand(_ => { IsAddSlotOpen = false; _onPickElementForDevice?.Invoke(this); });
             RemoveSubDeviceCommand    = new RelayCommand(_ => onRemoveSubDevice?.Invoke(this), _ => onRemoveSubDevice != null);
+            ToggleWireRoutingCommand  = new RelayCommand(_ => IsWireRoutingVisible = !IsWireRoutingVisible);
 
             // Populate config combobox options: blank entry first (= no assignment)
             if (availableConfigs != null && availableConfigs.Count > 0)
@@ -707,6 +772,7 @@ namespace Pulse.UI.ViewModels
             // Seed assignments without firing callbacks
             _assignedConfig = initialAssignment ?? string.Empty;
             _assignedWire   = initialWire ?? string.Empty;
+            _isWireRoutingVisible = initialWireRoutingVisible;
 
             // Populate unassigned pool (Device nodes only)
             if (availableUnassigned != null)

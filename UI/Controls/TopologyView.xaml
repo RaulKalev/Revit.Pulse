@@ -157,6 +157,7 @@
                                                                     <ColumnDefinition Width="*"/>
                                                                     <ColumnDefinition Width="Auto"/>  <!-- wire combobox -->
                                                                     <ColumnDefinition Width="141"/>   <!-- module combobox -->
+                                                                    <ColumnDefinition Width="28"/>    <!-- wire routing toggle -->
                                                                     <ColumnDefinition Width="28"/>    <!-- expand toggle -->
                                                                 </Grid.ColumnDefinitions>
                                                                 <Button Grid.Column="0"
@@ -207,7 +208,31 @@
                                                                           VerticalAlignment="Center" Margin="0,0,4,0"
                                                                           Visibility="{Binding AvailableConfigs.Count,
                                                                                        Converter={StaticResource CountToVisibility}}"/>
+                                                                <!-- Wire routing toggle (col 3) -->
                                                                 <ToggleButton Grid.Column="3"
+                                                                              IsChecked="{Binding IsWireRoutingVisible, Mode=TwoWay}"
+                                                                              ToolTip="Toggle 3-D wire routing lines"
+                                                                              OverridesDefaultStyle="True"
+                                                                              Cursor="Hand" Focusable="False"
+                                                                              Width="28" Background="Transparent"
+                                                                              BorderThickness="0">
+                                                                    <ToggleButton.Template>
+                                                                        <ControlTemplate TargetType="ToggleButton">
+                                                                            <Border Background="Transparent">
+                                                                                <materialDesign:PackIcon x:Name="WireIcon"
+                                                                                    Kind="VectorLine" Width="15" Height="15"
+                                                                                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                                    Foreground="{DynamicResource IconForegroundBrush}"/>
+                                                                            </Border>
+                                                                            <ControlTemplate.Triggers>
+                                                                                <Trigger Property="IsChecked" Value="True">
+                                                                                    <Setter TargetName="WireIcon" Property="Foreground" Value="#FF3C3C"/>
+                                                                                </Trigger>
+                                                                            </ControlTemplate.Triggers>
+                                                                        </ControlTemplate>
+                                                                    </ToggleButton.Template>
+                                                                </ToggleButton>
+                                                                <ToggleButton Grid.Column="4"
                                                                               IsChecked="{Binding IsExpanded, Mode=TwoWay}"
                                                                               OverridesDefaultStyle="True"
                                                                               Cursor="Hand" Focusable="False"
