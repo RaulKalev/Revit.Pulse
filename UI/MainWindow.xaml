@@ -197,7 +197,7 @@
                         <!-- Row 2: System Metrics — collapsed by default -->
                         <controls:SystemMetricsPanel x:Name="MetricsPanel" Grid.Row="2"
                                                      DataContext="{Binding Inspector}"
-                                                     Margin="4,0,4,4"/>
+                                                     Margin="4,6,4,4"/>
                     </Grid>
 
                     <!-- GridSplitter (Left block | Diagram) -->
