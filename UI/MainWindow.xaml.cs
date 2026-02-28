@@ -16,6 +16,7 @@ namespace Pulse.UI
     {
         private readonly WindowResizer _resizer;
         private readonly MainViewModel _viewModel;
+        private double _metricsHeight = 150;
 
         /// <summary>Exposes the root ViewModel so the launch command can flush pending ES writes on close.</summary>
         public MainViewModel ViewModel => _viewModel;
@@ -53,6 +54,13 @@ namespace Pulse.UI
 
             TheDiagramPanel.PanelStateChanged += SavePlacement;
 
+            // Restore metrics panel state.
+            bool metricsExpanded = p?.MetricsPanelExpanded ?? false;
+            _metricsHeight = p?.MetricsPanelHeight ?? 150;
+            MetricsPanel.IsExpanded = metricsExpanded;
+            UpdateMetricsSplitter(metricsExpanded, _metricsHeight);
+            MetricsPanel.ExpandedChanged += isExpanded => UpdateMetricsSplitter(isExpanded, _metricsHeight);
+
             // Auto-load data on first open — no need to press Refresh manually.
             _viewModel.RefreshCommand.Execute(null);
         }
@@ -63,9 +71,33 @@ namespace Pulse.UI
             _viewModel.SaveExpandState();
         }
 
+        private void UpdateMetricsSplitter(bool expanded, double height)
+        {
+            if (expanded)
+            {
+                MetricsSplitterRow.Height = new System.Windows.GridLength(1);
+                MetricsRow.Height         = new System.Windows.GridLength(Math.Max(height, 80));
+            }
+            else
+            {
+                // Snapshot current height before collapsing so we can restore it later.
+                if (MetricsRow.ActualHeight > 28)
+                    _metricsHeight = MetricsRow.ActualHeight;
+                MetricsSplitterRow.Height = new System.Windows.GridLength(0);
+                MetricsRow.Height         = new System.Windows.GridLength(28);
+            }
+        }
+
         private void SavePlacement()
         {
-            WindowPlacementService.Save(Left, Top, Width, Height, TheDiagramPanel.GetExpandedWidth());
+            if (MetricsPanel.IsExpanded && MetricsRow.ActualHeight > 28)
+                _metricsHeight = MetricsRow.ActualHeight;
+
+            WindowPlacementService.Save(
+                Left, Top, Width, Height,
+                TheDiagramPanel.GetExpandedWidth(),
+                MetricsPanel.IsExpanded,
+                _metricsHeight);
         }
 
         // ---- Resize Grip Handlers (same pattern as original ProSchedules) ----
