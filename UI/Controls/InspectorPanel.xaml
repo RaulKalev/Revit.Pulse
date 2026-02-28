@@ -24,13 +24,9 @@
 
     <Border Style="{DynamicResource CardBorderStyle}" Padding="0">
         <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
 
-            <!-- ══ ROW 0 — existing inspector content ══ -->
-            <Grid Grid.Row="0">
+            <!-- ══ full-height inspector content ══ -->
+            <Grid>
 
                 <!-- ── No selection placeholder ── -->
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
@@ -268,32 +264,7 @@
                 </StackPanel>
             </ScrollViewer>
 
-            </Grid><!-- end Row 0 -->
-
-            <!-- ══ ROW 1 — capacity gauges (Panel / Loop only) ══ -->
-            <Border Grid.Row="1"
-                    Visibility="{Binding ShowGauges, Converter={StaticResource BoolToVis}}"
-                    BorderThickness="0,1,0,0"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    Background="{DynamicResource SecondaryBackgroundBrush}"
-                    Padding="4,4,4,4">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <controls:GaugeControl Grid.Column="0"
-                                           Value="{Binding MaUsed}"
-                                           Maximum="{Binding MaMax}"
-                                           Label="Controller Load"
-                                           Unit="mA"/>
-                    <controls:GaugeControl Grid.Column="1"
-                                           Value="{Binding AddressesUsed}"
-                                           Maximum="{Binding AddressesMax}"
-                                           Label="Addresses"
-                                           Unit="addr"/>
-                </Grid>
-            </Border>
+            </Grid>
 
         </Grid>
     </Border>

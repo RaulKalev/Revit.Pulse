@@ -157,23 +157,36 @@
                         <ColumnDefinition Width="300" MinWidth="46" />  <!-- Diagram (MinWidth managed in code-behind: 46 collapsed / 210 expanded) -->
                     </Grid.ColumnDefinitions>
 
-                    <!-- Left block: Topology + Inspector side by side -->
+                    <!-- Left block: Topology + Inspector (top) + System Metrics (bottom) -->
                     <Grid Grid.Column="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" MinWidth="250" />    <!-- Topology -->
-                            <ColumnDefinition Width="1" />                    <!-- Splitter -->
-                            <ColumnDefinition Width="300" MinWidth="300" MaxWidth="300" />  <!-- Inspector -->
-                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                        <controls:TopologyView Grid.Column="0" DataContext="{Binding Topology}" Margin="4"/>
+                        <!-- Row 0: Topology + Inspector side by side -->
+                        <Grid Grid.Row="0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MinWidth="250" />    <!-- Topology -->
+                                <ColumnDefinition Width="1" />                    <!-- Splitter -->
+                                <ColumnDefinition Width="300" MinWidth="300" MaxWidth="300" />  <!-- Inspector -->
+                            </Grid.ColumnDefinitions>
 
-                        <GridSplitter Grid.Column="1"
-                                      Width="1"
-                                      HorizontalAlignment="Stretch"
-                                      Background="{DynamicResource BorderBrush}"
-                                      Cursor="SizeWE"/>
+                            <controls:TopologyView Grid.Column="0" DataContext="{Binding Topology}" Margin="4"/>
 
-                        <controls:InspectorPanel Grid.Column="2" DataContext="{Binding Inspector}" Margin="4"/>
+                            <GridSplitter Grid.Column="1"
+                                          Width="1"
+                                          HorizontalAlignment="Stretch"
+                                          Background="{DynamicResource BorderBrush}"
+                                          Cursor="SizeWE"/>
+
+                            <controls:InspectorPanel Grid.Column="2" DataContext="{Binding Inspector}" Margin="4"/>
+                        </Grid>
+
+                        <!-- Row 1: System Metrics — collapsed by default -->
+                        <controls:SystemMetricsPanel Grid.Row="1"
+                                                     DataContext="{Binding Inspector}"
+                                                     Margin="4,0,4,4"/>
                     </Grid>
 
                     <!-- GridSplitter (Left block | Diagram) -->

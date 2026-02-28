@@ -1,0 +1,143 @@
+<UserControl
+    x:Class="Pulse.UI.Controls.SystemMetricsPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+    xmlns:converters="clr-namespace:Pulse.UI.Converters"
+    xmlns:controls="clr-namespace:Pulse.UI.Controls"
+    mc:Ignorable="d">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/DarkTheme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/ElementStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+            <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <!-- Outer border — sits flush against the panels above -->
+    <Border BorderThickness="0,1,0,0"
+            BorderBrush="{DynamicResource BorderBrush}"
+            Background="{DynamicResource SecondaryBackgroundBrush}">
+        <StackPanel>
+
+            <!-- ── Header row (always visible) ── -->
+            <ToggleButton x:Name="ExpandToggle"
+                          IsChecked="False"
+                          OverridesDefaultStyle="True"
+                          Cursor="Hand"
+                          Focusable="False">
+                <ToggleButton.Template>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="Transparent"
+                                Padding="8,5">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Title -->
+                                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="ChartBar" Width="13" Height="13"
+                                                             VerticalAlignment="Center" Margin="0,0,6,0"
+                                                             Foreground="{DynamicResource IconForegroundBrush}"/>
+                                    <TextBlock Text="SYSTEM METRICS"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource IconForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Chevron -->
+                                <Path x:Name="Chevron"
+                                      Grid.Column="1"
+                                      Data="M 0,0 L 4,4 L 8,0"
+                                      Stroke="{DynamicResource IconForegroundBrush}"
+                                      StrokeThickness="1.5" StrokeLineJoin="Round"
+                                      Width="8" Height="4"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,2,0"
+                                      RenderTransformOrigin="0.5,0.5">
+                                    <Path.RenderTransform>
+                                        <RotateTransform x:Name="ChevronRotate" Angle="-90"/>
+                                    </Path.RenderTransform>
+                                </Path>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ChevronRotate"
+                                                             Storyboard.TargetProperty="Angle"
+                                                             To="0" Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ChevronRotate"
+                                                             Storyboard.TargetProperty="Angle"
+                                                             To="-90" Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </ToggleButton.Template>
+            </ToggleButton>
+
+            <!-- ── Collapsible content ── -->
+            <Border Visibility="{Binding IsChecked, ElementName=ExpandToggle, Converter={StaticResource BoolToVis}}"
+                    BorderThickness="0,1,0,0"
+                    BorderBrush="{DynamicResource BorderBrush}"
+                    Padding="8,8,8,8">
+                <StackPanel>
+
+                    <!-- Gauges (Panel / Loop selected) -->
+                    <Grid Visibility="{Binding ShowGauges, Converter={StaticResource BoolToVis}}">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <controls:GaugeControl Grid.Column="0"
+                                               Value="{Binding MaUsed}"
+                                               Maximum="{Binding MaMax}"
+                                               Label="Controller Load"
+                                               Unit="mA"/>
+                        <controls:GaugeControl Grid.Column="1"
+                                               Value="{Binding AddressesUsed}"
+                                               Maximum="{Binding AddressesMax}"
+                                               Label="Addresses"
+                                               Unit="addr"/>
+                    </Grid>
+
+                    <!-- Empty state (no Panel/Loop selected) -->
+                    <StackPanel HorizontalAlignment="Center"
+                                Visibility="{Binding ShowGauges, Converter={StaticResource InverseBoolToVis}}">
+                        <TextBlock Text="Select a panel or loop to view metrics"
+                                   FontSize="11"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource IconForegroundBrush}"
+                                   Opacity="0.5"
+                                   Margin="0,4,0,4"/>
+                    </StackPanel>
+
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </Border>
+</UserControl>
