@@ -159,6 +159,10 @@
                               Background="Transparent"
                               Padding="0"
                               BorderThickness="0">
+                    <ScrollViewer.Resources>
+                        <!-- Kill the white square where the two scrollbars meet -->
+                        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FF1F1F1F"/>
+                    </ScrollViewer.Resources>
                     <Canvas x:Name="DiagramCanvas"
                             ClipToBounds="False"
                             MouseLeftButtonUp="DiagramCanvas_MouseLeftButtonUp"/>
