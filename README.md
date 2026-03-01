@@ -79,6 +79,10 @@ WPF user interface using Material Design:
 | `SymbolMappingViewModel` | Device-type to custom symbol mapping |
 | `SymbolDesignerViewModel` | Custom symbol drawing canvas |
 | `DiagramFeatureService` | Diagram ↔ topology wire-assignment orchestration |
+| `BoqWindow` | Modeless Bill of Quantities window with aggregated grouping and settings panel |
+| `BoqWindowViewModel` | BOQ root VM — column management, aggregated grouping, sorting, settings persistence |
+| `BoqRowViewModel` | Single BOQ row wrapper; exposes string indexer `[FieldKey]` for DataGrid; carries `Count` for aggregated rows |
+| `BoqColumnViewModel` | Column state VM — `IsVisible`, `DisplayOrder`, `Header`, `FieldKey`, `IsCustom` |
 
 ### Pulse.Modules.FireAlarm
 
@@ -91,11 +95,44 @@ First implemented module:
 | `FireAlarmTopologyBuilder` | Builds Panel → Loop → Device graph; attaches cable length to each loop node |
 | `CableLengthCalculator` | Calculates per-loop cable length using Manhattan (right-angle) routing in Revit internal units, returns metres |
 | `FireAlarmRulePack` | Validates data with 5 rules |
-| `FireAlarmParameterKeys` | Centralized logical parameter key constants |
-
+| `FireAlarmParameterKeys` | Centralized logical parameter key constants || `FireAlarmBoqDataProvider` | Implements `IBoqDataProvider` — maps `ModuleData` to `BoqItem` rows with Revit family name, type name, level, panel, loop, address, and all discovered parameters |
 ---
 
 ## Features
+
+### Bill of Quantities (BOQ) Window
+
+The **BOQ window** is a modeless panel opened from the main toolbar that shows all devices in a configurable DataGrid.
+
+**Column management (settings panel, right-side drawer):**
+- Toggle column visibility by checking/unchecking columns in the settings list
+- Re-order columns with Move Up / Move Down
+- Add custom formula columns via the Custom Column editor
+- Column state persisted to Revit Extensible Storage per document
+
+**Grouping:**
+- Add one or more grouping rules (field key + priority)
+- When active, rows are **aggregated in-memory** — one flat row per unique key combination
+- A **Count** column auto-appears at the far right showing how many devices collapsed into each group
+- Removing all grouping rules restores individual device rows and hides the Count column
+- No collapsible group headers — grouping produces a true BOQ-style summary table
+
+**Sorting:**
+- Independent sort rules with ascending/descending direction and priority order
+- Sort rules persist alongside grouping rules and survive refresh and restart
+
+**Field keys in grouping/sorting dropdowns show only currently visible columns** and update live as visibility changes.
+
+**Family and Type columns:**
+- **Family** = Revit family name (`FamilyInstance.Symbol.Family.Name`)
+- **Type** = Revit type name (`element.Name`)
+- Both injected as built-in `_FamilyName` / `_Name` keys by `RevitCollectorService`
+
+**Settings lifecycle:**
+- Settings auto-save on window close
+- Settings read fresh from ES on each re-open so changes survive both restart and same-session re-open
+
+---
 
 ### Cable Length Calculation
 
@@ -199,6 +236,7 @@ for both read and write:
 | Module Settings | `A7E3B1C2-…-0E1F2A3B4C5E` | `SchemaVersion` (int) + `SettingsJson` (string) |
 | Diagram Settings | `B8F4C2D3-…-1F2A3B4C5D6E` | `DiagramSchemaVersion` (int) + `DiagramSettingsJson` (string) |
 | Topology Assignments | `C9D5E3F4-…-2A3B4C5D6E7F` | `TopologyAssignmentsVersion` (int) + `TopologyAssignmentsJson` (string) |
+| BOQ Settings | `D0E6F4A5-…-3B4C5D6E7F8A` | `BoqSettingsVersion` (int) + `BoqSettingsJson` (string) |
 
 The `TopologyAssignmentsStore` JSON blob includes:
 
@@ -212,6 +250,17 @@ The `TopologyAssignmentsStore` JSON blob includes:
 | `LoopExtraLines` / `LoopRankOverrides` | `Dict<string, *>` | Diagram layout overrides |
 | `LevelElevationOffsets` | `Dict<string, double>` | Per-level elevation adjustments |
 | `SymbolMappings` | `Dict<string, string>` | Device type → custom symbol |
+
+The `BoqSettings` JSON blob includes:
+
+| Key | Type | Purpose |
+|-----|------|---------|
+| `ModuleKey` | `string` | Identifies the owning module |
+| `VisibleColumns` | `List<BoqColumnDefinition>` | Visibility, header, display order for every known column |
+| `ColumnOrder` | `List<string>` | Ordered field keys controlling DataGrid column order |
+| `GroupingRules` | `List<BoqGroupingRule>` | Field key + priority; drives in-memory aggregation |
+| `SortingRules` | `List<BoqSortingRule>` | Field key + direction + priority |
+| `CustomColumns` | `List<BoqCustomColumnDefinition>` | User-defined formula columns |
 
 All data resides on a single `DataStorage` element named `"PulseSettings"`.
 

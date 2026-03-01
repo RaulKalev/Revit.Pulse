@@ -48,6 +48,10 @@ namespace Pulse.Revit.Services
                 // matchers can use it without requiring a configured parameter.
                 data.Parameters["_Name"] = element.Name ?? string.Empty;
 
+                // Expose the Revit family name so BOQ and other consumers can display it.
+                if (element is FamilyInstance fiFamilyInst)
+                    data.Parameters["_FamilyName"] = fiFamilyInst.Symbol?.Family?.Name ?? string.Empty;
+
                 // Inject the elevation (feet) and name of the element's host level,
                 // plus the element's own "Elevation from Level" offset parameter.
                 if (element is FamilyInstance fi && fi.LevelId != ElementId.InvalidElementId)

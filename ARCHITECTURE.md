@@ -1,6 +1,6 @@
 # Pulse — Architecture Guide
 
-> Last updated after the **System Intelligence Dashboard** feature branch.
+> Last updated after the **BOQ Window** feature branch.
 
 This document describes the runtime pipeline, module system, storage
 strategy, and diagram scene-graph that form the backbone of Pulse.
@@ -79,6 +79,7 @@ PulseFireAlarm.Execute()            ← IExternalCommand entry point
             │
             ├─ StorageFacade.ReadDiagramSettings(doc) → DiagramViewModel.LoadVisibility
             ├─ StorageFacade.ReadTopologyAssignments(doc) → TopologyAssignmentsService.Load
+            ├─ StorageFacade.ReadBoqSettings(doc) → MainViewModel._boqSettings
             │
             └─ Automatic first refresh via RefreshPipeline
 ```
@@ -171,6 +172,7 @@ add-in (or future Pulse module) can inspect the data.
 | Module Settings | `A7E3B1C2-4D5F-6A7B-8C9D-0E1F2A3B4C5E` | `PulseModuleSettings` | `SchemaVersion` (int) + `SettingsJson` (string) |
 | Diagram Settings | `B8F4C2D3-5E6A-7B8C-9D0E-1F2A3B4C5D6E` | `PulseDiagramSettings` | `DiagramSchemaVersion` (int) + `DiagramSettingsJson` (string) |
 | Topology Assignments | `C9D5E3F4-6A7B-8C9D-0E1F-2A3B4C5D6E7F` | `PulseTopologyAssignments` | `TopologyAssignmentsVersion` (int) + `TopologyAssignmentsJson` (string) |
+| BOQ Settings | `D0E6F4A5-7B8C-9D0E-1F2A-3B4C5D6E7F8A` | `PulseBoqSettings` | `BoqSettingsVersion` (int) + `BoqSettingsJson` (string) |
 
 All schemas are attached to a single `DataStorage` element named
 `"PulseSettings"`, located via `FilteredElementCollector`.
@@ -312,6 +314,7 @@ canvas while the TreeView projection ignores them.
 | Module settings (categories, param maps) | ES — ModuleSettings schema | Per-document |
 | Diagram visibility (level line/text) | ES — DiagramSettings schema | Per-document |
 | Topology assignments (configs, flips, wires, ranks) | ES — TopologyAssignments schema | Per-document |
+| BOQ settings (column visibility, grouping, sorting, custom columns) | ES — BoqSettings schema | Per-document |
 | Device config (panels, wires, symbols) | JSON `%APPDATA%\Pulse\` | Per-machine |
 | Diagram canvas settings (spacing, paper) | JSON `%APPDATA%\Pulse\` | Per-machine |
 | Custom symbol definitions | JSON `%APPDATA%\Pulse\` | Per-machine |

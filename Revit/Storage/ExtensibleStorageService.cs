@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.DB.ExtensibleStorage;
 using Newtonsoft.Json;
+using Pulse.Core.Boq;
 using Pulse.Core.Logging;
 using Pulse.Core.Modules;
 using Pulse.Core.Settings;
@@ -221,6 +222,68 @@ namespace Pulse.Revit.Storage
         }
 
         // ═══════════════════════════════════════════════════════════════════════
+        //  BOQ settings
+        // ═══════════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Read per-document BOQ settings from Extensible Storage.
+        /// Returns null if nothing has been saved yet.
+        /// </summary>
+        public BoqSettings ReadBoqSettings()
+        {
+            try
+            {
+                var dataStorage = FindDataStorage();
+                if (dataStorage == null) return null;
+
+                string json = ReadJsonFromStorage(dataStorage,
+                    SchemaDefinitions.BoqSettingsSchemaGuid,
+                    SchemaDefinitions.BoqSettingsJsonField);
+
+                if (string.IsNullOrWhiteSpace(json)) return null;
+
+                return JsonConvert.DeserializeObject<BoqSettings>(json);
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Failed to read BOQ settings from Extensible Storage.", ex);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Write BOQ settings to Extensible Storage.
+        /// Must be called from within a Revit API context (ExternalEvent handler).
+        /// </summary>
+        public bool WriteBoqSettings(BoqSettings settings)
+        {
+            try
+            {
+                string json = JsonConvert.SerializeObject(settings, Formatting.None);
+                var schema = GetOrCreateBoqSettingsSchema();
+
+                using (var tx = new Transaction(_doc, "Pulse: Save BOQ Settings"))
+                {
+                    tx.Start();
+                    var dataStorage = FindDataStorage() ?? CreateDataStorage();
+                    var entity = new Entity(schema);
+                    entity.Set(SchemaDefinitions.BoqSettingsVersionField, 1);
+                    entity.Set(SchemaDefinitions.BoqSettingsJsonField, json);
+                    dataStorage.SetEntity(entity);
+                    tx.Commit();
+                }
+
+                _logger.Info("Saved BOQ settings to ES.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("Failed to write BOQ settings to Extensible Storage.", ex);
+                return false;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════
         //  DataStorage helpers
         // ═══════════════════════════════════════════════════════════════════════
 
@@ -285,6 +348,20 @@ namespace Pulse.Revit.Storage
             builder.SetWriteAccessLevel(AccessLevel.Public);
             builder.AddSimpleField(SchemaDefinitions.TopologyAssignmentsVersionField, typeof(int));
             builder.AddSimpleField(SchemaDefinitions.TopologyAssignmentsJsonField, typeof(string));
+            return builder.Finish();
+        }
+
+        private static Schema GetOrCreateBoqSettingsSchema()
+        {
+            var schema = Schema.Lookup(SchemaDefinitions.BoqSettingsSchemaGuid);
+            if (schema != null) return schema;
+
+            var builder = new SchemaBuilder(SchemaDefinitions.BoqSettingsSchemaGuid);
+            builder.SetSchemaName("PulseBoqSettings");
+            builder.SetReadAccessLevel(AccessLevel.Public);
+            builder.SetWriteAccessLevel(AccessLevel.Public);
+            builder.AddSimpleField(SchemaDefinitions.BoqSettingsVersionField, typeof(int));
+            builder.AddSimpleField(SchemaDefinitions.BoqSettingsJsonField, typeof(string));
             return builder.Finish();
         }
 

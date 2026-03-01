@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Input;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using Pulse.Core.Boq;
 using Pulse.Core.Modules;
 using Pulse.Core.Rules;
 using Pulse.Core.Settings;
@@ -13,6 +14,7 @@ using Pulse.Core.Graph;
 using Pulse.Modules.FireAlarm;
 using Pulse.Revit.Services;
 using Pulse.UI;
+using Pulse.UI.Boq;
 
 namespace Pulse.UI.ViewModels
 {
@@ -41,6 +43,11 @@ namespace Pulse.UI.ViewModels
         private readonly TopologyAssignmentsService _assignmentsService;
         private readonly SymbolMappingOrchestrator _symbolOrchestrator;
         private readonly DiagramFeatureService _diagramFeatureService;
+        private readonly BoqSettingsService _boqSettingsService;
+
+        // ── BOQ state ────────────────────────────────────────────────────────
+        private BoqSettings _boqSettings;
+        private BoqWindow   _boqWindow;
 
         /// <summary>Compatibility shortcut — returns the live store from the assignments service.</summary>
         private TopologyAssignmentsStore _topologyAssignments => _assignmentsService.Store;
@@ -169,6 +176,7 @@ namespace Pulse.UI.ViewModels
             };
             _symbolOrchestrator = new SymbolMappingOrchestrator();
             _diagramFeatureService = new DiagramFeatureService(_appController);
+            _boqSettingsService = new BoqSettingsService(_storageFacade);
 
             // Create child ViewModels
             Topology  = new TopologyViewModel();
@@ -186,8 +194,7 @@ namespace Pulse.UI.ViewModels
                 _selectionFacade.HighlightElements(ids ?? System.Linq.Enumerable.Empty<long>());
             Metrics.Toggle3DRoutingRequested = () =>
                 StatusText = "Toggle 3D Routing: select a loop in the tree to enable routing.";
-            Metrics.OpenBOQRequested = () =>
-                StatusText = "BOQ export is not yet implemented.";
+            Metrics.OpenBOQRequested = ExecuteOpenBOQ;
 
             // Wire up topology selection events
             Topology.NodeSelected     += OnTopologyNodeSelected;
@@ -522,6 +529,9 @@ namespace Pulse.UI.ViewModels
                 _assignmentsService.Load(_storageFacade.ReadTopologyAssignments(doc));
                 Inspector.DeviceStore = DeviceConfigService.Load();
                 Inspector.AssignmentsStore = _topologyAssignments;
+
+                // Load BOQ settings
+                _boqSettings = _storageFacade.ReadBoqSettings(doc);
             }
             catch
             {
@@ -564,6 +574,56 @@ namespace Pulse.UI.ViewModels
             };
 
             win.ShowDialog();
+        }
+
+        /// <summary>
+        /// Open the modeless BOQ window for the active module.
+        /// Re-uses an existing open window instead of creating a duplicate.
+        /// </summary>
+        private void ExecuteOpenBOQ()
+        {
+            // Bring existing window to front if already open.
+            if (_boqWindow != null)
+            {
+                try
+                {
+                    _boqWindow.Activate();
+                    _boqWindow.WindowState = System.Windows.WindowState.Normal;
+                    return;
+                }
+                catch
+                {
+                    // Window was closed externally — fall through to create a new one.
+                    _boqWindow = null;
+                }
+            }
+
+            var dataProvider = new FireAlarmBoqDataProvider();
+
+            var vm = new BoqWindowViewModel(
+                dataProvider:    dataProvider,
+                settingsService: _boqSettingsService,
+                initialSettings: _boqSettings,
+                initialData:     _appController.CurrentData,
+                requestRefresh:  (onSuccess, onError) =>
+                    _refreshPipeline.Execute(
+                        _appController.ActiveModule,
+                        _appController.ActiveSettings,
+                        onSuccess,
+                        onError));
+
+            _boqWindow = new BoqWindow(vm);
+            _boqWindow.Closed += (_, __) =>
+            {
+                // Keep the cached settings current so a re-opened window in the same
+                // session gets the last-saved state rather than the stale startup copy.
+                _boqSettings = vm.CurrentSettings;
+                _boqWindow = null;
+            };
+
+            // Modeless — use Show(), not ShowDialog().
+            _boqWindow.Show();
+            StatusText = "BOQ window opened.";
         }
 
         /// <summary>Save topology expand state to %APPDATA%\Pulse\ui-state.json.</summary>

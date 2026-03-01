@@ -39,5 +39,12 @@ namespace Pulse.Revit.Storage
 
         public const string TopologyAssignmentsJsonField    = "TopologyAssignmentsJson";
         public const string TopologyAssignmentsVersionField = "TopologyAssignmentsVersion";
-    }
+        // ─── BOQ settings schema ───────────────────────────────────────────────
+        // GUID must never be changed — create a new versioned entry instead.
+
+        public static readonly Guid BoqSettingsSchemaGuid =
+            new Guid("D1A6F4E5-7B8C-9D0E-1F2A-3B4C5D6E7F8A");
+
+        public const string BoqSettingsJsonField    = "BoqSettingsJson";
+        public const string BoqSettingsVersionField = "BoqSettingsVersion";    }
 }

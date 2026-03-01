@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using Pulse.Core.Boq;
 using Pulse.Core.Logging;
 using Pulse.Core.Modules;
 using Pulse.Core.Settings;
@@ -36,6 +37,10 @@ namespace Pulse.Revit.Services
         private readonly SaveTopologyAssignmentsHandler _saveAssignmentsHandler;
         private readonly ExternalEvent _saveAssignmentsEvent;
 
+        // Save BOQ settings (writes to ES)
+        private readonly SaveBoqSettingsHandler _saveBoqSettingsHandler;
+        private readonly ExternalEvent _saveBoqSettingsEvent;
+
         // Pick element from Revit viewport
         private readonly PickElementHandler _pickElementHandler;
         private readonly ExternalEvent _pickElementEvent;
@@ -61,6 +66,9 @@ namespace Pulse.Revit.Services
 
             _saveAssignmentsHandler = new SaveTopologyAssignmentsHandler();
             _saveAssignmentsEvent = ExternalEvent.Create(_saveAssignmentsHandler);
+
+            _saveBoqSettingsHandler = new SaveBoqSettingsHandler();
+            _saveBoqSettingsEvent = ExternalEvent.Create(_saveBoqSettingsHandler);
 
             _pickElementHandler = new PickElementHandler();
             _pickElementEvent = ExternalEvent.Create(_pickElementHandler);
@@ -121,6 +129,24 @@ namespace Pulse.Revit.Services
             {
                 _logger.Error("StorageFacade.ReadTopologyAssignments failed.", ex);
                 return new TopologyAssignmentsStore();
+            }
+        }
+
+        /// <summary>
+        /// Read BOQ settings from ES. Returns null if not yet saved.
+        /// Must be called from the Revit API thread.
+        /// </summary>
+        public BoqSettings ReadBoqSettings(Document doc)
+        {
+            if (doc == null) return null;
+            try
+            {
+                return new ExtensibleStorageService(doc, _logger).ReadBoqSettings();
+            }
+            catch (Exception ex)
+            {
+                _logger.Error("StorageFacade.ReadBoqSettings failed.", ex);
+                return null;
             }
         }
 
@@ -193,6 +219,17 @@ namespace Pulse.Revit.Services
         {
             _saveAssignmentsHandler.Store = store;
             _saveAssignmentsEvent.Raise();
+        }
+
+        /// <summary>
+        /// Save BOQ settings to ES via ExternalEvent (safe to call from WPF thread).
+        /// </summary>
+        public void SaveBoqSettings(BoqSettings settings, Action onSaved = null, Action<Exception> onError = null)
+        {
+            _saveBoqSettingsHandler.Settings = settings;
+            _saveBoqSettingsHandler.OnSaved  = onSaved;
+            _saveBoqSettingsHandler.OnError  = onError;
+            _saveBoqSettingsEvent.Raise();
         }
 
         /// <summary>

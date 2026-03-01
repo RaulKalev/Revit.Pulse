@@ -117,3 +117,23 @@ Every item must pass before the commit is considered safe.
 - [ ] `dotnet build -c Debug` succeeds for both net48 and net8.0-windows.
 - [ ] No warnings related to target-framework mismatches.
 - [ ] Zero CS errors after each commit.
+
+## 17. BOQ Window
+- [ ] **Open BOQ** button in toolbar opens the modeless BOQ window.
+- [ ] Re-clicking Open BOQ brings existing window to front (no duplicates).
+- [ ] DataGrid is populated with one row per device after initial refresh.
+- [ ] Standard columns visible by default: Category, Family, Type, Level, Panel, Loop.
+- [ ] Family column shows Revit **family name**; Type column shows Revit **type name**.
+- [ ] Discovered Revit parameter columns appear in the settings panel (hidden by default).
+- [ ] Toggling column visibility in the settings panel shows/hides the column in the grid.
+- [ ] **Apply** button in settings panel persists and re-applies column, grouping, and sorting state.
+- [ ] Column visibility, grouping rules, and sorting rules survive Revit save/close/reopen.
+- [ ] Grouping/sorting field-key dropdowns only list **visible** columns.
+- [ ] Adding a grouping rule and pressing Apply aggregates rows; Count column appears at far right.
+- [ ] Count value equals the number of individual devices in that group.
+- [ ] Removing all grouping rules restores individual device rows; Count column disappears.
+- [ ] Grouping and sorting rules are **preserved** when pressing Refresh — not cleared.
+- [ ] Adding a sorting rule sorts grid rows in the chosen direction after Apply.
+- [ ] Custom Column editor opens and the new formula column appears in the grid.
+- [ ] Export Settings writes a valid JSON file; Import Settings restores that state.
+- [ ] Closing the BOQ window auto-saves settings; re-opening shows last saved state.
