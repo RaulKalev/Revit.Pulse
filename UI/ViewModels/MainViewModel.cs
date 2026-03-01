@@ -56,6 +56,7 @@ namespace Pulse.UI.ViewModels
         public TopologyViewModel Topology { get; }
         public InspectorViewModel Inspector { get; }
         public DiagramViewModel Diagram { get; }
+        public MetricsPanelViewModel Metrics { get; }
 
         // Commands
         public ICommand RefreshCommand { get; }
@@ -170,13 +171,23 @@ namespace Pulse.UI.ViewModels
             _diagramFeatureService = new DiagramFeatureService(_appController);
 
             // Create child ViewModels
-            Topology = new TopologyViewModel();
+            Topology  = new TopologyViewModel();
             Inspector = new InspectorViewModel();
             Inspector.CurrentDrawValueCommitted += OnCurrentDrawValueCommitted;
             Topology.SubDeviceAssignRequested      += OnSubDeviceAssignRequested;
             Topology.PickElementForDeviceRequested += OnPickElementForDeviceRequested;
             Topology.SubDeviceRemoveRequested      += OnSubDeviceRemoveRequested;
-            Diagram = new DiagramViewModel();
+            Diagram   = new DiagramViewModel();
+
+            // Metrics panel ViewModel — highlight callback is wired here so it can
+            // reach the SelectionHighlightFacade without coupling the ViewModel to Revit.
+            Metrics = new MetricsPanelViewModel();
+            Metrics.HighlightElementsRequested = ids =>
+                _selectionFacade.HighlightElements(ids ?? System.Linq.Enumerable.Empty<long>());
+            Metrics.Toggle3DRoutingRequested = () =>
+                StatusText = "Toggle 3D Routing: select a loop in the tree to enable routing.";
+            Metrics.OpenBOQRequested = () =>
+                StatusText = "BOQ export is not yet implemented.";
 
             // Wire up topology selection events
             Topology.NodeSelected     += OnTopologyNodeSelected;
@@ -299,9 +310,12 @@ namespace Pulse.UI.ViewModels
             Diagram.LoadLevelElevationOffsets(_topologyAssignments);
             Diagram.LoadPanels(data.Panels, data.Loops, devStore);
 
+            // Refresh metrics panel with the new data
+            Metrics.Refresh(data, _topologyAssignments, devStore);
+
             // Update status
             int panelCount = data.Panels.Count;
-            int loopCount = data.Loops.Count;
+            int loopCount  = data.Loops.Count;
             StatusText = $"{TotalDevices} devices | {panelCount} panels | {loopCount} loops | {TotalWarnings} warnings | {TotalErrors} errors";
 
             // Sub-device assignment diagnostic: tell the user exactly why a pick did/didn't appear.
@@ -353,10 +367,12 @@ namespace Pulse.UI.ViewModels
             if (node == null)
             {
                 Inspector.Clear();
+                Metrics.LoadNode(null, _appController.CurrentData, _topologyAssignments, DeviceConfigService.Load());
                 return;
             }
 
             Inspector.LoadNode(node, _appController.CurrentData);
+            Metrics.LoadNode(node, _appController.CurrentData, _topologyAssignments, DeviceConfigService.Load());
 
             // If the node has a Revit element, select it in the model
             if (node.RevitElementId.HasValue)

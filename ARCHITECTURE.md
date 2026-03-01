@@ -1,6 +1,6 @@
 # Pulse — Architecture Guide
 
-> Last updated after the **back-on-track-nonbreaking** refactor branch.
+> Last updated after the **System Intelligence Dashboard** feature branch.
 
 This document describes the runtime pipeline, module system, storage
 strategy, and diagram scene-graph that form the backbone of Pulse.
@@ -32,6 +32,10 @@ strategy, and diagram scene-graph that form the backbone of Pulse.
 │                     IModuleDefinition, Capabilities  │
 │                     TopologyAssignmentsService,      │
 │                     SymbolMappingOrchestrator        │
+│    Modules/Metrics — SystemMetricsCalculator,        │
+│                     CapacityMetrics, HealthIssueItem │
+│                     DistributionGroup, CablingMetrics│
+│                     SystemCheckPromptBuilder         │
 │    Graph          — Node, Edge (topology tree)       │
 │    Graph/Canvas   — DiagramScene, CanvasGraphModel,  │
 │                     LevelAnchor, PanelCluster …      │
@@ -63,6 +67,7 @@ PulseFireAlarm.Execute()            ← IExternalCommand entry point
             ├─ TopologyAssignmentsService — per-document assignment lifecycle
             ├─ SymbolMappingOrchestrator  — custom symbol library + mapping
             ├─ DiagramFeatureService      — diagram wire orchestration
+            ├─ MetricsPanelViewModel      — System Intelligence Dashboard
             │
             ├─ ModuleCatalog.Discover(expectedModuleIds, [FireAlarmFallback])
             │    └─ reflection scan → register into PulseAppController
@@ -325,7 +330,53 @@ handlers → `ExtensibleStorageService` → Revit transaction.
 
 ---
 
-## 8. How to Add a Module
+## 8. Metrics Pipeline
+
+### 9.1 Overview
+
+The **System Intelligence Dashboard** runs on `MainViewModel.LoadNode` /
+`Refresh` and is entirely stateless in the calculation layer.
+
+```
+MainViewModel.LoadNode(node) / Refresh()
+  └─ MetricsPanelViewModel.LoadPanel(panelInfo, loopInfos, data, cfg)
+       ├─ BuildCapacity()     → SystemMetricsCalculator.ComputeForPanel / ComputeForLoop
+       ├─ BuildHealth()       → SystemMetricsCalculator.ComputeHealthIssues
+       │                         + ComputeCapacityHealthIssues(_lastCap)
+       ├─ BuildDistribution() → SystemMetricsCalculator.ComputeDistribution
+       └─ BuildCabling()      → SystemMetricsCalculator.ComputeCabling (loops sorted numerically)
+```
+
+### 9.2 Metrics Layer
+
+| Type | Location | Purpose |
+|------|----------|---------|
+| `MetricsThresholds` | `Core/Modules/Metrics/` | Warning=0.70, Critical=0.85 |
+| `CapacityMetrics` | `Core/Modules/Metrics/` | Address/mA usage, status enum, computed summaries |
+| `HealthIssueItem` | `Core/Modules/Metrics/` | Single health row: rule name, description, count, status, element ids |
+| `DistributionGroup` | `Core/Modules/Metrics/` | Device-type group with name, count, fraction |
+| `CablingMetrics` | `Core/Modules/Metrics/` | Per-loop cable data + aggregate total |
+| `SystemMetricsCalculator` | `Core/Modules/Metrics/` | Stateless calculator — all `Compute*` methods |
+| `SystemCheckPromptBuilder` | `Core/Modules/Metrics/` | Builds structured AI review prompt string |
+
+### 9.3 MaxAddresses Override
+
+`ControlPanelConfig.MaxAddresses` (default `0`) lets users specify a
+fixed address ceiling per panel. When non-zero it replaces the automatic
+`AddressesPerLoop × loopCount` calculation in both `SystemMetricsCalculator`
+and `InspectorViewModel`. Setting it back to `0` restores automatic behaviour.
+
+### 9.4 Capacity Health Integration
+
+After `BuildCapacity()` stores the computed `CapacityMetrics` in `_lastCap`,
+`BuildHealth()` appends `ComputeCapacityHealthIssues(_lastCap)` to the
+rule-based health items. This means address or mA overreach automatically
+appears as Warning/Error rows in the Health Status section without any
+duplication of threshold logic.
+
+---
+
+## 9. How to Add a Module
 
 1. Create `Modules/YourModule/` with a class implementing `IModuleDefinition`.
 2. Declare `Capabilities` flags for the features your module supports.

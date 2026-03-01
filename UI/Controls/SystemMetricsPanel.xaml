@@ -15,8 +15,71 @@
                 <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/DarkTheme.xaml" />
                 <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/ElementStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- ── Boolean / visibility ── -->
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
+            <converters:CountToVisibilityConverter x:Key="CountToVis"/>
+
+            <!-- ── Metrics colour converters ── -->
+            <converters:CapacityStatusToBrushConverter x:Key="CapStatusToBrush"/>
+            <converters:HealthStatusToBrushConverter   x:Key="HealthStatusToBrush"/>
+
+            <!-- ── Reusable style for section-header toggle buttons ── -->
+            <Style x:Key="SectionHeaderToggle" TargetType="ToggleButton">
+                <Setter Property="OverridesDefaultStyle" Value="True"/>
+                <Setter Property="Cursor"    Value="Hand"/>
+                <Setter Property="Focusable" Value="False"/>
+                <Setter Property="HorizontalContentAlignment" Value="Left"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ToggleButton">
+                            <Border x:Name="Bd" Background="Transparent" Padding="8,3">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <ContentPresenter Grid.Column="0"
+                                                      HorizontalAlignment="Left"
+                                                      VerticalAlignment="Center"/>
+                                    <!-- Chevron-down (section expanded) -->
+                                    <Path x:Name="ChevDown" Grid.Column="1"
+                                          Data="M 0,0 L 4,4 L 8,0"
+                                          Stroke="{DynamicResource IconForegroundBrush}"
+                                          StrokeThickness="1.5" StrokeLineJoin="Round"
+                                          Width="8" Height="4"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Margin="4,0,2,0"
+                                          Visibility="Collapsed"/>
+                                    <!-- Chevron-up (section collapsed) -->
+                                    <Path x:Name="ChevUp" Grid.Column="1"
+                                          Data="M 0,4 L 4,0 L 8,4"
+                                          Stroke="{DynamicResource IconForegroundBrush}"
+                                          StrokeThickness="1.5" StrokeLineJoin="Round"
+                                          Width="8" Height="4"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"
+                                          Margin="4,0,2,0"
+                                          Visibility="Visible"/>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="ChevDown" Property="Visibility" Value="Visible"/>
+                                    <Setter TargetName="ChevUp"   Property="Visibility" Value="Collapsed"/>
+                                </Trigger>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background"
+                                            Value="{DynamicResource SelectionHoverBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -26,10 +89,14 @@
             BorderThickness="1"
             CornerRadius="5,5,0,0"
             ClipToBounds="True">
-        <StackPanel>
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
 
             <!-- ── Header row (always visible) ── -->
-            <ToggleButton x:Name="ExpandToggle"
+            <ToggleButton x:Name="ExpandToggle" Grid.Row="0"
                           IsChecked="False"
                           OverridesDefaultStyle="True"
                           Cursor="Hand"
@@ -45,12 +112,16 @@
                                 </Grid.ColumnDefinitions>
 
                                 <!-- Title -->
-                                <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                    <materialDesign:PackIcon Kind="ChartBar" Width="13" Height="13"
+                                <StackPanel x:Name="TitleStack" Grid.Column="0" Orientation="Horizontal"
+                                            HorizontalAlignment="Center">
+                                    <materialDesign:PackIcon x:Name="HeaderIcon"
+                                                             Kind="ChartBar" Width="13" Height="13"
                                                              VerticalAlignment="Center" Margin="0,0,6,0"
-                                                             Foreground="{DynamicResource IconForegroundBrush}"/>
-                                    <TextBlock Text="SYSTEM METRICS"
-                                               FontSize="10" FontWeight="SemiBold"
+                                                             Foreground="{DynamicResource IconForegroundBrush}"
+                                                             Visibility="Collapsed"/>
+                                    <TextBlock x:Name="HeaderText"
+                                               Text="SYSTEM METRICS"
+                                               FontSize="10" FontWeight="Bold"
                                                Foreground="{DynamicResource IconForegroundBrush}"
                                                VerticalAlignment="Center"/>
                                 </StackPanel>
@@ -73,7 +144,11 @@
                             </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
+                            <!-- Expanded state: restore icon, normal weight, left-align -->
                             <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="HeaderIcon" Property="Visibility" Value="Visible"/>
+                                <Setter TargetName="HeaderText" Property="FontWeight" Value="SemiBold"/>
+                                <Setter TargetName="TitleStack" Property="HorizontalAlignment" Value="Left"/>
                                 <Trigger.EnterActions>
                                     <BeginStoryboard>
                                         <Storyboard>
@@ -102,45 +177,475 @@
             </ToggleButton>
 
             <!-- ── Collapsible content ── -->
-            <Border Visibility="{Binding IsChecked, ElementName=ExpandToggle, Converter={StaticResource BoolToVis}}"
+            <Border Grid.Row="1"
+                    Visibility="{Binding IsChecked, ElementName=ExpandToggle, Converter={StaticResource BoolToVis}}"
                     BorderThickness="0,1,0,0"
-                    BorderBrush="{DynamicResource BorderBrush}"
-                    Padding="8,8,8,8">
-                <StackPanel>
+                    BorderBrush="{DynamicResource BorderBrush}">
 
-                    <!-- Gauges (Panel / Loop selected) -->
-                    <Grid Height="110"
-                          Visibility="{Binding ShowGauges, Converter={StaticResource BoolToVis}}">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <controls:GaugeControl Grid.Column="0"
-                                               Value="{Binding MaUsed}"
-                                               Maximum="{Binding MaMax}"
-                                               Label="Controller Load"
-                                               Unit="mA"/>
-                        <controls:GaugeControl Grid.Column="1"
-                                               Value="{Binding AddressesUsed}"
-                                               Maximum="{Binding AddressesMax}"
-                                               Label="Addresses"
-                                               Unit="addr"/>
-                    </Grid>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
 
-                    <!-- Empty state (no Panel/Loop selected) -->
-                    <StackPanel HorizontalAlignment="Center"
-                                Visibility="{Binding ShowGauges, Converter={StaticResource InverseBoolToVis}}">
-                        <TextBlock Text="Select a panel or loop to view metrics"
-                                   FontSize="11"
-                                   HorizontalAlignment="Center"
+                    <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <!-- HEADER SECTION                                     -->
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <StackPanel Margin="8,8,8,4">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Status dot + context title -->
+                                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Ellipse Width="7" Height="7" Margin="0,0,5,0" VerticalAlignment="Center"
+                                             Fill="{Binding OverallStatus, Converter={StaticResource HealthStatusToBrush}}"/>
+                                    <TextBlock Text="{Binding ContextTitle}"
+                                               FontSize="11" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               TextTrimming="CharacterEllipsis"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Overall status badge -->
+                                <Border Grid.Column="1" CornerRadius="3" Padding="5,1"
+                                        Background="{Binding OverallStatus, Converter={StaticResource HealthStatusToBrush}}"
+                                        Opacity="0.25"
+                                        Margin="4,0,0,0">
+                                    <TextBlock Text="{Binding OverallStatusLabel}"
+                                               FontSize="8" FontWeight="SemiBold" Foreground="White"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                            </Grid>
+
+                            <TextBlock Text="{Binding ContextSubtitle}"
+                                       FontSize="9" Margin="0,2,0,0"
+                                       Foreground="{DynamicResource IconForegroundBrush}"
+                                       TextTrimming="CharacterEllipsis"/>
+                        </StackPanel>
+
+                        <!-- Section separator -->
+                        <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,2,8,0"/>
+
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <!-- CAPACITY SECTION                                  -->
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <ToggleButton Style="{StaticResource SectionHeaderToggle}"
+                                      IsChecked="{Binding IsCapacitySectionExpanded, Mode=TwoWay}">
+                            <TextBlock Text="CAPACITY"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource IconForegroundBrush}"/>
+                        </ToggleButton>
+
+                        <StackPanel Visibility="{Binding IsCapacitySectionExpanded, Converter={StaticResource BoolToVis}}">
+
+                            <!-- Gauges (Panel / Loop selected — backward-compat) -->
+                            <Grid Height="110" Margin="8,0,8,0"
+                                  Visibility="{Binding ShowGauges, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <controls:GaugeControl Grid.Column="0"
+                                                       Value="{Binding MaUsed}"
+                                                       Maximum="{Binding MaMax}"
+                                                       Label="Controller Load"
+                                                       Unit="mA"/>
+                                <controls:GaugeControl Grid.Column="1"
+                                                       Value="{Binding AddressesUsed}"
+                                                       Maximum="{Binding AddressesMax}"
+                                                       Label="Addresses"
+                                                       Unit="addr"/>
+                            </Grid>
+
+                            <!-- Structured numeric summaries -->
+                            <StackPanel Margin="8,2,8,4"
+                                        Visibility="{Binding ShowGauges, Converter={StaticResource BoolToVis}}">
+
+                                <!-- Address row -->
+                                <Grid Margin="0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Width="6" Height="6" Margin="0,0,5,0"
+                                             VerticalAlignment="Center"
+                                             Fill="{Binding AddressCapacityStatus, Converter={StaticResource CapStatusToBrush}}"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding AddressSummary}"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding RemainingAddressesSummary}"
+                                               FontSize="9" Opacity="0.55"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+
+                                <!-- mA row -->
+                                <Grid Margin="0,1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Ellipse Grid.Column="0" Width="6" Height="6" Margin="0,0,5,0"
+                                             VerticalAlignment="Center"
+                                             Fill="{Binding MaCapacityStatus, Converter={StaticResource CapStatusToBrush}}"/>
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding MaSummary}"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding RemainingMaSummary}"
+                                               FontSize="9" Opacity="0.55"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+
+                            </StackPanel>
+
+                            <!-- Empty state (no Panel/Loop selected or no config assigned) -->
+                            <StackPanel HorizontalAlignment="Center" Margin="0,4,0,4"
+                                        Visibility="{Binding ShowGauges, Converter={StaticResource InverseBoolToVis}}">
+                                <TextBlock Text="Select a panel or loop to view capacity"
+                                           FontSize="10" HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.5"/>
+                            </StackPanel>
+
+                        </StackPanel>
+
+                        <!-- Section separator -->
+                        <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,2,8,0"/>
+
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <!-- HEALTH STATUS SECTION                              -->
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <ToggleButton Style="{StaticResource SectionHeaderToggle}"
+                                      IsChecked="{Binding IsHealthSectionExpanded, Mode=TwoWay}">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="HEALTH STATUS"
+                                           FontSize="9" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           VerticalAlignment="Center"/>
+                                <Border CornerRadius="8" Padding="4,0" Margin="5,0,0,0"
+                                        Background="#40DC6B6B"
+                                        Visibility="{Binding TotalHealthIssueCount, Converter={StaticResource CountToVis}}">
+                                    <TextBlock Text="{Binding TotalHealthIssueCount}"
+                                               FontSize="8" Foreground="#FFDC6B6B"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                            </StackPanel>
+                        </ToggleButton>
+
+                        <ItemsControl Margin="0,0,0,4"
+                                      ItemsSource="{Binding HealthIssues}"
+                                      Visibility="{Binding IsHealthSectionExpanded, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="8,2,8,2">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="10"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Status dot -->
+                                        <Ellipse Grid.Column="0" Width="7" Height="7"
+                                                 VerticalAlignment="Center"
+                                                 Fill="{Binding Status, Converter={StaticResource HealthStatusToBrush}}"/>
+
+                                        <!-- Description -->
+                                        <TextBlock Grid.Column="1" Margin="6,0,4,0"
+                                                   Text="{Binding Description}"
+                                                   FontSize="10"
+                                                   Foreground="{DynamicResource ForegroundBrush}"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis"/>
+
+                                        <!-- Count badge (only when > 0) -->
+                                        <Border Grid.Column="2" CornerRadius="8" Padding="4,0" Margin="0,0,4,0"
+                                                Background="#33FFFFFF"
+                                                Visibility="{Binding HasCount, Converter={StaticResource BoolToVis}}">
+                                            <TextBlock Text="{Binding Count}"
+                                                       FontSize="9"
+                                                       Foreground="{DynamicResource ForegroundBrush}"
+                                                       VerticalAlignment="Center"/>
+                                        </Border>
+
+                                        <!-- Highlight button -->
+                                        <Button Grid.Column="3"
+                                                Command="{Binding HighlightCommand}"
+                                                ToolTip="Highlight in Revit"
+                                                Style="{StaticResource PulseActionButtonStyle}"
+                                                Padding="4,1" FontSize="8"
+                                                Visibility="{Binding HasCount, Converter={StaticResource BoolToVis}}">
+                                            <materialDesign:PackIcon Kind="Crosshairs"
+                                                                     Width="10" Height="10"
+                                                                     VerticalAlignment="Center"/>
+                                        </Button>
+
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- Section separator -->
+                        <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,0,8,0"/>
+
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <!-- DISTRIBUTION SECTION                               -->
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <ToggleButton Style="{StaticResource SectionHeaderToggle}"
+                                      IsChecked="{Binding IsDistributionSectionExpanded, Mode=TwoWay}">
+                            <TextBlock Text="DISTRIBUTION"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource IconForegroundBrush}"/>
+                        </ToggleButton>
+
+                        <ItemsControl Margin="0,0,0,4"
+                                      ItemsSource="{Binding DistributionGroups}"
+                                      Visibility="{Binding IsDistributionSectionExpanded, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel Margin="8,2,8,2">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding Name}"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource ForegroundBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding Count}"
+                                                       FontSize="10" FontWeight="SemiBold"
+                                                       Foreground="{DynamicResource ForegroundBrush}"
+                                                       HorizontalAlignment="Right"/>
+                                        </Grid>
+                                        <!-- Inline fraction bar -->
+                                        <ProgressBar Value="{Binding Fraction}" Maximum="1.0"
+                                                     Height="3" Margin="0,2,0,0"
+                                                     Foreground="#FF0078D7"
+                                                     Background="#22FFFFFF"
+                                                     BorderThickness="0"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <TextBlock Margin="8,4,8,4" FontSize="10" Opacity="0.5"
                                    Foreground="{DynamicResource IconForegroundBrush}"
-                                   Opacity="0.5"
-                                   Margin="0,4,0,4"/>
-                    </StackPanel>
+                                   Text="Select a panel or loop to view distribution"
+                                   Visibility="{Binding DistributionGroups.Count, Converter={StaticResource CountToVis}, ConverterParameter=Invert}"
+                                   HorizontalAlignment="Center"/>
 
-                </StackPanel>
+                        <!-- Section separator -->
+                        <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,0,8,0"/>
+
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <!-- CABLING & SPATIAL SECTION                          -->
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <ToggleButton Style="{StaticResource SectionHeaderToggle}"
+                                      IsChecked="{Binding IsCablingSectionExpanded, Mode=TwoWay}"
+                                      Visibility="{Binding ShowCablingSection, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="CABLING &amp; SPATIAL"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource IconForegroundBrush}"/>
+                        </ToggleButton>
+
+                        <StackPanel Margin="0,0,0,4"
+                                    Visibility="{Binding IsCablingSectionExpanded, Converter={StaticResource BoolToVis}}">
+
+                            <!-- Panel/multi-loop summary -->
+                            <Grid Margin="8,2,8,1"
+                                  Visibility="{Binding ShowCablingSection, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Total cable" FontSize="10"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding TotalCableLengthDisplay}"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource ForegroundBrush}"/>
+                            </Grid>
+                            <Grid Margin="8,1,8,4"
+                                  Visibility="{Binding ShowCablingSection, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Longest loop" FontSize="10"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1" Text="{Binding LongestLoopDisplay}"
+                                           FontSize="10" Opacity="0.7"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           MaxWidth="120" TextTrimming="CharacterEllipsis"/>
+                            </Grid>
+
+                            <!-- Per-loop breakdown -->
+                            <ItemsControl Margin="0,0,0,0"
+                                          ItemsSource="{Binding LoopCablingInfos}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="8,1,8,1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{Binding LoopName}"
+                                                       FontSize="10" Opacity="0.7"
+                                                       Foreground="{DynamicResource ForegroundBrush}"
+                                                       TextTrimming="CharacterEllipsis"/>
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding LengthDisplay}"
+                                                       FontSize="10"
+                                                       Foreground="{DynamicResource ForegroundBrush}"
+                                                       Margin="6,0,0,0"/>
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding MetresPerDevice, StringFormat={}{0:F1} m/dev}"
+                                                       FontSize="9" Opacity="0.55"
+                                                       Foreground="{DynamicResource ForegroundBrush}"
+                                                       Margin="6,0,0,0"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+
+                            <!-- Placeholder fields (future: voltage drop / complexity score) -->
+                            <!-- <TextBlock Text="Voltage drop estimate: —" .../> -->
+                            <!-- <TextBlock Text="Complexity score: —" .../> -->
+
+                        </StackPanel>
+
+                        <!-- Section separator (only when cabling is visible) -->
+                        <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,0,8,0"
+                                Visibility="{Binding ShowCablingSection, Converter={StaticResource BoolToVis}}"/>
+
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- ═══════════════════════════════════════════════════ -->
+                    <!-- QUICK ACTIONS — pinned to bottom                   -->
+                    <!-- ═══════════════════════════════════════════════════ -->
+                    <Border Grid.Row="1"
+                            BorderThickness="0,1,0,0"
+                            BorderBrush="{DynamicResource BorderBrush}">
+                        <StackPanel Margin="8,6,8,8">
+
+                            <TextBlock Text="QUICK ACTIONS"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource IconForegroundBrush}"
+                                       Margin="0,0,0,5"/>
+
+                            <!-- Single-row action buttons -->
+                            <UniformGrid Rows="1" Columns="4" Margin="0,0,0,4">
+
+                                <!-- Run System Check -->
+                                <Button Command="{Binding RunSystemCheckCommand}"
+                                        Style="{StaticResource PulseActionButtonStyle}"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Padding="6,6" Margin="0,0,2,0"
+                                        ToolTip="Run System Check">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="RobotHappy" Width="13" Height="13"
+                                                                 VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
+                                        <TextBlock Text="Check" FontSize="10"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource ForegroundBrush}"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Highlight Issues -->
+                                <Button Command="{Binding HighlightIssuesCommand}"
+                                        Style="{StaticResource PulseActionButtonStyle}"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Padding="6,6" Margin="0,0,2,0"
+                                        ToolTip="Highlight Issues in Revit">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Crosshairs" Width="13" Height="13"
+                                                                 VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
+                                        <TextBlock Text="Highlight" FontSize="10"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource ForegroundBrush}"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Toggle 3D Routing -->
+                                <Button Command="{Binding Toggle3DRoutingCommand}"
+                                        Style="{StaticResource PulseActionButtonStyle}"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Padding="6,6" Margin="0,0,2,0"
+                                        ToolTip="Toggle 3D Cable Routing">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="VectorPolyline" Width="13" Height="13"
+                                                                 VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
+                                        <TextBlock Text="3D Route" FontSize="10"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource ForegroundBrush}"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Open BOQ (placeholder) -->
+                                <Button Command="{Binding OpenBOQCommand}"
+                                        Style="{StaticResource PulseActionButtonStyle}"
+                                        HorizontalContentAlignment="Center"
+                                        VerticalContentAlignment="Center"
+                                        Padding="6,6" Margin="0"
+                                        Opacity="0.55"
+                                        ToolTip="Open Bill of Quantities (coming soon)">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="TableLarge" Width="13" Height="13"
+                                                                 VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
+                                        <TextBlock Text="BOQ" FontSize="10"
+                                                   VerticalAlignment="Center"
+                                                   Foreground="{DynamicResource ForegroundBrush}"/>
+                                    </StackPanel>
+                                </Button>
+
+                            </UniformGrid>
+
+                            <!-- Transient toast notification -->
+                            <Border CornerRadius="3" Padding="8,4"
+                                    Background="#40FFFFFF"
+                                    Visibility="{Binding ShowToast, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding ToastText}"
+                                           FontSize="10" Foreground="{DynamicResource ForegroundBrush}"
+                                           TextWrapping="Wrap"/>
+                            </Border>
+
+                        </StackPanel>
+                    </Border>
+
+                </Grid>
+
             </Border>
 
-        </StackPanel>
+        </Grid>
     </Border>
 </UserControl>

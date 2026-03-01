@@ -51,6 +51,13 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _maxMaPerLoop, value);
         }
 
+        private int _maxAddresses;
+        public int MaxAddresses
+        {
+            get => _maxAddresses;
+            set => SetField(ref _maxAddresses, value);
+        }
+
         public ControlPanelConfigViewModel(ControlPanelConfig model)
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
@@ -60,6 +67,7 @@ namespace Pulse.UI.ViewModels
             _addressesPerLoop = model.AddressesPerLoop;
             _maxLoopCount = model.MaxLoopCount;
             _maxMaPerLoop = model.MaxMaPerLoop;
+            _maxAddresses = model.MaxAddresses;
         }
 
         public ControlPanelConfig ToModel() => new ControlPanelConfig
@@ -69,7 +77,8 @@ namespace Pulse.UI.ViewModels
             PanelAddresses = PanelAddresses ?? string.Empty,
             AddressesPerLoop = AddressesPerLoop,
             MaxLoopCount = MaxLoopCount,
-            MaxMaPerLoop = MaxMaPerLoop
+            MaxMaPerLoop = MaxMaPerLoop,
+            MaxAddresses = MaxAddresses
         };
     }
 

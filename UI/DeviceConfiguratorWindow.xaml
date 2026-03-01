@@ -598,6 +598,18 @@
                                            Margin="0,0,0,5"/>
                                 <TextBox Text="{Binding SelectedPanel.MaxMaPerLoop, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Max addresses (panel total) -->
+                                <TextBlock Text="MAX ADDRESSES (PANEL TOTAL)" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Total device addresses supported by the panel. Overrides the auto value (addresses per loop × loop count) for capacity gauges. Set to 0 to use automatic calculation."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPanel.MaxAddresses, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
                                          Margin="0,0,0,8"/>
 
                             </StackPanel>

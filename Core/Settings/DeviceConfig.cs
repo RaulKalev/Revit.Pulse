@@ -39,6 +39,15 @@ namespace Pulse.Core.Settings
         /// </summary>
         [JsonProperty("maxMaPerLoop")]
         public double MaxMaPerLoop { get; set; } = 500.0;
+
+        /// <summary>
+        /// Total maximum device addresses supported by the panel across all loops.
+        /// When set to a value greater than zero this overrides the derived value
+        /// (AddressesPerLoop × loop count) for capacity gauges and metrics.
+        /// Set to 0 to use the automatic calculation.
+        /// </summary>
+        [JsonProperty("maxAddresses")]
+        public int MaxAddresses { get; set; } = 0;
     }
 
     /// <summary>

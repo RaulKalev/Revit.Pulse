@@ -196,7 +196,7 @@
 
                         <!-- Row 2: System Metrics — collapsed by default -->
                         <controls:SystemMetricsPanel x:Name="MetricsPanel" Grid.Row="2"
-                                                     DataContext="{Binding Inspector}"
+                                                     DataContext="{Binding Metrics}"
                                                      Margin="4,4,4,0"/>
                     </Grid>
 

@@ -56,7 +56,7 @@ namespace Pulse.UI
 
             // Restore metrics panel state.
             bool metricsExpanded = p?.MetricsPanelExpanded ?? false;
-            _metricsHeight = p?.MetricsPanelHeight ?? 150;
+            _metricsHeight = p?.MetricsPanelHeight ?? 300;
             MetricsPanel.IsExpanded = metricsExpanded;
             UpdateMetricsSplitter(metricsExpanded, _metricsHeight);
             MetricsPanel.ExpandedChanged += isExpanded => UpdateMetricsSplitter(isExpanded, _metricsHeight);
@@ -75,15 +75,18 @@ namespace Pulse.UI
         {
             if (expanded)
             {
+                MetricsRow.MinHeight        = 300;
                 MetricsSplitterRow.Height   = new System.Windows.GridLength(1);
                 MetricsSplitter.IsEnabled   = true;
-                MetricsRow.Height           = new System.Windows.GridLength(Math.Max(height, 80));
+                MetricsRow.Height           = new System.Windows.GridLength(Math.Max(height, 300));
             }
             else
             {
                 // Snapshot current height before collapsing so we can restore it later.
                 if (MetricsRow.ActualHeight > 28)
                     _metricsHeight = MetricsRow.ActualHeight;
+                // Clear the minimum so the row can collapse to header-only height.
+                MetricsRow.MinHeight        = 0;
                 // Keep the 1px line visible but lock resizing.
                 MetricsSplitterRow.Height   = new System.Windows.GridLength(1);
                 MetricsSplitter.IsEnabled   = false;

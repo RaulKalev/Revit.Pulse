@@ -33,7 +33,8 @@ Framework-agnostic contracts and models:
 | `Core.SystemModel` | `ISystemEntity`, `Panel`, `Loop`, `Zone`, `AddressableDevice` |
 | `Core.Rules` | `IRule`, `RuleResult`, `Severity` — validation engine |
 | `Core.Modules` | `IModuleDefinition`, `PulseAppController`, `ModuleCatalog`, `ModuleCapabilities`, `TopologyAssignmentsService`, `SymbolMappingOrchestrator` |
-| `Core.Settings` | `ModuleSettings`, `ParameterMapping`, `TopologyAssignmentsStore`, `DeviceConfigStore`, `CustomSymbolDefinition`, `LevelVisibilitySettings`, `DiagramCanvasSettings`, `UiStateService` |
+| `Core.Modules.Metrics` | `SystemMetricsCalculator`, `CapacityMetrics`, `HealthIssueItem`, `DistributionGroup`, `CablingMetrics`, `SystemCheckPromptBuilder` — System Intelligence metrics engine |
+| `Core.Settings` | `ModuleSettings`, `ParameterMapping`, `TopologyAssignmentsStore`, `DeviceConfigStore`, `CustomSymbolDefinition`, `LevelVisibilitySettings`, `DiagramCanvasSettings`, `UiStateService`; `ControlPanelConfig.MaxAddresses` for per-panel address cap override |
 | `Core.Logging` | `ILogger` abstraction |
 
 ### Pulse.Revit
@@ -64,11 +65,15 @@ WPF user interface using Material Design:
 | `TopologyView` | TreeView control — Panel → Loop → Device hierarchy |
 | `InspectorPanel` | Entity details, properties, warnings, capacity gauges |
 | `DiagramPanel` | Schematic wiring diagram canvas |
+| `SystemMetricsPanel` | 6-section System Intelligence Dashboard (capacity gauges, health status, device distribution, cabling & spatial, quick actions) |
 | `StatusStrip` | Bottom bar with status text, device/warning/error counts |
 | `MainViewModel` | Root ViewModel — holds service refs, wires callbacks, exposes bindings/commands |
 | `TopologyViewModel` | Topology tree + internal `CanvasGraphModel` projection |
 | `DiagramViewModel` | Diagram canvas state: levels, panels, loops, flip/wire/rank assignments |
 | `InspectorViewModel` | Selected entity details and capacity data |
+| `MetricsPanelViewModel` | System Intelligence Dashboard VM — capacity gauges, health issues (including capacity overload rows), device distribution, cabling info, AI prompt export |
+| `AiPromptInfoWindow` | Themed borderless popup shown after the AI system-check prompt is copied to clipboard |
+| `MetricsConverters` | `CapacityStatusToBrushConverter`, `HealthStatusToBrushConverter`, `CountToVisibilityConverter` |
 | `SettingsViewModel` | Parameter mapping editor |
 | `DeviceConfigViewModel` | Panels / Loop Modules / Wires / Paper Sizes configurator |
 | `SymbolMappingViewModel` | Device-type to custom symbol mapping |
@@ -109,6 +114,31 @@ Each loop card header contains a **wire routing toggle button**. Clicking it dra
 - Lines follow the same Panel → devices → Panel Manhattan route as the cable calculator
 - **State is persisted** to Revit Extensible Storage (`LoopWireRoutingVisible` in `TopologyAssignmentsStore`) — re-opening the plugin restores all visible loops automatically
 - The toggle icon turns red when wires are visible; clicking again clears only that loop's lines
+
+### System Intelligence Dashboard
+
+The **System Intelligence Dashboard** (`SystemMetricsPanel`) provides a live overview of every selected panel, driven by `SystemMetricsCalculator` and `MetricsPanelViewModel`.
+
+**Six sections (scrollable body + sticky Quick Actions footer):**
+
+| Section | Content |
+|---------|---------|
+| Capacity | Address and mA gauges (used / max, colour-coded by threshold) |
+| Health Status | Rule violations + capacity overload rows, each with count and highlight command |
+| Device Distribution | Breakdown of device types with percentage bars |
+| Cabling & Spatial | Per-loop cable lengths, numerically sorted; total project cabling |
+| AI System Check | Copies a structured prompt to the clipboard; once-per-session info popup |
+| Quick Actions (pinned) | Refresh, Highlight Warnings, Copy Report, Open Settings |
+
+**Thresholds** (`MetricsThresholds`): Warning at 70 %, Critical at 85 %.
+
+**`ControlPanelConfig.MaxAddresses`**: when non-zero, overrides the automatic `AddressesPerLoop × loopCount` calculation for the panel capacity gauge and AI prompt. Set to `0` (default) for automatic behaviour.
+
+**Behaviour details:**
+- Collapsed header shows bold centred text with the icon hidden
+- Panel enforces a minimum expanded height of 300 px
+- Cabling loops are sorted numerically (e.g. L2 < L10)
+- Capacity overload conditions surface as Warning/Error rows in the Health Status section
 
 ---
 

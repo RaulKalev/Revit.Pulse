@@ -376,7 +376,7 @@ namespace Pulse.UI.ViewModels
             if (cfg == null) return;
 
             int loopCount = System.Math.Max(panel.Loops.Count, 1);
-            AddressesMax  = cfg.AddressesPerLoop * loopCount;
+            AddressesMax  = cfg.MaxAddresses > 0 ? cfg.MaxAddresses : cfg.AddressesPerLoop * loopCount;
             MaMax         = cfg.MaxMaPerLoop * loopCount;
             AddressesUsed = panel.Loops.Sum(l => l.Devices.Count);
             MaUsed        = panel.Loops.Sum(l => l.Devices.Sum(d => d.CurrentDraw ?? 0));

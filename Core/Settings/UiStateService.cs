@@ -13,6 +13,14 @@ namespace Pulse.Core.Settings
     {
         [JsonProperty("expandedNodeIds")]
         public HashSet<string> ExpandedNodeIds { get; set; } = new HashSet<string>();
+
+        /// <summary>
+        /// When true, the "Paste into AI agent" guidance popup is suppressed
+        /// after clicking Run System Check.  Only a brief toast is shown instead.
+        /// Persisted via UiStateService; respects existing JSON storage pattern.
+        /// </summary>
+        [JsonProperty("suppressAiPromptPopup")]
+        public bool SuppressAiPromptPopup { get; set; }
     }
 
     /// <summary>
