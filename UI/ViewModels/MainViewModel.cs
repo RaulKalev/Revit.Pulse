@@ -72,6 +72,7 @@ namespace Pulse.UI.ViewModels
         public ICommand OpenSettingsCommand { get; }
         public ICommand OpenDeviceConfiguratorCommand { get; }
         public ICommand OpenSymbolMappingCommand { get; }
+        public ICommand OpenBOQCommand { get; }
 
         // Status
         private string _statusText = "Ready. Press Refresh to load system data.";
@@ -235,6 +236,7 @@ namespace Pulse.UI.ViewModels
             OpenSymbolMappingCommand = new RelayCommand(
                 ExecuteOpenSymbolMapping,
                 () => _appController.HasCapability(ModuleCapabilities.SymbolMapping));
+            OpenBOQCommand = new RelayCommand(ExecuteOpenBOQ);
 
             // Load previously saved settings from Extensible Storage (we are on the API thread here)
             LoadInitialSettings(uiApp.ActiveUIDocument?.Document);

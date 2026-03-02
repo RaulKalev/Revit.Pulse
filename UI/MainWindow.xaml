@@ -102,6 +102,17 @@
                                 </StackPanel>
                             </ToggleButton>
 
+                            <!-- BOQ -->
+                            <Button Style="{StaticResource PulseActionButtonStyle}"
+                                    Command="{Binding OpenBOQCommand}"
+                                    ToolTip="Open Bill of Quantities"
+                                    Margin="0,0,4,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="TableLarge" Width="14" Height="14" VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                    <TextBlock Text="BOQ" FontSize="11" VerticalAlignment="Center"/>
+                                </StackPanel>
+                            </Button>
+
                             <!-- Device Configurator -->
                             <Button Style="{StaticResource PulseActionButtonStyle}"
                                     Command="{Binding OpenDeviceConfiguratorCommand}"

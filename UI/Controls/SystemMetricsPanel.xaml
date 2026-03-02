@@ -610,23 +610,7 @@
                                     </StackPanel>
                                 </Button>
 
-                                <!-- Open BOQ (placeholder) -->
-                                <Button Command="{Binding OpenBOQCommand}"
-                                        Style="{StaticResource PulseActionButtonStyle}"
-                                        HorizontalContentAlignment="Center"
-                                        VerticalContentAlignment="Center"
-                                        Padding="6,6" Margin="0"
-                                        Opacity="0.55"
-                                        ToolTip="Open Bill of Quantities (coming soon)">
-                                    <StackPanel Orientation="Horizontal">
-                                        <materialDesign:PackIcon Kind="TableLarge" Width="13" Height="13"
-                                                                 VerticalAlignment="Center" Margin="0,0,5,0"
-                                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
-                                        <TextBlock Text="BOQ" FontSize="10"
-                                                   VerticalAlignment="Center"
-                                                   Foreground="{DynamicResource ForegroundBrush}"/>
-                                    </StackPanel>
-                                </Button>
+
 
                             </UniformGrid>
 
