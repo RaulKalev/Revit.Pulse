@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -33,6 +34,9 @@ namespace Pulse.UI.Boq
 
             // Re-build DataGrid columns whenever the ViewModel says the layout changed.
             _vm.ColumnsChanged += (_, __) => RebuildColumns();
+
+            // Wire parameter picker opener
+            _vm.OpenParameterPickerRequested = OpenParameterPicker;
 
             Loaded  += OnLoaded;
             Closing += OnClosing;
@@ -71,6 +75,19 @@ namespace Pulse.UI.Boq
 
             // Auto-save settings on window close.
             _vm.SaveSettingsCommand?.Execute(null);
+        }
+
+        // ── Parameter picker ──────────────────────────────────────────────────
+
+        private void OpenParameterPicker()
+        {
+            var pickerVm = new BoqParameterPickerViewModel(
+                _vm.AllColumns.Where(c => !c.IsCustom));
+
+            pickerVm.OnApplied += (_, __) => _vm.NotifyPickerApplied();
+
+            var picker = new BoqParameterPickerWindow(pickerVm) { Owner = this };
+            picker.ShowDialog();
         }
 
         // ── DataGrid column builder ───────────────────────────────────────────

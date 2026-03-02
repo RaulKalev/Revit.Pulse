@@ -306,8 +306,14 @@
                                     <Button ToolTip="Move Down"
                                             Command="{Binding MoveColumnDownCommand}"
                                             Style="{StaticResource PulseActionButtonStyle}"
-                                            Width="32" Padding="0" Margin="0,0,8,0">
+                                            Width="32" Padding="0" Margin="0,0,4,0">
                                         <materialDesign:PackIcon Kind="ArrowDown" Width="14" Height="14" />
+                                    </Button>
+                                    <Button ToolTip="Pick parameters from Revit"
+                                            Command="{Binding OpenParameterPickerCommand}"
+                                            Style="{StaticResource PulseActionButtonStyle}"
+                                            Width="32" Padding="0" Margin="0,0,8,0">
+                                        <materialDesign:PackIcon Kind="Plus" Width="14" Height="14" />
                                     </Button>
                                 </StackPanel>
 

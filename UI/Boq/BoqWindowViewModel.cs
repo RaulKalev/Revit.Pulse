@@ -145,7 +145,11 @@ namespace Pulse.UI.Boq
         public ICommand RemoveGroupingRuleCommand { get; }
         public ICommand AddSortingRuleCommand   { get; }
         public ICommand RemoveSortingRuleCommand { get; }
-        public ICommand ApplyViewRulesCommand   { get; }
+        public ICommand ApplyViewRulesCommand          { get; }
+        public ICommand OpenParameterPickerCommand     { get; }
+
+        /// <summary>Set by the code-behind — used to open the parameter picker dialog.</summary>
+        public Action OpenParameterPickerRequested { get; set; }
 
         // ── Grouping / sorting editors ────────────────────────────────────────
 
@@ -233,6 +237,7 @@ namespace Pulse.UI.Boq
             RemoveSortingRuleCommand   = new RelayCommand(ExecuteRemoveSortingRule,
                                             () => SelectedSortingRule != null);
             ApplyViewRulesCommand      = new RelayCommand(ExecuteApplyViewRules);
+            OpenParameterPickerCommand = new RelayCommand(() => OpenParameterPickerRequested?.Invoke());
 
             // Wire visibility-change notifications so AvailableFieldKeys stays in sync
             _allColumns.CollectionChanged += OnAllColumnsCollectionChanged;
@@ -431,6 +436,16 @@ namespace Pulse.UI.Boq
             yield return new BoqColumnDefinition("Level",      "Level",       isVisible: true)  { DisplayOrder = order++ };
             yield return new BoqColumnDefinition("Panel",      "Panel",       isVisible: true)  { DisplayOrder = order++ };
             yield return new BoqColumnDefinition("Loop",       "Loop",        isVisible: true)  { DisplayOrder = order++ };
+        }
+
+        /// <summary>
+        /// Called by the view after the parameter picker dialog is confirmed.
+        /// Refreshes the field-key list and signals the view to rebuild DataGrid columns.
+        /// </summary>
+        public void NotifyPickerApplied()
+        {
+            RebuildAvailableFieldKeys();
+            ColumnsChanged?.Invoke(this, EventArgs.Empty);
         }
 
         private void RebuildAvailableFieldKeys()
