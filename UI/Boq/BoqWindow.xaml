@@ -287,10 +287,9 @@
                                              ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
-                                                <CheckBox IsChecked="{Binding IsVisible}"
-                                                          Content="{Binding Header}"
-                                                          Foreground="{DynamicResource ForegroundBrush}"
-                                                          Padding="4,2" />
+                                                <TextBlock Text="{Binding Header}"
+                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                           Padding="4,2" />
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>
                                     </ListBox>

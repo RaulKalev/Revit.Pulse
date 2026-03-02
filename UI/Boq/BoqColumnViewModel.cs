@@ -11,9 +11,10 @@ namespace Pulse.UI.Boq
     {
         private readonly BoqColumnDefinition _definition;
 
-        public string FieldKey  => _definition.FieldKey;
-        public string Header    => _definition.Header;
-        public bool   IsCustom  => _definition.IsCustom;
+        public string FieldKey     => _definition.FieldKey;
+        public string Header       => _definition.Header;
+        public bool   IsCustom     => _definition.IsCustom;
+        public bool   IsDiscovered => _definition.IsDiscovered;
 
         private bool _isVisible;
         public bool IsVisible

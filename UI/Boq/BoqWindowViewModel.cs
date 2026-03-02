@@ -206,12 +206,14 @@ namespace Pulse.UI.Boq
             // Set up the CollectionViewSource
             _rows = CollectionViewSource.GetDefaultView(_rowsSource);
 
-            // Set up filtered column view
+            // Set up filtered column view — shows only picker-added (discovered) visible columns.
             FilteredColumns = CollectionViewSource.GetDefaultView(_allColumns);
             FilteredColumns.Filter = obj =>
             {
                 if (obj is BoqColumnViewModel col)
                 {
+                    // Only show Revit parameter columns that were added via the picker and are visible.
+                    if (!col.IsDiscovered || !col.IsVisible) return false;
                     if (string.IsNullOrWhiteSpace(_columnSearchText)) return true;
                     return col.Header.IndexOf(_columnSearchText, StringComparison.OrdinalIgnoreCase) >= 0
                         || col.FieldKey.IndexOf(_columnSearchText, StringComparison.OrdinalIgnoreCase) >= 0;
@@ -281,7 +283,10 @@ namespace Pulse.UI.Boq
         private void OnColumnPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (e.PropertyName == nameof(BoqColumnViewModel.IsVisible))
+            {
                 RebuildAvailableFieldKeys();
+                FilteredColumns?.Refresh();
+            }
         }
 
         // ── Public API ────────────────────────────────────────────────────────
