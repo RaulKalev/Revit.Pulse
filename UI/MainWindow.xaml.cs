@@ -52,7 +52,12 @@ namespace Pulse.UI
                 TheDiagramPanel.RestoreState(300);
             }
 
-            TheDiagramPanel.PanelStateChanged += SavePlacement;
+            TheDiagramPanel.PanelStateChanged += () =>
+            {
+                DiagramSplitter.IsEnabled = TheDiagramPanel.IsExpanded;
+                SavePlacement();
+            };
+            DiagramSplitter.IsEnabled = TheDiagramPanel.IsExpanded;
 
             // Restore metrics panel state.
             bool metricsExpanded = p?.MetricsPanelExpanded ?? false;

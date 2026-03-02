@@ -165,7 +165,7 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="551" />   <!-- Left block -->
                         <ColumnDefinition Width="4" />                   <!-- Splitter -->
-                        <ColumnDefinition Width="300" MinWidth="46" />  <!-- Diagram (MinWidth managed in code-behind: 46 collapsed / 210 expanded) -->
+                        <ColumnDefinition Width="300" MinWidth="28" />  <!-- Diagram (MinWidth managed in code-behind: 28 collapsed / 210 expanded) -->
                     </Grid.ColumnDefinitions>
 
                     <!-- Left block: Topology + Inspector (top) + System Metrics (bottom) -->
@@ -212,7 +212,7 @@
                     </Grid>
 
                     <!-- GridSplitter (Left block | Diagram) -->
-                    <GridSplitter Grid.Column="1"
+                    <GridSplitter x:Name="DiagramSplitter" Grid.Column="1"
                                   Width="4"
                                   HorizontalAlignment="Stretch"
                                   VerticalAlignment="Stretch"

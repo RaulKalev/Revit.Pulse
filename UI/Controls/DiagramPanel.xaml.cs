@@ -19,7 +19,7 @@ namespace Pulse.UI.Controls
     public partial class DiagramPanel : UserControl
     {
         private const double ExpandedWidth  = 300;
-        private const double CollapsedWidth = 46;
+        private const double CollapsedWidth = 28;
 
         // Tracks the user's last expanded width so GridSplitter resizes are preserved
         // across collapse/expand cycles and across sessions.
@@ -169,6 +169,9 @@ namespace Pulse.UI.Controls
 
         /// <summary>Fired whenever the panel is expanded or collapsed, so the host can persist state immediately.</summary>
         public event Action PanelStateChanged;
+
+        /// <summary>Whether the panel is currently expanded.</summary>
+        public bool IsExpanded => _isExpanded;
 
         /// <summary>Restores the saved expanded width from a previous session. Always starts collapsed.</summary>
         public void RestoreState(double savedExpandedWidth)
