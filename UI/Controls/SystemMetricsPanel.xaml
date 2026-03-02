@@ -180,7 +180,7 @@
             <!-- Visibility is intentionally NOT bound — row-height clipping (ClipToBounds) handles
                  show/hide so the animated slide-in/out works smoothly. -->
             <Border Grid.Row="1"
-                    BorderThickness="0,1,0,0"
+                    BorderThickness="0"
                     BorderBrush="{DynamicResource BorderBrush}">
 
                 <Grid>
