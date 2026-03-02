@@ -132,37 +132,35 @@
                     Focusable="False">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="Transparent">
-                            <StackPanel HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Orientation="Horizontal">
-                                <StackPanel.LayoutTransform>
-                                    <RotateTransform Angle="90"/>
-                                </StackPanel.LayoutTransform>
-                                <!-- Chevron pointing right (= expand-left when rotated 90°) -->
-                                <Path x:Name="Chevron"
-                                      Data="M 0,0 L 4,4 L 8,0"
+                        <Border Background="Transparent">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="24"/>  <!-- chevron at top -->
+                                    <RowDefinition Height="*"/>   <!-- rotated label -->
+                                </Grid.RowDefinitions>
+
+                                <!-- < chevron at top-center -->
+                                <Path Grid.Row="0"
+                                      Data="M 5,0 L 0,4 L 5,8"
                                       Stroke="{DynamicResource IconForegroundBrush}"
                                       StrokeThickness="1.5" StrokeLineJoin="Round"
-                                      Width="8" Height="4"
-                                      Margin="0,0,6,1"
-                                      RenderTransformOrigin="0.5,0.5">
-                                    <Path.RenderTransform>
-                                        <RotateTransform Angle="90"/>
-                                    </Path.RenderTransform>
-                                </Path>
-                                <TextBlock Text="DIAGRAM"
+                                      Width="5" Height="8"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+
+                                <!-- Rotated label in remaining space -->
+                                <TextBlock Grid.Row="1"
+                                           Text="DIAGRAM"
                                            FontSize="10" FontWeight="Bold"
                                            Foreground="{DynamicResource IconForegroundBrush}"
-                                           VerticalAlignment="Center"/>
-                            </StackPanel>
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center">
+                                    <TextBlock.LayoutTransform>
+                                        <RotateTransform Angle="90"/>
+                                    </TextBlock.LayoutTransform>
+                                </TextBlock>
+                            </Grid>
                         </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background"
-                                        Value="{DynamicResource SelectionHoverBrush}"/>
-                            </Trigger>
-                        </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Button.Template>
             </Button>
