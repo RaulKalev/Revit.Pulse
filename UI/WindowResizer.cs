@@ -19,6 +19,10 @@ namespace Pulse.UI
         public  const double MIN_WIDTH  = 1060;
         public  const double MIN_HEIGHT = 400;
 
+        // Effective minimums — fall back to the window's own MinWidth/MinHeight if set.
+        private double EffectiveMinWidth  => _window.MinWidth  > 0 ? _window.MinWidth  : MIN_WIDTH;
+        private double EffectiveMinHeight => _window.MinHeight > 0 ? _window.MinHeight : MIN_HEIGHT;
+
         /// <summary>
         /// Optional element to ignore during resize (e.g., content that captures mouse).
         /// </summary>
@@ -134,15 +138,15 @@ namespace Pulse.UI
         private void ResizeLeft(double deltaX)
         {
             double newWidth = _window.Width - deltaX;
-            if (newWidth >= MIN_WIDTH)
+            if (newWidth >= EffectiveMinWidth)
             {
                 _window.Width = newWidth;
                 _window.Left += deltaX;
             }
             else
             {
-                double offset = _window.Width - MIN_WIDTH;
-                _window.Width = MIN_WIDTH;
+                double offset = _window.Width - EffectiveMinWidth;
+                _window.Width = EffectiveMinWidth;
                 _window.Left += offset;
             }
         }
@@ -150,7 +154,7 @@ namespace Pulse.UI
         private void ResizeRight(double deltaX)
         {
             double newWidth = _window.Width + deltaX;
-            if (newWidth >= MIN_WIDTH)
+            if (newWidth >= EffectiveMinWidth)
             {
                 _window.Width = newWidth;
             }
@@ -159,7 +163,7 @@ namespace Pulse.UI
         private void ResizeBottom(double deltaY)
         {
             double newHeight = _window.Height + deltaY;
-            if (newHeight >= MIN_HEIGHT)
+            if (newHeight >= EffectiveMinHeight)
             {
                 _window.Height = newHeight;
             }
