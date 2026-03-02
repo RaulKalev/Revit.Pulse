@@ -40,14 +40,35 @@ namespace Pulse.UI.Boq
 
         // ── Window events ─────────────────────────────────────────────────────
 
+        private const string PlacementFile = "boq_window_placement.json";
+
         private void OnLoaded(object sender, RoutedEventArgs e)
         {
+            // Restore saved size/position, or centre near the screen centre at a sensible default.
+            var p = WindowPlacementService.Load(PlacementFile);
+            if (p != null)
+            {
+                Left   = p.Left;
+                Top    = p.Top;
+                Width  = Math.Max(p.Width,  600);
+                Height = Math.Max(p.Height, 400);
+            }
+            else
+            {
+                Width  = 900;
+                Height = 600;
+                WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            }
+
             // Build initial columns now that the ViewModel has been initialised.
             RebuildColumns();
         }
 
         private void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
+            // Persist position + size.
+            WindowPlacementService.Save(Left, Top, Width, Height, PlacementFile);
+
             // Auto-save settings on window close.
             _vm.SaveSettingsCommand?.Execute(null);
         }
