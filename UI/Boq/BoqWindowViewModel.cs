@@ -708,10 +708,10 @@ namespace Pulse.UI.Boq
         {
             PersistSettingsToModel();
             _settingsService.Save(_settings,
-                onSaved: () => Application.Current?.Dispatcher?.Invoke(() =>
-                    StatusText = "Settings saved."),
-                onError: ex => Application.Current?.Dispatcher?.Invoke(() =>
-                    StatusText = $"Save failed: {ex.Message}"));
+                onSaved: () => Application.Current?.Dispatcher?.BeginInvoke(
+                    (Action)(() => StatusText = "Settings saved.")),
+                onError: ex => Application.Current?.Dispatcher?.BeginInvoke(
+                    (Action)(() => StatusText = $"Save failed: {ex.Message}")));
         }
 
         private void ExecuteExportSettings()
