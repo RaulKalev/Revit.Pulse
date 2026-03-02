@@ -275,15 +275,6 @@
                                            Style="{StaticResource FieldLabelStyle}"
                                            Margin="0,0,0,8" />
 
-                                <TextBox Text="{Binding ColumnSearchText, UpdateSourceTrigger=PropertyChanged}"
-                                         Background="{DynamicResource PrimaryBackgroundBrush}"
-                                         Foreground="{DynamicResource ForegroundBrush}"
-                                         BorderBrush="{DynamicResource BorderBrush}"
-                                         BorderThickness="1"
-                                         Padding="6,4"
-                                         materialDesign:HintAssist.Hint="Search columns…"
-                                         Margin="0,0,0,6" />
-
                                 <Border BorderBrush="{DynamicResource BorderBrush}"
                                         BorderThickness="1"
                                         Height="180"
@@ -298,6 +289,7 @@
                                             <DataTemplate>
                                                 <CheckBox IsChecked="{Binding IsVisible}"
                                                           Content="{Binding Header}"
+                                                          Style="{StaticResource MaterialDesignCheckBox}"
                                                           Foreground="{DynamicResource ForegroundBrush}"
                                                           Padding="4,2" />
                                             </DataTemplate>
@@ -317,14 +309,6 @@
                                             Style="{StaticResource PulseActionButtonStyle}"
                                             Width="32" Padding="0" Margin="0,0,8,0">
                                         <materialDesign:PackIcon Kind="ArrowDown" Width="14" Height="14" />
-                                    </Button>
-                                    <Button Command="{Binding SaveSettingsCommand}"
-                                            Style="{StaticResource PulsePrimaryButtonStyle}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <materialDesign:PackIcon Kind="ContentSave" Width="14" Height="14"
-                                                                     VerticalAlignment="Center" Margin="0,0,4,0" />
-                                            <TextBlock Text="Save Settings" FontSize="11" VerticalAlignment="Center" />
-                                        </StackPanel>
                                     </Button>
                                 </StackPanel>
 
@@ -468,6 +452,7 @@
                                                               FontSize="11" />
                                                     <CheckBox IsChecked="{Binding IsDescending}"
                                                               Content="Desc"
+                                                              Style="{StaticResource MaterialDesignCheckBox}"
                                                               Foreground="{DynamicResource IconForegroundBrush}"
                                                               FontSize="11"
                                                               Margin="6,0,0,0"
@@ -491,9 +476,9 @@
                                     Style="{StaticResource PulsePrimaryButtonStyle}"
                                     HorizontalAlignment="Stretch">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <materialDesign:PackIcon Kind="PlayCircleOutline" Width="14" Height="14"
+                                    <materialDesign:PackIcon Kind="CheckCircleOutline" Width="14" Height="14"
                                                              VerticalAlignment="Center" Margin="0,0,6,0" />
-                                    <TextBlock Text="Apply Grouping &amp; Sort" FontSize="11" VerticalAlignment="Center" />
+                                    <TextBlock Text="Apply" FontSize="11" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
                         </Border>

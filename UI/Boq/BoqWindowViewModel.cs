@@ -633,6 +633,7 @@ namespace Pulse.UI.Boq
         private void ExecuteApplyViewRules()
         {
             ApplyViewRules();
+            ExecuteSaveSettings();
         }
 
         private void ApplyViewRules()
