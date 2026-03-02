@@ -1,4 +1,5 @@
 using System;
+using System.Windows;
 using System.Windows.Controls;
 
 namespace Pulse.UI.Controls
@@ -17,8 +18,15 @@ namespace Pulse.UI.Controls
         {
             InitializeComponent();
 
-            ExpandToggle.Checked   += (s, e) => ExpandedChanged?.Invoke(true);
-            ExpandToggle.Unchecked += (s, e) => ExpandedChanged?.Invoke(false);
+            ExpandToggle.Checked   += (s, e) => { SetBorderForState(true);  ExpandedChanged?.Invoke(true); };
+            ExpandToggle.Unchecked += (s, e) => { SetBorderForState(false); ExpandedChanged?.Invoke(false); };
+        }
+
+        private void SetBorderForState(bool expanded)
+        {
+            OuterBorder.BorderThickness = expanded
+                ? new Thickness(1, 1, 1, 0)
+                : new Thickness(0);
         }
 
         /// <summary>Gets or sets whether the content area is expanded.</summary>

@@ -84,9 +84,10 @@
     </UserControl.Resources>
 
     <!-- Outer container —  the GridSplitter above is already the visual separator -->
-    <Border Background="{DynamicResource SecondaryBackgroundBrush}"
+    <Border x:Name="OuterBorder"
+            Background="{DynamicResource SecondaryBackgroundBrush}"
             BorderBrush="{DynamicResource BorderBrush}"
-            BorderThickness="1,1,1,0"
+            BorderThickness="0"
             CornerRadius="5,5,0,0"
             ClipToBounds="True">
         <Grid>
