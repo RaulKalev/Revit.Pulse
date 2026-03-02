@@ -152,8 +152,8 @@
                 <!-- Row 2: Main Content (Topology + Inspector | Diagram) -->
                 <Grid Grid.Row="2" ClipToBounds="True">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" MinWidth="551" />   <!-- Left block: Topology + Inspector (min: inspector 300 + splitter 1 + topology 250) -->
-                        <ColumnDefinition Width="1" />                   <!-- Splitter -->
+                        <ColumnDefinition Width="*" MinWidth="551" />   <!-- Left block -->
+                        <ColumnDefinition Width="4" />                   <!-- Splitter -->
                         <ColumnDefinition Width="300" MinWidth="46" />  <!-- Diagram (MinWidth managed in code-behind: 46 collapsed / 210 expanded) -->
                     </Grid.ColumnDefinitions>
 
@@ -161,7 +161,7 @@
                     <Grid Grid.Column="0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="*" MinHeight="100"/>
-                            <RowDefinition x:Name="MetricsSplitterRow" Height="1"/>    <!-- Horizontal splitter -->
+                            <RowDefinition x:Name="MetricsSplitterRow" Height="4"/>    <!-- Horizontal splitter -->
                             <RowDefinition x:Name="MetricsRow" Height="Auto"/>  <!-- System Metrics -->
                         </Grid.RowDefinitions>
 
@@ -169,48 +169,48 @@
                         <Grid Grid.Row="0">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" MinWidth="250" />    <!-- Topology -->
-                                <ColumnDefinition Width="1" />                    <!-- Splitter -->
+                                <ColumnDefinition Width="4" />                    <!-- Splitter -->
                                 <ColumnDefinition Width="300" MinWidth="300" MaxWidth="300" />  <!-- Inspector -->
                             </Grid.ColumnDefinitions>
 
-                            <controls:TopologyView Grid.Column="0" DataContext="{Binding Topology}" Margin="4"/>
+                            <controls:TopologyView Grid.Column="0" DataContext="{Binding Topology}" Margin="4,4,0,0"/>
 
                             <GridSplitter Grid.Column="1"
-                                          Width="1"
+                                          Width="4"
                                           HorizontalAlignment="Stretch"
-                                          Background="{DynamicResource BorderBrush}"
+                                          Background="Transparent"
                                           Cursor="SizeWE"/>
 
-                            <controls:InspectorPanel Grid.Column="2" DataContext="{Binding Inspector}" Margin="4"/>
+                            <controls:InspectorPanel Grid.Column="2" DataContext="{Binding Inspector}" Margin="0,4,0,0"/>
                         </Grid>
 
                         <!-- Row 1: Horizontal resize handle -->
                         <GridSplitter x:Name="MetricsSplitter" Grid.Row="1"
-                                      Height="1"
+                                      Height="4"
                                       HorizontalAlignment="Stretch"
                                       VerticalAlignment="Stretch"
                                       ResizeDirection="Rows"
                                       ResizeBehavior="PreviousAndNext"
-                                      Background="{DynamicResource BorderBrush}"
+                                      Background="Transparent"
                                       Cursor="SizeNS"/>
 
                         <!-- Row 2: System Metrics — collapsed by default -->
                         <controls:SystemMetricsPanel x:Name="MetricsPanel" Grid.Row="2"
                                                      DataContext="{Binding Metrics}"
-                                                     Margin="4,4,4,0"/>
+                                                     Margin="4,0,0,0"/>
                     </Grid>
 
                     <!-- GridSplitter (Left block | Diagram) -->
                     <GridSplitter Grid.Column="1"
-                                  Width="1"
+                                  Width="4"
                                   HorizontalAlignment="Stretch"
                                   VerticalAlignment="Stretch"
                                   ResizeDirection="Columns"
-                                  Background="{DynamicResource BorderBrush}"
+                                  Background="Transparent"
                                   Cursor="SizeWE"/>
 
                     <!-- Diagram Panel -->
-                    <controls:DiagramPanel x:Name="TheDiagramPanel" Grid.Column="2" DataContext="{Binding Diagram}" Margin="4,4,0,0"/>
+                    <controls:DiagramPanel x:Name="TheDiagramPanel" Grid.Column="2" DataContext="{Binding Diagram}" Margin="0,4,0,0"/>
                 </Grid>
 
                 <!-- Row 3: Status Strip -->

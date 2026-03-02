@@ -76,7 +76,7 @@ namespace Pulse.UI
             if (expanded)
             {
                 MetricsRow.MinHeight        = 300;
-                MetricsSplitterRow.Height   = new System.Windows.GridLength(1);
+                MetricsSplitterRow.Height   = new System.Windows.GridLength(4);
                 MetricsSplitter.IsEnabled   = true;
                 MetricsRow.Height           = new System.Windows.GridLength(Math.Max(height, 300));
             }
@@ -87,8 +87,8 @@ namespace Pulse.UI
                     _metricsHeight = MetricsRow.ActualHeight;
                 // Clear the minimum so the row can collapse to header-only height.
                 MetricsRow.MinHeight        = 0;
-                // Keep the 1px line visible but lock resizing.
-                MetricsSplitterRow.Height   = new System.Windows.GridLength(1);
+                // Hide the splitter row entirely when collapsed — no dead space.
+                MetricsSplitterRow.Height   = new System.Windows.GridLength(0);
                 MetricsSplitter.IsEnabled   = false;
                 MetricsRow.Height           = new System.Windows.GridLength(28);
             }
