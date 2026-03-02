@@ -7,6 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using MaterialDesignThemes.Wpf;
@@ -27,7 +28,8 @@ namespace Pulse.UI.Controls
         private const double MarginTop      = 16;
         private const double MarginBottom   = 16;
 
-        private bool _isExpanded = false;
+        private bool _isExpanded  = false;
+        private bool _isAnimating = false;
 
         // ── Zoom ─────────────────────────────────────────────────────────
         private const double ZoomMin  = 0.15;
@@ -163,7 +165,7 @@ namespace Pulse.UI.Controls
             }
 
             _isExpanded = !_isExpanded;
-            ApplyState();
+            ApplyState(animate: true);
             PanelStateChanged?.Invoke();
         }
 
@@ -194,29 +196,81 @@ namespace Pulse.UI.Controls
             return _expandedWidth;
         }
 
-        private void ApplyState()
+        private void ApplyState(bool animate = false)
         {
-            SetParentColumnWidth(_isExpanded ? _expandedWidth : CollapsedWidth);
+            if (animate && IsLoaded && Parent is Grid parentGrid)
+            {
+                int col = Grid.GetColumn(this);
+                if (col >= 0 && col < parentGrid.ColumnDefinitions.Count)
+                {
+                    var    cd   = parentGrid.ColumnDefinitions[col];
+                    double from = _isExpanded ? CollapsedWidth : cd.Width.Value;
+                    double to   = _isExpanded ? Math.Max(_expandedWidth, ExpandedMinWidth) : CollapsedWidth;
 
+                    // Show expanded UI immediately so content slides in with the panel.
+                    if (_isExpanded)
+                        ApplyExpandedVisuals();
+
+                    // Temporarily unlock constraints so the animation can move freely.
+                    cd.MinWidth  = CollapsedWidth;
+                    cd.MaxWidth  = double.MaxValue;
+                    _isAnimating = true;
+                    parentGrid.SizeChanged -= OnParentGridSizeChanged;
+
+                    var anim = new GridLengthAnimation
+                    {
+                        From           = new GridLength(from),
+                        To             = new GridLength(to),
+                        Duration       = new Duration(TimeSpan.FromMilliseconds(180)),
+                        EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut },
+                        FillBehavior   = FillBehavior.Stop,
+                    };
+                    anim.Completed += (s, e) =>
+                    {
+                        _isAnimating = false;
+                        cd.BeginAnimation(ColumnDefinition.WidthProperty, null);
+                        SetParentColumnWidth(_isExpanded ? _expandedWidth : CollapsedWidth);
+                        if (!_isExpanded)
+                            ApplyCollapsedVisuals();
+                        else
+                            Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
+                    };
+                    cd.BeginAnimation(ColumnDefinition.WidthProperty, anim);
+                    return;
+                }
+            }
+
+            // Non-animated path (RestoreState / initial load).
+            SetParentColumnWidth(_isExpanded ? _expandedWidth : CollapsedWidth);
             if (_isExpanded)
             {
-                HeaderBorder.Visibility          = Visibility.Visible;
-                DiagramContent.Visibility        = Visibility.Visible;
-                HeaderTitleStack.Visibility      = Visibility.Visible;
-                CollapsedLabel.Visibility        = Visibility.Collapsed;
-                CanvasSettingsButton.Visibility  = Visibility.Visible;
-                ToggleIcon.Kind                  = PackIconKind.ChevronRight;
+                ApplyExpandedVisuals();
                 Dispatcher.BeginInvoke(DispatcherPriority.Loaded, (System.Action)DrawLevels);
             }
             else
             {
-                HeaderBorder.Visibility          = Visibility.Collapsed;
-                DiagramContent.Visibility        = Visibility.Collapsed;
-                HeaderTitleStack.Visibility      = Visibility.Collapsed;
-                CollapsedLabel.Visibility        = Visibility.Visible;
-                CanvasSettingsButton.Visibility  = Visibility.Collapsed;
-                ToggleIcon.Kind                  = PackIconKind.ChevronLeft;
+                ApplyCollapsedVisuals();
             }
+        }
+
+        private void ApplyExpandedVisuals()
+        {
+            HeaderBorder.Visibility          = Visibility.Visible;
+            DiagramContent.Visibility        = Visibility.Visible;
+            HeaderTitleStack.Visibility      = Visibility.Visible;
+            CollapsedLabel.Visibility        = Visibility.Collapsed;
+            CanvasSettingsButton.Visibility  = Visibility.Visible;
+            ToggleIcon.Kind                  = PackIconKind.ChevronRight;
+        }
+
+        private void ApplyCollapsedVisuals()
+        {
+            HeaderBorder.Visibility          = Visibility.Collapsed;
+            DiagramContent.Visibility        = Visibility.Collapsed;
+            HeaderTitleStack.Visibility      = Visibility.Collapsed;
+            CollapsedLabel.Visibility        = Visibility.Visible;
+            CanvasSettingsButton.Visibility  = Visibility.Collapsed;
+            ToggleIcon.Kind                  = PackIconKind.ChevronLeft;
         }
 
         // Minimum width the remaining columns must keep:
@@ -252,6 +306,7 @@ namespace Pulse.UI.Controls
 
         private void OnParentGridSizeChanged(object sender, SizeChangedEventArgs e)
         {
+            if (_isAnimating) return;
             if (!(Parent is Grid parentGrid)) return;
             int col = Grid.GetColumn(this);
             if (col < 0 || col >= parentGrid.ColumnDefinitions.Count) return;

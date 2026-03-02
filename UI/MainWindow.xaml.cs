@@ -1,6 +1,8 @@
 using System;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media.Animation;
 using Autodesk.Revit.UI;
 using Pulse.Helpers;
 using Pulse.UI.ViewModels;
@@ -64,7 +66,7 @@ namespace Pulse.UI
             _metricsHeight = p?.MetricsPanelHeight ?? 300;
             MetricsPanel.IsExpanded = metricsExpanded;
             UpdateMetricsSplitter(metricsExpanded, _metricsHeight);
-            MetricsPanel.ExpandedChanged += isExpanded => UpdateMetricsSplitter(isExpanded, _metricsHeight);
+            MetricsPanel.ExpandedChanged += isExpanded => UpdateMetricsSplitter(isExpanded, _metricsHeight, animate: true);
 
             // Auto-load data on first open — no need to press Refresh manually.
             _viewModel.RefreshCommand.Execute(null);
@@ -76,27 +78,65 @@ namespace Pulse.UI
             _viewModel.SaveExpandState();
         }
 
-        private void UpdateMetricsSplitter(bool expanded, double height)
+        private void UpdateMetricsSplitter(bool expanded, double height, bool animate = false)
         {
             if (expanded)
             {
-                MetricsRow.MinHeight        = 300;
-                MetricsSplitterRow.Height   = new System.Windows.GridLength(4);
-                MetricsSplitter.IsEnabled   = true;
-                MetricsRow.Height           = new System.Windows.GridLength(Math.Max(height, 300));
+                MetricsSplitterRow.Height = new GridLength(4);
+                MetricsSplitter.IsEnabled = true;
+
+                if (animate && IsLoaded)
+                {
+                    double from = MetricsRow.ActualHeight > 28 ? MetricsRow.ActualHeight : 28;
+                    MetricsRow.MinHeight = 0;
+                    AnimateRowHeight(MetricsRow, from, Math.Max(height, 300),
+                        onCompleted: () => MetricsRow.MinHeight = 300);
+                }
+                else
+                {
+                    MetricsRow.MinHeight = 300;
+                    MetricsRow.Height    = new GridLength(Math.Max(height, 300));
+                }
             }
             else
             {
-                // Snapshot current height before collapsing so we can restore it later.
                 if (MetricsRow.ActualHeight > 28)
                     _metricsHeight = MetricsRow.ActualHeight;
-                // Clear the minimum so the row can collapse to header-only height.
-                MetricsRow.MinHeight        = 0;
-                // Keep a 4-px gap above the header even when collapsed.
-                MetricsSplitterRow.Height   = new System.Windows.GridLength(4);
-                MetricsSplitter.IsEnabled   = false;
-                MetricsRow.Height           = new System.Windows.GridLength(28);
+
+                MetricsRow.MinHeight      = 0;
+                MetricsSplitter.IsEnabled = false;
+                MetricsSplitterRow.Height = new GridLength(4);
+
+                if (animate && IsLoaded)
+                {
+                    double from = MetricsRow.ActualHeight > 28
+                        ? MetricsRow.ActualHeight : Math.Max(height, 300);
+                    AnimateRowHeight(MetricsRow, from, 28);
+                }
+                else
+                {
+                    MetricsRow.Height = new GridLength(28);
+                }
             }
+        }
+
+        private void AnimateRowHeight(RowDefinition row, double from, double to, Action onCompleted = null)
+        {
+            var anim = new GridLengthAnimation
+            {
+                From           = new GridLength(from),
+                To             = new GridLength(to),
+                Duration       = new Duration(TimeSpan.FromMilliseconds(180)),
+                EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut },
+                FillBehavior   = FillBehavior.Stop,
+            };
+            anim.Completed += (s, e) =>
+            {
+                row.BeginAnimation(RowDefinition.HeightProperty, null);
+                row.Height = new GridLength(to);
+                onCompleted?.Invoke();
+            };
+            row.BeginAnimation(RowDefinition.HeightProperty, anim);
         }
 
         private void SavePlacement()
