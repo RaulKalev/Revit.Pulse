@@ -289,7 +289,6 @@
                                             <DataTemplate>
                                                 <CheckBox IsChecked="{Binding IsVisible}"
                                                           Content="{Binding Header}"
-                                                          Style="{StaticResource MaterialDesignCheckBox}"
                                                           Foreground="{DynamicResource ForegroundBrush}"
                                                           Padding="4,2" />
                                             </DataTemplate>
@@ -452,7 +451,6 @@
                                                               FontSize="11" />
                                                     <CheckBox IsChecked="{Binding IsDescending}"
                                                               Content="Desc"
-                                                              Style="{StaticResource MaterialDesignCheckBox}"
                                                               Foreground="{DynamicResource IconForegroundBrush}"
                                                               FontSize="11"
                                                               Margin="6,0,0,0"
@@ -476,7 +474,7 @@
                                     Style="{StaticResource PulsePrimaryButtonStyle}"
                                     HorizontalAlignment="Stretch">
                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <materialDesign:PackIcon Kind="CheckCircleOutline" Width="14" Height="14"
+                                    <materialDesign:PackIcon Kind="Check" Width="14" Height="14"
                                                              VerticalAlignment="Center" Margin="0,0,6,0" />
                                     <TextBlock Text="Apply" FontSize="11" VerticalAlignment="Center" />
                                 </StackPanel>
