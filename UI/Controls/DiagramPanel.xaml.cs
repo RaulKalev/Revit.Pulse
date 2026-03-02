@@ -200,6 +200,7 @@ namespace Pulse.UI.Controls
 
             if (_isExpanded)
             {
+                HeaderBorder.Visibility          = Visibility.Visible;
                 DiagramContent.Visibility        = Visibility.Visible;
                 HeaderTitleStack.Visibility      = Visibility.Visible;
                 CollapsedLabel.Visibility        = Visibility.Collapsed;
@@ -209,6 +210,7 @@ namespace Pulse.UI.Controls
             }
             else
             {
+                HeaderBorder.Visibility          = Visibility.Collapsed;
                 DiagramContent.Visibility        = Visibility.Collapsed;
                 HeaderTitleStack.Visibility      = Visibility.Collapsed;
                 CollapsedLabel.Visibility        = Visibility.Visible;

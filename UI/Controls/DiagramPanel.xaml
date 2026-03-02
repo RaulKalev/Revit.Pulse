@@ -24,7 +24,8 @@
             </Grid.RowDefinitions>
 
             <!-- ── Header ── -->
-            <Border Grid.Row="0"
+            <Border x:Name="HeaderBorder"
+                    Grid.Row="0"
                     Background="{DynamicResource SecondaryBackgroundBrush}"
                     BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="0,0,0,1"
@@ -121,21 +122,50 @@
                 </DockPanel>
             </Border>
 
-            <!-- ── Rotated tab label shown only when collapsed ── -->
-            <Grid Grid.Row="0" Grid.RowSpan="2"
-                  x:Name="CollapsedLabel"
-                  Visibility="Collapsed">
-                <TextBlock Text="DIAGRAM"
-                           FontSize="10" FontWeight="SemiBold"
-                           Foreground="{DynamicResource ForegroundBrush}"
-                           Opacity="0.55"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center">
-                    <TextBlock.LayoutTransform>
-                        <RotateTransform Angle="90"/>
-                    </TextBlock.LayoutTransform>
-                </TextBlock>
-            </Grid>
+            <!-- ── Collapsed strip — shown only when panel is collapsed ── -->
+            <Button x:Name="CollapsedLabel"
+                    Grid.Row="0" Grid.RowSpan="2"
+                    Visibility="Collapsed"
+                    Cursor="Hand"
+                    Click="ToggleButton_Click"
+                    OverridesDefaultStyle="True"
+                    Focusable="False">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent">
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Orientation="Horizontal">
+                                <StackPanel.LayoutTransform>
+                                    <RotateTransform Angle="90"/>
+                                </StackPanel.LayoutTransform>
+                                <!-- Chevron pointing right (= expand-left when rotated 90°) -->
+                                <Path x:Name="Chevron"
+                                      Data="M 0,0 L 4,4 L 8,0"
+                                      Stroke="{DynamicResource IconForegroundBrush}"
+                                      StrokeThickness="1.5" StrokeLineJoin="Round"
+                                      Width="8" Height="4"
+                                      Margin="0,0,6,1"
+                                      RenderTransformOrigin="0.5,0.5">
+                                    <Path.RenderTransform>
+                                        <RotateTransform Angle="90"/>
+                                    </Path.RenderTransform>
+                                </Path>
+                                <TextBlock Text="DIAGRAM"
+                                           FontSize="10" FontWeight="Bold"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background"
+                                        Value="{DynamicResource SelectionHoverBrush}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
 
             <!-- ── Content area — level diagram drawn in code-behind ── -->
             <Grid x:Name="DiagramContent"
