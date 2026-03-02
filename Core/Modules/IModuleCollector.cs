@@ -39,6 +39,13 @@ namespace Pulse.Core.Modules
         /// Get all Levels defined in the project, ordered by elevation ascending.
         /// </summary>
         System.Collections.Generic.IReadOnlyList<LevelInfo> GetLevels();
+
+        /// <summary>
+        /// Scan the first elements of <paramref name="categoryName"/> and return
+        /// every unique Revit parameter name found on them.
+        /// Used to populate the BOQ parameter picker's "Available in Revit" list.
+        /// </summary>
+        System.Collections.Generic.IReadOnlyList<string> GetAllParameterNames(string categoryName);
     }
 
     /// <summary>

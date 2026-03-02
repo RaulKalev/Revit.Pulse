@@ -81,13 +81,30 @@ namespace Pulse.UI.Boq
 
         private void OpenParameterPicker()
         {
-            var pickerVm = new BoqParameterPickerViewModel(
-                _vm.AllColumns.Where(c => !c.IsCustom));
-
-            pickerVm.OnApplied += (_, __) => _vm.NotifyPickerApplied();
-
-            var picker = new BoqParameterPickerWindow(pickerVm) { Owner = this };
-            picker.ShowDialog();
+            _vm.FetchCategoryParameters(
+                revitKeys =>
+                {
+                    var pickerVm = new BoqParameterPickerViewModel(revitKeys, _vm.AllColumns);
+                    pickerVm.OnApplied += (_, __) =>
+                    {
+                        foreach (var newCol in pickerVm.NewColumns)
+                            _vm.AllColumns.Add(newCol);
+                        _vm.NotifyPickerApplied();
+                    };
+                    new BoqParameterPickerWindow(pickerVm) { Owner = this }.ShowDialog();
+                },
+                _ =>
+                {
+                    // Fetch failed — open picker with only already-known columns
+                    var pickerVm = new BoqParameterPickerViewModel(Array.Empty<string>(), _vm.AllColumns);
+                    pickerVm.OnApplied += (s2, e2) =>
+                    {
+                        foreach (var newCol in pickerVm.NewColumns)
+                            _vm.AllColumns.Add(newCol);
+                        _vm.NotifyPickerApplied();
+                    };
+                    new BoqParameterPickerWindow(pickerVm) { Owner = this }.ShowDialog();
+                });
         }
 
         // ── DataGrid column builder ───────────────────────────────────────────

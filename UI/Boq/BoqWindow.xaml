@@ -6,7 +6,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ui="clr-namespace:Pulse.UI"
     xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
-    Title="Pulse — Fire Alarm BOQ"
+    Title="Fire Alarm BOQ"
     Width="1100"
     Height="620"
     MinWidth="700"

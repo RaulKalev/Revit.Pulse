@@ -38,7 +38,13 @@ namespace Pulse.UI.Boq
 
         // Delegate used to trigger a fresh data collection from Revit
         private readonly Action<Action<ModuleData>, Action<Exception>> _requestRefresh;
+        // Delegate to fetch all parameter names for a Revit category
+        private readonly Action<string, Action<IReadOnlyList<string>>, Action<Exception>> _fetchCategoryParameters;
 
+        // ── Categories (from module settings) ──────────────────────────────────
+
+        /// <summary>Revit categories this module collects from (e.g. "Fire Alarm Devices").</summary>
+        public IReadOnlyList<string> Categories { get; }
         // ── Settings ─────────────────────────────────────────────────────────
 
         private BoqSettings _settings;
@@ -184,11 +190,15 @@ namespace Pulse.UI.Boq
             BoqSettingsService settingsService,
             BoqSettings initialSettings,
             ModuleData initialData,
-            Action<Action<ModuleData>, Action<Exception>> requestRefresh)
+            Action<Action<ModuleData>, Action<Exception>> requestRefresh,
+            IReadOnlyList<string> categories = null,
+            Action<string, Action<IReadOnlyList<string>>, Action<Exception>> fetchCategoryParameters = null)
         {
             _dataProvider    = dataProvider    ?? throw new ArgumentNullException(nameof(dataProvider));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _requestRefresh  = requestRefresh  ?? throw new ArgumentNullException(nameof(requestRefresh));
+            Categories = categories ?? Array.Empty<string>();
+            _fetchCategoryParameters = fetchCategoryParameters;
 
             // Build initial settings (or defaults if none loaded from ES)
             _settings = initialSettings ?? BuildDefaultSettings();
@@ -446,6 +456,24 @@ namespace Pulse.UI.Boq
         {
             RebuildAvailableFieldKeys();
             ColumnsChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Fetch all parameter names for the first configured category from Revit.
+        /// Calls <paramref name="onCompleted"/> on the WPF thread when done.
+        /// Falls back to an empty list if no fetch delegate is registered.
+        /// </summary>
+        public void FetchCategoryParameters(
+            Action<IReadOnlyList<string>> onCompleted,
+            Action<Exception> onError = null)
+        {
+            if (_fetchCategoryParameters == null)
+            {
+                onCompleted?.Invoke(Array.Empty<string>());
+                return;
+            }
+            string category = Categories.Count > 0 ? Categories[0] : "Fire Alarm Devices";
+            _fetchCategoryParameters(category, onCompleted, onError ?? (_ => onCompleted?.Invoke(Array.Empty<string>())));
         }
 
         private void RebuildAvailableFieldKeys()

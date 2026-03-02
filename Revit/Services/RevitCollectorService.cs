@@ -171,7 +171,54 @@ namespace Pulse.Revit.Services
         }
 
         /// <summary>
-        /// Convert a Revit parameter value to string regardless of storage type.
+        /// Scans the first 30 elements of <paramref name="categoryName"/> and returns
+        /// all unique Revit parameter names found (instance + type, excluding internal _keys).
+        /// </summary>
+        public IReadOnlyList<string> GetAllParameterNames(string categoryName)
+        {
+            Category cat = FindCategory(categoryName);
+            if (cat == null) return Array.Empty<string>();
+
+            var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            int sampled = 0;
+
+            var collector = new FilteredElementCollector(_doc)
+                .OfCategoryId(cat.Id)
+                .WhereElementIsNotElementType();
+
+            foreach (Element element in collector)
+            {
+                // Instance parameters
+                foreach (Parameter p in element.Parameters)
+                {
+                    string name = p.Definition?.Name;
+                    if (!string.IsNullOrWhiteSpace(name) && !name.StartsWith("_"))
+                        keys.Add(name);
+                }
+
+                // Type parameters
+                var typeId = element.GetTypeId();
+                if (typeId != null && typeId != ElementId.InvalidElementId)
+                {
+                    var typeElem = element.Document.GetElement(typeId);
+                    if (typeElem != null)
+                        foreach (Parameter p in typeElem.Parameters)
+                        {
+                            string name = p.Definition?.Name;
+                            if (!string.IsNullOrWhiteSpace(name) && !name.StartsWith("_"))
+                                keys.Add(name);
+                        }
+                }
+
+                if (++sampled >= 30) break;
+            }
+
+            return keys.OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        /// <summary>
+        /// Extract a parameter value from an element as a string.
+        /// Checks instance parameters first, then type parameters.
         /// </summary>
         private static string GetParameterAsString(Parameter param)
         {

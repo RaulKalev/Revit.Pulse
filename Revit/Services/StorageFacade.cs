@@ -49,6 +49,10 @@ namespace Pulse.Revit.Services
         private readonly DrawWireRoutingHandler _drawWireHandler;
         private readonly ExternalEvent _drawWireEvent;
 
+        // Fetch all parameter names for a Revit category (BOQ picker)
+        private readonly FetchCategoryParametersHandler _fetchCategoryParamsHandler;
+        private readonly ExternalEvent _fetchCategoryParamsEvent;
+
         private readonly ILogger _logger;
 
         public StorageFacade(ILogger logger = null)
@@ -75,6 +79,9 @@ namespace Pulse.Revit.Services
 
             _drawWireHandler = new DrawWireRoutingHandler();
             _drawWireEvent = ExternalEvent.Create(_drawWireHandler);
+
+            _fetchCategoryParamsHandler = new FetchCategoryParametersHandler();
+            _fetchCategoryParamsEvent   = ExternalEvent.Create(_fetchCategoryParamsHandler);
         }
 
         // ─── Read helpers (call from Revit API thread or construction) ───────
@@ -264,6 +271,21 @@ namespace Pulse.Revit.Services
             _drawWireHandler.OnCompleted = onCompleted;
             _drawWireHandler.OnError = onError;
             _drawWireEvent.Raise();
+        }
+
+        /// <summary>
+        /// Scan the specified Revit category and return all unique parameter names found.
+        /// Callbacks are marshalled back to the WPF dispatcher with BeginInvoke.
+        /// </summary>
+        public void FetchCategoryParameters(
+            string categoryName,
+            Action<IReadOnlyList<string>> onCompleted,
+            Action<Exception> onError = null)
+        {
+            _fetchCategoryParamsHandler.CategoryName = categoryName;
+            _fetchCategoryParamsHandler.OnCompleted  = onCompleted;
+            _fetchCategoryParamsHandler.OnError       = onError;
+            _fetchCategoryParamsEvent.Raise();
         }
     }
 }

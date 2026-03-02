@@ -603,16 +603,19 @@ namespace Pulse.UI.ViewModels
             var dataProvider = new FireAlarmBoqDataProvider();
 
             var vm = new BoqWindowViewModel(
-                dataProvider:    dataProvider,
-                settingsService: _boqSettingsService,
-                initialSettings: _boqSettings,
-                initialData:     _appController.CurrentData,
-                requestRefresh:  (onSuccess, onError) =>
+                dataProvider:             dataProvider,
+                settingsService:          _boqSettingsService,
+                initialSettings:          _boqSettings,
+                initialData:              _appController.CurrentData,
+                requestRefresh:           (onSuccess, onError) =>
                     _refreshPipeline.Execute(
                         _appController.ActiveModule,
                         _appController.ActiveSettings,
                         onSuccess,
-                        onError));
+                        onError),
+                categories:               _appController.ActiveSettings?.Categories?.AsReadOnly(),
+                fetchCategoryParameters:  (cat, onCompleted, onError) =>
+                    _storageFacade.FetchCategoryParameters(cat, onCompleted, onError));
 
             _boqWindow = new BoqWindow(vm);
             _boqWindow.Closed += (_, __) =>
