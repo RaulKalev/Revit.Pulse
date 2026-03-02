@@ -89,6 +89,36 @@ namespace Pulse.Revit.Services
                     data.Parameters[paramName] = value ?? string.Empty;
                 }
 
+                // Also collect ALL instance + type parameters so that BOQ columns added
+                // via the parameter picker are populated even if not in parameterNames.
+                foreach (Parameter p in element.Parameters)
+                {
+                    string name = p.Definition?.Name;
+                    if (!string.IsNullOrWhiteSpace(name) && !name.StartsWith("_")
+                        && !data.Parameters.ContainsKey(name))
+                    {
+                        data.Parameters[name] = GetParameterAsString(p) ?? string.Empty;
+                    }
+                }
+
+                var allTypeId = element.GetTypeId();
+                if (allTypeId != null && allTypeId != ElementId.InvalidElementId)
+                {
+                    Element typeElem = element.Document.GetElement(allTypeId);
+                    if (typeElem != null)
+                    {
+                        foreach (Parameter p in typeElem.Parameters)
+                        {
+                            string name = p.Definition?.Name;
+                            if (!string.IsNullOrWhiteSpace(name) && !name.StartsWith("_")
+                                && !data.Parameters.ContainsKey(name))
+                            {
+                                data.Parameters[name] = GetParameterAsString(p) ?? string.Empty;
+                            }
+                        }
+                    }
+                }
+
                 results.Add(data);
             }
 
