@@ -344,8 +344,8 @@ namespace Pulse.UI.ViewModels
             var vm = new TopologyNodeViewModel(
                 node, onSelect, onAssignConfig, availableConfigs, initialAssignment,
                 onAssignWire, availableWires, initialWire, parentLabel,
-                availableUnassigned:      node.NodeType == "Device" ? unassignedOptions : null,
-                onSubDeviceAssign:        node.NodeType == "Device" ? onSubDeviceAssign : null,
+                availableUnassigned:      (node.NodeType == "Device" || node.NodeType == "SubCircuit") ? unassignedOptions : null,
+                onSubDeviceAssign:        (node.NodeType == "Device" || node.NodeType == "SubCircuit") ? onSubDeviceAssign : null,
                 onPickElementForDevice:   node.NodeType == "Device" ? onPickElementForDevice : null,
                 onRemoveSubDevice:        node.NodeType == "Device" ? onRemoveSubDevice : null,
                 onToggleWireRouting:      node.NodeType == "Loop" ? onToggleWireRouting : null,

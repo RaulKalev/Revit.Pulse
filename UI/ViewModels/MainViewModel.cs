@@ -739,6 +739,36 @@ namespace Pulse.UI.ViewModels
         {
             if (hostVm == null || option == null) return;
 
+            // ── SubCircuit assignment ─────────────────────────────────────────────
+            // SubCircuit nodes just store the device ID in the assignments store;
+            // no Revit parameters need to be written.
+            if (hostVm.IsSubCircuit)
+            {
+                string rawId = hostVm.GraphNode?.Id ?? string.Empty;
+                string subCircuitId = rawId.StartsWith("subcircuit::")
+                    ? rawId.Substring("subcircuit::".Length)
+                    : rawId;
+
+                if (string.IsNullOrEmpty(subCircuitId)) return;
+
+                bool ok = _assignmentsService.AddDevicesToSubCircuit(
+                    subCircuitId, new System.Collections.Generic.List<int> { (int)option.ElementId });
+
+                if (ok)
+                {
+                    StatusText = $"'{option.Label}' added to {hostVm.Label}.";
+                    hostVm.MarkSubDeviceAdded(option);
+                    _assignmentsService.RequestSave();
+                    ExecuteRefresh();
+                }
+                else
+                {
+                    StatusText = $"Could not add '{option.Label}' — SubCircuit not found.";
+                }
+                return;
+            }
+
+            // ── Regular sub-device assignment (writes Loop/Address/Panel params) ──
             var settings = _appController.ActiveSettings;
             if (settings == null) return;
 
