@@ -33,6 +33,13 @@ namespace Pulse.Core.Modules
         /// <summary>All devices discovered by the collector.</summary>
         public List<AddressableDevice> Devices { get; } = new List<AddressableDevice>();
 
+        /// <summary>
+        /// SubCircuits hydrated from <see cref="TopologyAssignmentsStore"/> during the build phase.
+        /// Populated by <see cref="FireAlarmTopologyBuilder"/> (and any future topology builders).
+        /// Empty by default — safe if no SubCircuits have been created yet.
+        /// </summary>
+        public List<SubCircuit> SubCircuits { get; } = new List<SubCircuit>();
+
         /// <summary>All Revit levels in the project, ordered by elevation ascending.</summary>
         public List<LevelInfo> Levels { get; } = new List<LevelInfo>();
 

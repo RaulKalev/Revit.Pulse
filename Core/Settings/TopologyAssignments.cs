@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Pulse.Core.SystemModel;
 
 namespace Pulse.Core.Settings
 {
@@ -50,5 +51,21 @@ namespace Pulse.Core.Settings
         /// <summary>"panelName::loopName" → true when 3-D wire routing model lines are shown for that loop.</summary>
         public Dictionary<string, bool> LoopWireRoutingVisible { get; set; }
             = new Dictionary<string, bool>(System.StringComparer.OrdinalIgnoreCase);
+
+        // ── SubCircuit persistence (additive – safe to absent in older documents) ──────
+
+        /// <summary>
+        /// All SubCircuits keyed by their stable <see cref="SubCircuit.Id"/>.
+        /// Missing from old documents → deserialised as null and lazily initialised.
+        /// </summary>
+        public Dictionary<string, SubCircuit> SubCircuits { get; set; }
+            = new Dictionary<string, SubCircuit>();
+
+        /// <summary>
+        /// hostElementId (int) → list of SubCircuit IDs attached to that host.
+        /// Used for fast look-up without scanning <see cref="SubCircuits"/>.
+        /// </summary>
+        public Dictionary<int, List<string>> SubCircuitIdsByHostElementId { get; set; }
+            = new Dictionary<int, List<string>>();
     }
 }

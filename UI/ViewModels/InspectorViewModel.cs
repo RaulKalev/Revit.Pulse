@@ -225,6 +225,20 @@ namespace Pulse.UI.ViewModels
                     Properties.Add(new PropertyItem { Key = "Cable length", Value = kvp.Value + " m" });
                     continue;
                 }
+                // ── SubCircuit property labels ────────────────────────────────────
+                if (node.NodeType == "SubCircuit")
+                {
+                    if (kvp.Key == "DeviceCount")
+                    { Properties.Add(new PropertyItem { Key = "Devices", Value = kvp.Value }); continue; }
+                    if (kvp.Key == "HostElementId")
+                    { Properties.Add(new PropertyItem { Key = "Host element ID", Value = kvp.Value }); continue; }
+                    if (kvp.Key == "TotalMaNormal")
+                    { Properties.Add(new PropertyItem { Key = "Load (normal)", Value = kvp.Value + " mA" }); continue; }
+                    if (kvp.Key == "TotalMaAlarm")
+                    { Properties.Add(new PropertyItem { Key = "Load (alarm)", Value = kvp.Value + " mA" }); continue; }
+                    if (kvp.Key == "WireType")
+                    { Properties.Add(new PropertyItem { Key = "Wire type", Value = kvp.Value }); continue; }
+                }
                 Properties.Add(new PropertyItem { Key = kvp.Key, Value = kvp.Value });
             }
 
@@ -286,6 +300,16 @@ namespace Pulse.UI.ViewModels
                     var loop = data.Loops.Find(l => l.EntityId == node.Id);
                     ChildDeviceCount = loop?.Devices.Count ?? 0;
                     LoadLoopGauges(node.Label, loop);
+                }
+                else if (node.NodeType == "SubCircuit")
+                {
+                    // Surface device count from the node's own properties
+                    if (node.Properties.TryGetValue("DeviceCount", out string dcStr)
+                        && int.TryParse(dcStr, out int dc))
+                        ChildDeviceCount = dc;
+                    else
+                        ChildDeviceCount = 0;
+                    ShowGauges = false;
                 }
                 else
                 {

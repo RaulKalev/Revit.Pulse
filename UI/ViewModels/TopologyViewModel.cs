@@ -113,6 +113,22 @@ namespace Pulse.UI.ViewModels
         /// MainViewModel draws or clears the model lines and persists the state.
         /// </summary>
         public event Action<TopologyNodeViewModel> WireRoutingToggled;
+
+        // ── SubCircuit actions ────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Fired when the user clicks "Add SubCircuit" on a Device (Output Module) node.
+        /// Carries the Revit ElementId of the host device.
+        /// MainViewModel calls <see cref="TopologyAssignmentsService.CreateSubCircuit"/> and refreshes.
+        /// </summary>
+        public event Action<long> CreateSubCircuitRequested;
+
+        /// <summary>
+        /// Fired when the user clicks "Delete" on a SubCircuit node.
+        /// Carries the SubCircuit ID string (the portion after "subcircuit::").
+        /// MainViewModel calls <see cref="TopologyAssignmentsService.DeleteSubCircuit"/> and refreshes.
+        /// </summary>
+        public event Action<string> DeleteSubCircuitRequested;
         /// <summary>
         /// Returns the Loop node whose parent matches <paramref name="panelName"/> and
         /// label matches <paramref name="loopName"/>, or null if not found.
@@ -244,6 +260,13 @@ namespace Pulse.UI.ViewModels
                 WireRoutingToggled?.Invoke(vm);
             };
 
+            // SubCircuit action delegates
+            Action<long> onAddSubCircuit = hostElemId =>
+                CreateSubCircuitRequested?.Invoke(hostElemId);
+
+            Action<string> onDeleteSubCircuit = subCircuitId =>
+                DeleteSubCircuitRequested?.Invoke(subCircuitId);
+
             // Build the tree recursively
             foreach (string rootId in rootIds)
             {
@@ -257,7 +280,9 @@ namespace Pulse.UI.ViewModels
                                           onSubDeviceAssign: onSubDeviceAssign,
                                           onPickElementForDevice: onPickElementForDevice,
                                           onRemoveSubDevice: onRemoveSubDevice,
-                                          onToggleWireRouting: onToggleWireRouting);
+                                          onToggleWireRouting: onToggleWireRouting,
+                                          onAddSubCircuit: onAddSubCircuit,
+                                          onDeleteSubCircuit: onDeleteSubCircuit);
                     RootNodes.Add(vm);
                 }
             }
@@ -282,7 +307,9 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel, UnassignedDeviceOption> onSubDeviceAssign = null,
             Action<TopologyNodeViewModel> onPickElementForDevice = null,
             Action<TopologyNodeViewModel> onRemoveSubDevice = null,
-            Action<TopologyNodeViewModel> onToggleWireRouting = null)
+            Action<TopologyNodeViewModel> onToggleWireRouting = null,
+            Action<long> onAddSubCircuit = null,
+            Action<string> onDeleteSubCircuit = null)
         {
             // Determine available config options and current assignment for this node type
             IReadOnlyList<string> availableConfigs = null;
@@ -322,7 +349,9 @@ namespace Pulse.UI.ViewModels
                 onPickElementForDevice:   node.NodeType == "Device" ? onPickElementForDevice : null,
                 onRemoveSubDevice:        node.NodeType == "Device" ? onRemoveSubDevice : null,
                 onToggleWireRouting:      node.NodeType == "Loop" ? onToggleWireRouting : null,
-                initialWireRoutingVisible: initialWireRoutingVisible);
+                initialWireRoutingVisible: initialWireRoutingVisible,
+                onAddSubCircuit:          node.NodeType == "Device" ? onAddSubCircuit : null,
+                onDeleteSubCircuit:       node.NodeType == "SubCircuit" ? onDeleteSubCircuit : null);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -338,6 +367,18 @@ namespace Pulse.UI.ViewModels
                     info += (info.Length > 0 ? "  " : "") + $"~{cl} m";
                 if (info.Length > 0)
                     vm.SubInfo = info;
+            }
+
+            // SubCircuit summary info: device count + mA load
+            if (node.NodeType == "SubCircuit")
+            {
+                node.Properties.TryGetValue("DeviceCount", out string scDc);
+                node.Properties.TryGetValue("TotalMaAlarm", out string scMa);
+                string scInfo = string.IsNullOrEmpty(scDc) ? "" : $"{scDc} devices";
+                if (!string.IsNullOrEmpty(scMa) && scMa != "0.0")
+                    scInfo += (scInfo.Length > 0 ? "  " : "") + $"~{scMa} mA alarm";
+                if (scInfo.Length > 0)
+                    vm.SubInfo = scInfo;
             }
 
             _allNodes.Add(vm);
@@ -368,7 +409,9 @@ namespace Pulse.UI.ViewModels
                                                onSubDeviceAssign: onSubDeviceAssign,
                                                onPickElementForDevice: onPickElementForDevice,
                                                onRemoveSubDevice: onRemoveSubDevice,
-                                               onToggleWireRouting: onToggleWireRouting);
+                                               onToggleWireRouting: onToggleWireRouting,
+                                               onAddSubCircuit: onAddSubCircuit,
+                                               onDeleteSubCircuit: onDeleteSubCircuit);
                     vm.Children.Add(childVm);
                 }
             }
@@ -671,6 +714,12 @@ namespace Pulse.UI.ViewModels
         /// <summary>Removes this sub-device's Loop + Address assignment in Revit.</summary>
         public ICommand RemoveSubDeviceCommand { get; private set; }
 
+        /// <summary>Creates a new SubCircuit attached to this device (Output Module) node.</summary>
+        public ICommand AddSubCircuitCommand { get; private set; }
+
+        /// <summary>Deletes this SubCircuit node (enabled on SubCircuit nodes only).</summary>
+        public ICommand DeleteSubCircuitCommand { get; private set; }
+
         private readonly Action<TopologyNodeViewModel, UnassignedDeviceOption> _onSubDeviceAssign;
         private int _subDeviceCount;
 
@@ -738,7 +787,9 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onPickElementForDevice = null,
             Action<TopologyNodeViewModel> onRemoveSubDevice = null,
             Action<TopologyNodeViewModel> onToggleWireRouting = null,
-            bool initialWireRoutingVisible = false)
+            bool initialWireRoutingVisible = false,
+            Action<long> onAddSubCircuit = null,
+            Action<string> onDeleteSubCircuit = null)
         {
             GraphNode = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
@@ -752,6 +803,26 @@ namespace Pulse.UI.ViewModels
             PickFromRevitCommand      = new RelayCommand(_ => { IsAddSlotOpen = false; _onPickElementForDevice?.Invoke(this); });
             RemoveSubDeviceCommand    = new RelayCommand(_ => onRemoveSubDevice?.Invoke(this), _ => onRemoveSubDevice != null);
             ToggleWireRoutingCommand  = new RelayCommand(_ => IsWireRoutingVisible = !IsWireRoutingVisible);
+
+            // SubCircuit commands
+            AddSubCircuitCommand = new RelayCommand(
+                _ =>
+                {
+                    if (graphNode.RevitElementId.HasValue)
+                        onAddSubCircuit?.Invoke(graphNode.RevitElementId.Value);
+                },
+                _ => onAddSubCircuit != null && graphNode.RevitElementId.HasValue);
+
+            DeleteSubCircuitCommand = new RelayCommand(
+                _ =>
+                {
+                    // Node ID is "subcircuit::{id}"
+                    string scId = graphNode.Id.StartsWith("subcircuit::", StringComparison.OrdinalIgnoreCase)
+                        ? graphNode.Id.Substring("subcircuit::".Length)
+                        : graphNode.Id;
+                    onDeleteSubCircuit?.Invoke(scId);
+                },
+                _ => onDeleteSubCircuit != null);
 
             // Populate config combobox options: blank entry first (= no assignment)
             if (availableConfigs != null && availableConfigs.Count > 0)
@@ -793,9 +864,13 @@ namespace Pulse.UI.ViewModels
                     case "Loop": return "VectorPolyline";
                     case "Zone": return "MapMarkerRadius";
                     case "Device": return "AccessPoint";
+                    case "SubCircuit": return "VectorLink";
                     default: return "CircleOutline";
                 }
             }
         }
+
+        /// <summary>True when this node represents a SubCircuit (one-way NAC branch).</summary>
+        public bool IsSubCircuit => NodeType == "SubCircuit";
     }
 }

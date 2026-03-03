@@ -284,10 +284,11 @@
                                                                         <DataTemplate>
                                                                             <!-- Device row -->
                                                                             <StackPanel Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
-                                                                                <!-- Main row: select button + expand chevron + "+" toggle -->
+                                                                                <!-- Main row: select button + expand chevron + "+" toggle + SubCircuit -->
                                                                                 <Grid>
                                                                                     <Grid.ColumnDefinitions>
                                                                                         <ColumnDefinition Width="*"/>
+                                                                                        <ColumnDefinition Width="Auto"/>
                                                                                         <ColumnDefinition Width="Auto"/>
                                                                                         <ColumnDefinition Width="Auto"/>
                                                                                     </Grid.ColumnDefinitions>
@@ -404,6 +405,43 @@
                                                                                         <materialDesign:PackIcon Kind="Plus" Width="10" Height="10"
                                                                                                                  Foreground="{DynamicResource IconForegroundBrush}"/>
                                                                                     </Button>
+                                                                                    <!-- "⎇" Add SubCircuit button — create NAC branch from this Output Module -->
+                                                                                    <Button Grid.Column="3"
+                                                                                            Command="{Binding AddSubCircuitCommand}"
+                                                                                            ToolTip="Create SubCircuit (NAC branch) from this Output Module"
+                                                                                            Width="18" Height="18"
+                                                                                            Margin="2,0,4,0"
+                                                                                            Padding="0"
+                                                                                            VerticalAlignment="Center"
+                                                                                            Cursor="Hand"
+                                                                                            FocusVisualStyle="{x:Null}">
+                                                                                        <Button.Style>
+                                                                                            <Style TargetType="Button">
+                                                                                                <Setter Property="OverridesDefaultStyle" Value="True"/>
+                                                                                                <Setter Property="Template">
+                                                                                                    <Setter.Value>
+                                                                                                        <ControlTemplate TargetType="Button">
+                                                                                                            <Border x:Name="ScBd"
+                                                                                                                    Background="Transparent"
+                                                                                                                    BorderBrush="{DynamicResource BorderBrush}"
+                                                                                                                    BorderThickness="1"
+                                                                                                                    CornerRadius="3">
+                                                                                                                <ContentPresenter HorizontalAlignment="Center"
+                                                                                                                                  VerticalAlignment="Center"/>
+                                                                                                            </Border>
+                                                                                                            <ControlTemplate.Triggers>
+                                                                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                                                                    <Setter TargetName="ScBd" Property="Background" Value="{DynamicResource HighlightBrush}"/>
+                                                                                                                </Trigger>
+                                                                                                            </ControlTemplate.Triggers>
+                                                                                                        </ControlTemplate>
+                                                                                                    </Setter.Value>
+                                                                                                </Setter>
+                                                                                            </Style>
+                                                                                        </Button.Style>
+                                                                                        <materialDesign:PackIcon Kind="VectorLink" Width="10" Height="10"
+                                                                                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
+                                                                                    </Button>
                                                                                 </Grid>
                                                                                 <!-- Add-slot panel: two assignment options -->
                                                                                 <Border Visibility="{Binding IsAddSlotOpen, Converter={StaticResource BoolToVis}}"
@@ -490,71 +528,170 @@
                                                                                     <ItemsControl ItemsSource="{Binding Children}" Margin="0,0,0,2">
                                                                                         <ItemsControl.ItemTemplate>
                                                                                             <DataTemplate>
-                                                                                                <Grid Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
-                                                                                                    <Grid.ColumnDefinitions>
-                                                                                                        <ColumnDefinition Width="*"/>
-                                                                                                        <ColumnDefinition Width="Auto"/>
-                                                                                                    </Grid.ColumnDefinitions>
-                                                                                                    <!-- Sub-device select button -->
-                                                                                                    <Button Grid.Column="0"
-                                                                                                            Command="{Binding SelectCommand}"
-                                                                                                            Padding="36,4,8,4">
-                                                                                                        <Button.Style>
-                                                                                                            <Style TargetType="Button" BasedOn="{StaticResource PulseNodeButtonStyle}">
+                                                                                                <!-- Outer container for visibility -->
+                                                                                                <StackPanel Visibility="{Binding IsVisible, Converter={StaticResource BoolToVis}}">
+
+                                                                                                    <!-- ── Regular sub-device row (collapsed when IsSubCircuit=True) ── -->
+                                                                                                    <Grid>
+                                                                                                        <Grid.Style>
+                                                                                                            <Style TargetType="Grid">
+                                                                                                                <Setter Property="Visibility" Value="Visible"/>
                                                                                                                 <Style.Triggers>
-                                                                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
-                                                                                                                        <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                                                                                                    <DataTrigger Binding="{Binding IsSubCircuit}" Value="True">
+                                                                                                                        <Setter Property="Visibility" Value="Collapsed"/>
                                                                                                                     </DataTrigger>
                                                                                                                 </Style.Triggers>
                                                                                                             </Style>
-                                                                                                        </Button.Style>
-                                                                                                        <StackPanel Orientation="Horizontal">
-                                                                                                            <materialDesign:PackIcon Kind="AccessPointNetwork"
-                                                                                                                                     Width="11" Height="11"
-                                                                                                                                     VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                                                        </Grid.Style>
+                                                                                                        <Grid.ColumnDefinitions>
+                                                                                                            <ColumnDefinition Width="*"/>
+                                                                                                            <ColumnDefinition Width="Auto"/>
+                                                                                                        </Grid.ColumnDefinitions>
+                                                                                                        <!-- Sub-device select button -->
+                                                                                                        <Button Grid.Column="0"
+                                                                                                                Command="{Binding SelectCommand}"
+                                                                                                                Padding="36,4,8,4">
+                                                                                                            <Button.Style>
+                                                                                                                <Style TargetType="Button" BasedOn="{StaticResource PulseNodeButtonStyle}">
+                                                                                                                    <Style.Triggers>
+                                                                                                                        <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                                                            <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                                                                                                        </DataTrigger>
+                                                                                                                    </Style.Triggers>
+                                                                                                                </Style>
+                                                                                                            </Button.Style>
+                                                                                                            <StackPanel Orientation="Horizontal">
+                                                                                                                <materialDesign:PackIcon Kind="AccessPointNetwork"
+                                                                                                                                         Width="11" Height="11"
+                                                                                                                                         VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                                                                                         Foreground="{DynamicResource IconForegroundBrush}"/>
+                                                                                                                <TextBlock Text="{Binding Label}" FontSize="10"
+                                                                                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                                                                                           VerticalAlignment="Center"/>
+                                                                                                            </StackPanel>
+                                                                                                        </Button>
+                                                                                                        <!-- "−" remove button -->
+                                                                                                        <Button Grid.Column="1"
+                                                                                                                Command="{Binding RemoveSubDeviceCommand}"
+                                                                                                                ToolTip="Remove sub-device assignment"
+                                                                                                                Width="18" Height="18"
+                                                                                                                Margin="2,0,4,0" Padding="0"
+                                                                                                                VerticalAlignment="Center"
+                                                                                                                Cursor="Hand"
+                                                                                                                FocusVisualStyle="{x:Null}">
+                                                                                                            <Button.Style>
+                                                                                                                <Style TargetType="Button">
+                                                                                                                    <Setter Property="OverridesDefaultStyle" Value="True"/>
+                                                                                                                    <Setter Property="Template">
+                                                                                                                        <Setter.Value>
+                                                                                                                            <ControlTemplate TargetType="Button">
+                                                                                                                                <Border x:Name="Bd"
+                                                                                                                                        Background="Transparent"
+                                                                                                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                                                                                                        BorderThickness="1"
+                                                                                                                                        CornerRadius="3">
+                                                                                                                                    <ContentPresenter HorizontalAlignment="Center"
+                                                                                                                                                      VerticalAlignment="Center"/>
+                                                                                                                                </Border>
+                                                                                                                                <ControlTemplate.Triggers>
+                                                                                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                                                                                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HighlightBrush}"/>
+                                                                                                                                    </Trigger>
+                                                                                                                                </ControlTemplate.Triggers>
+                                                                                                                            </ControlTemplate>
+                                                                                                                        </Setter.Value>
+                                                                                                                    </Setter>
+                                                                                                                </Style>
+                                                                                                            </Button.Style>
+                                                                                                            <materialDesign:PackIcon Kind="Minus" Width="10" Height="10"
                                                                                                                                      Foreground="{DynamicResource IconForegroundBrush}"/>
-                                                                                                            <TextBlock Text="{Binding Label}" FontSize="10"
-                                                                                                                       Foreground="{DynamicResource ForegroundBrush}"
-                                                                                                                       VerticalAlignment="Center"/>
-                                                                                                        </StackPanel>
-                                                                                                    </Button>
-                                                                                                    <!-- "−" remove button -->
-                                                                                                    <Button Grid.Column="1"
-                                                                                                            Command="{Binding RemoveSubDeviceCommand}"
-                                                                                                            ToolTip="Remove sub-device assignment"
-                                                                                                            Width="18" Height="18"
-                                                                                                            Margin="2,0,4,0" Padding="0"
-                                                                                                            VerticalAlignment="Center"
-                                                                                                            Cursor="Hand"
-                                                                                                            FocusVisualStyle="{x:Null}">
-                                                                                                        <Button.Style>
-                                                                                                            <Style TargetType="Button">
-                                                                                                                <Setter Property="OverridesDefaultStyle" Value="True"/>
-                                                                                                                <Setter Property="Template">
-                                                                                                                    <Setter.Value>
-                                                                                                                        <ControlTemplate TargetType="Button">
-                                                                                                                            <Border x:Name="Bd"
-                                                                                                                                    Background="Transparent"
-                                                                                                                                    BorderBrush="{DynamicResource BorderBrush}"
-                                                                                                                                    BorderThickness="1"
-                                                                                                                                    CornerRadius="3">
-                                                                                                                                <ContentPresenter HorizontalAlignment="Center"
-                                                                                                                                                  VerticalAlignment="Center"/>
-                                                                                                                            </Border>
-                                                                                                                            <ControlTemplate.Triggers>
-                                                                                                                                <Trigger Property="IsMouseOver" Value="True">
-                                                                                                                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource HighlightBrush}"/>
-                                                                                                                                </Trigger>
-                                                                                                                            </ControlTemplate.Triggers>
-                                                                                                                        </ControlTemplate>
-                                                                                                                    </Setter.Value>
-                                                                                                                </Setter>
-                                                                                                            </Style>
-                                                                                                        </Button.Style>
-                                                                                                        <materialDesign:PackIcon Kind="Minus" Width="10" Height="10"
-                                                                                                                                 Foreground="{DynamicResource IconForegroundBrush}"/>
-                                                                                                    </Button>
-                                                                                                </Grid>
+                                                                                                        </Button>
+                                                                                                    </Grid>
+
+                                                                                                    <!-- ── SubCircuit row (collapsed when IsSubCircuit=False) ── -->
+                                                                                                    <Border Visibility="{Binding IsSubCircuit, Converter={StaticResource BoolToVis}}"
+                                                                                                            Margin="20,2,4,2" Padding="5,3"
+                                                                                                            BorderBrush="{DynamicResource HighlightBrush}"
+                                                                                                            BorderThickness="1" CornerRadius="3"
+                                                                                                            Background="{DynamicResource SecondaryBackgroundBrush}">
+                                                                                                        <Grid>
+                                                                                                            <Grid.ColumnDefinitions>
+                                                                                                                <ColumnDefinition Width="*"/>
+                                                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                                            </Grid.ColumnDefinitions>
+                                                                                                            <!-- SubCircuit select button -->
+                                                                                                            <Button Grid.Column="0"
+                                                                                                                    Command="{Binding SelectCommand}"
+                                                                                                                    Padding="4,2">
+                                                                                                                <Button.Style>
+                                                                                                                    <Style TargetType="Button" BasedOn="{StaticResource PulseNodeButtonStyle}">
+                                                                                                                        <Style.Triggers>
+                                                                                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                                                                                                <Setter Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                                                                                                            </DataTrigger>
+                                                                                                                        </Style.Triggers>
+                                                                                                                    </Style>
+                                                                                                                </Button.Style>
+                                                                                                                <StackPanel Orientation="Horizontal">
+                                                                                                                    <materialDesign:PackIcon Kind="VectorLink"
+                                                                                                                                             Width="12" Height="12"
+                                                                                                                                             VerticalAlignment="Center" Margin="0,0,5,0"
+                                                                                                                                             Foreground="{DynamicResource HighlightBrush}"/>
+                                                                                                                    <TextBlock Text="{Binding Label}" FontSize="11" FontWeight="SemiBold"
+                                                                                                                               Foreground="{DynamicResource ForegroundBrush}"
+                                                                                                                               VerticalAlignment="Center"/>
+                                                                                                                    <TextBlock Text="{Binding SubInfo}" FontSize="10"
+                                                                                                                               Foreground="{DynamicResource IconForegroundBrush}"
+                                                                                                                               VerticalAlignment="Center" Margin="5,0,0,0" Opacity="0.7"/>
+                                                                                                                    <Border Style="{DynamicResource WarningBadgeStyle}"
+                                                                                                                            Visibility="{Binding WarningCount, Converter={StaticResource CountToVisibility}}"
+                                                                                                                            Margin="5,0,0,0">
+                                                                                                                        <TextBlock Text="{Binding WarningCount}" FontSize="9"
+                                                                                                                                   FontWeight="Bold" Foreground="Black"/>
+                                                                                                                    </Border>
+                                                                                                                </StackPanel>
+                                                                                                            </Button>
+                                                                                                            <!-- Delete SubCircuit button -->
+                                                                                                            <Button Grid.Column="1"
+                                                                                                                    Command="{Binding DeleteSubCircuitCommand}"
+                                                                                                                    ToolTip="Delete this SubCircuit"
+                                                                                                                    Width="18" Height="18"
+                                                                                                                    Margin="2,0,4,0" Padding="0"
+                                                                                                                    VerticalAlignment="Center"
+                                                                                                                    Cursor="Hand"
+                                                                                                                    FocusVisualStyle="{x:Null}">
+                                                                                                                <Button.Style>
+                                                                                                                    <Style TargetType="Button">
+                                                                                                                        <Setter Property="OverridesDefaultStyle" Value="True"/>
+                                                                                                                        <Setter Property="Template">
+                                                                                                                            <Setter.Value>
+                                                                                                                                <ControlTemplate TargetType="Button">
+                                                                                                                                    <Border x:Name="ScDelBd"
+                                                                                                                                            Background="Transparent"
+                                                                                                                                            BorderBrush="{DynamicResource BorderBrush}"
+                                                                                                                                            BorderThickness="1"
+                                                                                                                                            CornerRadius="3">
+                                                                                                                                        <ContentPresenter HorizontalAlignment="Center"
+                                                                                                                                                          VerticalAlignment="Center"/>
+                                                                                                                                    </Border>
+                                                                                                                                    <ControlTemplate.Triggers>
+                                                                                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                                                                                            <Setter TargetName="ScDelBd" Property="Background" Value="#3C2020"/>
+                                                                                                                                            <Setter TargetName="ScDelBd" Property="BorderBrush" Value="#FF5555"/>
+                                                                                                                                        </Trigger>
+                                                                                                                                    </ControlTemplate.Triggers>
+                                                                                                                                </ControlTemplate>
+                                                                                                                            </Setter.Value>
+                                                                                                                        </Setter>
+                                                                                                                    </Style>
+                                                                                                                </Button.Style>
+                                                                                                                <materialDesign:PackIcon Kind="DeleteOutline" Width="10" Height="10"
+                                                                                                                                         Foreground="{DynamicResource IconForegroundBrush}"/>
+                                                                                                            </Button>
+                                                                                                        </Grid>
+                                                                                                    </Border>
+
+                                                                                                </StackPanel>
                                                                                             </DataTemplate>
                                                                                         </ItemsControl.ItemTemplate>
                                                                                     </ItemsControl>

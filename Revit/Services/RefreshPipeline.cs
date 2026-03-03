@@ -27,6 +27,17 @@ namespace Pulse.Revit.Services
         }
 
         /// <summary>
+        /// Optional hook invoked on the Revit thread after collection but before the topology
+        /// build phase.  Set once during initialisation to inject supplemental data into
+        /// <see cref="ModuleData"/> (e.g. SubCircuits from ExtensibleStorage).
+        /// </summary>
+        public Action<ModuleData> PreBuildHook
+        {
+            get => _handler.PreBuildHook;
+            set => _handler.PreBuildHook = value;
+        }
+
+        /// <summary>
         /// Kick off a new refresh cycle.
         /// </summary>
         /// <param name="module">Active module definition.</param>

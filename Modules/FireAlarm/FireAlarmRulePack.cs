@@ -23,6 +23,12 @@ namespace Pulse.Modules.FireAlarm
                 new Rules.MissingAddressRule(),
                 new Rules.DuplicateAddressRule(),
                 new Rules.MissingRequiredParameterRule(),
+
+                // ── SubCircuit rules (additive) ────────────────────────────────────────
+                new Rules.SubCircuitMissingTriggerRule(),
+                new Rules.SubCircuitMissingFaultMonitorRule(),
+                new Rules.SubCircuitDuplicateMemberRule(),
+                new Rules.SubCircuitOrphanSounderRule(),
             };
         }
 

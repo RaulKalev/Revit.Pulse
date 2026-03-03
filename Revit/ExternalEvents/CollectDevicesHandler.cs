@@ -24,6 +24,14 @@ namespace Pulse.Revit.ExternalEvents
         public IRulePack RulePack { get; set; }
 
         /// <summary>
+        /// Optional callback invoked after collection but before the topology build.
+        /// Use this to inject supplemental data into <see cref="ModuleData"/> (e.g. SubCircuits
+        /// from ExtensibleStorage) without changing the <see cref="ITopologyBuilder"/> interface.
+        /// Safe to leave null — no-op when absent.
+        /// </summary>
+        public Action<ModuleData> PreBuildHook { get; set; }
+
+        /// <summary>
         /// Callback invoked on the UI thread after collection completes.
         /// Receives the populated ModuleData.
         /// </summary>
@@ -50,6 +58,9 @@ namespace Pulse.Revit.ExternalEvents
 
                 // Run the module collector
                 ModuleData data = Collector.Collect(context, Settings);
+
+                // Optional pre-build injection (e.g. SubCircuits from ExtensibleStorage)
+                PreBuildHook?.Invoke(data);
 
                 // Build topology graph
                 TopologyBuilder?.Build(data);

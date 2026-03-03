@@ -117,21 +117,28 @@ namespace Pulse.Core.Graph.Canvas
         public IReadOnlyList<DeviceRow> Rows { get; }
         /// <summary>Flat device list ordered by numeric address ascending.</summary>
         public IReadOnlyList<DeviceSlot> Devices { get; }
+        /// <summary>
+        /// SubCircuit blocks hanging off Output Module devices on this loop.
+        /// Empty when no SubCircuits have been created for this loop's devices.
+        /// </summary>
+        public IReadOnlyList<SubCircuitBlock> SubCircuits { get; }
 
         public LoopCluster(
             string loopName, string key, bool isFlipped,
             int wireCount, int rank, string wireColor,
             IReadOnlyList<DeviceRow> rows,
-            IReadOnlyList<DeviceSlot> devices)
+            IReadOnlyList<DeviceSlot> devices,
+            IReadOnlyList<SubCircuitBlock> subCircuits = null)
         {
-            LoopName  = loopName;
-            Key       = key;
-            IsFlipped = isFlipped;
-            WireCount = wireCount;
-            Rank      = rank;
-            WireColor = wireColor;
-            Rows      = rows    ?? Array.Empty<DeviceRow>();
-            Devices   = devices ?? Array.Empty<DeviceSlot>();
+            LoopName    = loopName;
+            Key         = key;
+            IsFlipped   = isFlipped;
+            WireCount   = wireCount;
+            Rank        = rank;
+            WireColor   = wireColor;
+            Rows        = rows        ?? Array.Empty<DeviceRow>();
+            Devices     = devices     ?? Array.Empty<DeviceSlot>();
+            SubCircuits = subCircuits ?? Array.Empty<SubCircuitBlock>();
         }
     }
 
@@ -193,6 +200,39 @@ namespace Pulse.Core.Graph.Canvas
             Kind      = kind;
             TargetKey = targetKey;
             Message   = message;
+        }
+    }
+
+    /// <summary>
+    /// A one-way NAC sounder branch hanging off an Output Module device on a loop.
+    /// Rendered as a labelled block attached to the host device's symbol position.
+    ///
+    ///   [Output Module] → [NAC-01 | 18 devices | 245 mA]
+    /// </summary>
+    public sealed class SubCircuitBlock
+    {
+        /// <summary>User-visible name of the SubCircuit (e.g. "NAC-01").</summary>
+        public string Name           { get; }
+        /// <summary>Address string of the host Output Module device on the loop.</summary>
+        public string HostAddress    { get; }
+        /// <summary>Number of sounder/NAC devices assigned to this SubCircuit.</summary>
+        public int    DeviceCount    { get; }
+        /// <summary>Total alarm current draw in mA, or null if not calculable.</summary>
+        public double? TotalMaAlarm  { get; }
+
+        public SubCircuitBlock(
+            string name, string hostAddress, int deviceCount, double? totalMaAlarm)
+        {
+            Name         = name        ?? string.Empty;
+            HostAddress  = hostAddress ?? string.Empty;
+            DeviceCount  = deviceCount;
+            TotalMaAlarm = totalMaAlarm;
+        }
+
+        public override string ToString()
+        {
+            string load = TotalMaAlarm.HasValue ? $" | {TotalMaAlarm:F0} mA" : string.Empty;
+            return $"[{Name} | {DeviceCount} devices{load}]";
         }
     }
 

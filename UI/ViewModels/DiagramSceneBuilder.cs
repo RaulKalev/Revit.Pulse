@@ -95,7 +95,8 @@ namespace Pulse.UI.ViewModels
                     loops.Add(new LoopCluster(
                         loop.Name, key, flipped,
                         wireCount, rank, wireColor,
-                        rows, devices));
+                        rows, devices,
+                        subCircuits: vm.GetSubCircuitsForLoop(key)));
 
                     naturalIndex++;
                 }

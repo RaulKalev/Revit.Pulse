@@ -162,6 +162,103 @@ namespace Pulse.UI.ViewModels
 
         public ObservableCollection<PanelInfo> Panels { get; } = new ObservableCollection<PanelInfo>();
 
+        // ── SubCircuit blocks for diagram rendering ───────────────────────
+
+        /// <summary>
+        /// SubCircuit blocks keyed by "panelName::loopName".
+        /// Populated via <see cref="LoadSubCircuits"/> after data collection.
+        /// The renderer queries this to attach SubCircuitBlock labels to device slots.
+        /// </summary>
+        private Dictionary<string, List<Pulse.Core.Graph.Canvas.SubCircuitBlock>> _subCircuitsByLoop
+            = new Dictionary<string, List<Pulse.Core.Graph.Canvas.SubCircuitBlock>>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>Returns the SubCircuit blocks associated with the given loop key, or an empty list.</summary>
+        public IReadOnlyList<Pulse.Core.Graph.Canvas.SubCircuitBlock> GetSubCircuitsForLoop(string loopKey)
+        {
+            if (string.IsNullOrEmpty(loopKey)) return System.Array.Empty<Pulse.Core.Graph.Canvas.SubCircuitBlock>();
+            List<Pulse.Core.Graph.Canvas.SubCircuitBlock> list;
+            if (_subCircuitsByLoop.TryGetValue(loopKey, out list)) return list;
+            return System.Array.Empty<Pulse.Core.Graph.Canvas.SubCircuitBlock>();
+        }
+
+        /// <summary>
+        /// Populate SubCircuit diagram blocks from the current ModuleData.
+        /// Call this after <see cref="LoadPanels"/> to make SubCircuit blocks available
+        /// for the next <see cref="RebuildScene"/> call.
+        /// </summary>
+        public void LoadSubCircuits(
+            IEnumerable<Pulse.Core.SystemModel.SubCircuit> subCircuits,
+            IEnumerable<Pulse.Core.SystemModel.AddressableDevice> devices,
+            IEnumerable<Panel> panels,
+            IEnumerable<Loop> loops)
+        {
+            _subCircuitsByLoop.Clear();
+
+            if (subCircuits == null) return;
+
+            // Build lookups
+            var deviceByElementId = new Dictionary<long, Pulse.Core.SystemModel.AddressableDevice>();
+            foreach (var d in devices ?? Enumerable.Empty<Pulse.Core.SystemModel.AddressableDevice>())
+                if (d.RevitElementId.HasValue)
+                    deviceByElementId[d.RevitElementId.Value] = d;
+
+            // Loop EntityId → "panelName::loopName" key
+            var loopKeyById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var panelById   = new Dictionary<string, Panel>(StringComparer.OrdinalIgnoreCase);
+            foreach (var p in panels ?? Enumerable.Empty<Panel>())
+                panelById[p.EntityId] = p;
+
+            foreach (var loop in loops ?? Enumerable.Empty<Loop>())
+            {
+                string panelName = string.Empty;
+                if (!string.IsNullOrEmpty(loop.PanelId) && panelById.TryGetValue(loop.PanelId, out var lp))
+                    panelName = lp.DisplayName;
+                loopKeyById[loop.EntityId] = panelName + "::" + loop.DisplayName;
+            }
+
+            foreach (var sc in subCircuits)
+            {
+                if (string.IsNullOrEmpty(sc.Id)) continue;
+                if (!deviceByElementId.TryGetValue(sc.HostElementId, out var hostDev)) continue;
+                if (string.IsNullOrEmpty(hostDev.LoopId)) continue;
+                if (!loopKeyById.TryGetValue(hostDev.LoopId, out string loopKey)) continue;
+
+                // Parse aggregate mA from DeviceElementIds
+                double totalMaAlarm = 0;
+                bool hasMa = false;
+                foreach (int eid in sc.DeviceElementIds)
+                {
+                    if (!deviceByElementId.TryGetValue(eid, out var m)) continue;
+                    if (m.Properties.TryGetValue("_CurrentDrawAlarm", out string alarmStr)
+                        && double.TryParse(alarmStr,
+                            System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture,
+                            out double alarm))
+                    {
+                        totalMaAlarm += alarm;
+                        hasMa = true;
+                    }
+                    else if (m.CurrentDraw.HasValue)
+                    {
+                        totalMaAlarm += m.CurrentDraw.Value;
+                        hasMa = true;
+                    }
+                }
+
+                var block = new Pulse.Core.Graph.Canvas.SubCircuitBlock(
+                    sc.Name,
+                    hostAddress:  hostDev.Address ?? string.Empty,
+                    deviceCount:  sc.DeviceElementIds.Count,
+                    totalMaAlarm: hasMa ? (double?)totalMaAlarm : null);
+
+                if (!_subCircuitsByLoop.TryGetValue(loopKey, out var list))
+                    _subCircuitsByLoop[loopKey] = list = new List<Pulse.Core.Graph.Canvas.SubCircuitBlock>();
+                list.Add(block);
+            }
+
+            RebuildScene();
+        }
+
         public void LoadPanels(IEnumerable<Panel> panels, IEnumerable<Loop> loops, DeviceConfigStore configStore)
         {
             Panels.Clear();

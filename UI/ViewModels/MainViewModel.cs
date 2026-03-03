@@ -186,6 +186,10 @@ namespace Pulse.UI.ViewModels
             Topology.SubDeviceAssignRequested      += OnSubDeviceAssignRequested;
             Topology.PickElementForDeviceRequested += OnPickElementForDeviceRequested;
             Topology.SubDeviceRemoveRequested      += OnSubDeviceRemoveRequested;
+
+            // SubCircuit CRUD events
+            Topology.CreateSubCircuitRequested += OnCreateSubCircuitRequested;
+            Topology.DeleteSubCircuitRequested += OnDeleteSubCircuitRequested;
             Diagram   = new DiagramViewModel();
 
             // Metrics panel ViewModel — highlight callback is wired here so it can
@@ -222,6 +226,45 @@ namespace Pulse.UI.ViewModels
             Action saveAssignments = () => _assignmentsService.RequestSave();
             Topology.AssignmentsSaveRequested = saveAssignments;
             Diagram.AssignmentsSaveRequested = saveAssignments;
+
+            // SubCircuit pre-build hook — copies persisted SubCircuits into ModuleData
+            // before the topology builder runs so SubCircuit nodes appear in the graph.
+            // Also purges stale SubCircuit references to deleted Revit elements.
+            _refreshPipeline.PreBuildHook = moduleData =>
+            {
+                var store = _assignmentsService.Store;
+                if (store == null) return;
+
+                // ── Auto-purge deleted / missing devices from SubCircuits ───────────────
+                // Build the set of collected device element IDs.
+                if (store.SubCircuits != null && store.SubCircuits.Count > 0)
+                {
+                    var collectedElementIds = new System.Collections.Generic.HashSet<int>();
+                    foreach (var dev in moduleData.Devices)
+                        if (dev.RevitElementId.HasValue)
+                            collectedElementIds.Add((int)dev.RevitElementId.Value);
+
+                    // Remove any device IDs from SubCircuits that weren't collected
+                    // (element was deleted from the Revit model).
+                    foreach (var sc in store.SubCircuits.Values)
+                        sc.DeviceElementIds.RemoveAll(id => !collectedElementIds.Contains(id));
+
+                    // Auto-purge SubCircuits whose host element no longer exists.
+                    var orphanHosts = new System.Collections.Generic.List<int>();
+                    foreach (var sc in store.SubCircuits.Values)
+                    {
+                        if (!collectedElementIds.Contains(sc.HostElementId))
+                            orphanHosts.Add(sc.HostElementId);
+                    }
+                    foreach (int orphanHost in orphanHosts)
+                        _assignmentsService.PurgeSubCircuitsForHost(orphanHost);
+                }
+
+                // ── Copy SubCircuits into ModuleData for the topology builder ─────────
+                if (store.SubCircuits == null || store.SubCircuits.Count == 0) return;
+                foreach (var sc in store.SubCircuits.Values)
+                    moduleData.SubCircuits.Add(sc);
+            };
 
             // Wire diagram wire-assignment writes (guarded by Wiring capability)
             if (_appController.HasCapability(ModuleCapabilities.Wiring))
@@ -318,6 +361,9 @@ namespace Pulse.UI.ViewModels
             Diagram.LoadAssignments(_topologyAssignments);
             Diagram.LoadLevelElevationOffsets(_topologyAssignments);
             Diagram.LoadPanels(data.Panels, data.Loops, devStore);
+
+            // Populate SubCircuit diagram blocks (additive — no-op if no SubCircuits exist)
+            Diagram.LoadSubCircuits(data.SubCircuits, data.Devices, data.Panels, data.Loops);
 
             // Refresh metrics panel with the new data
             Metrics.Refresh(data, _topologyAssignments, devStore);
@@ -895,6 +941,46 @@ namespace Pulse.UI.ViewModels
                     Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
                         StatusText = $"Could not remove sub-device: {ex.Message}"));
                 });
+        }
+
+        // ── SubCircuit handlers ────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Creates a new SubCircuit for the given host Output Module element ID,
+        /// persists the store, then triggers a refresh so the new node appears in the tree.
+        /// </summary>
+        private void OnCreateSubCircuitRequested(long hostElementId)
+        {
+            try
+            {
+                _assignmentsService.CreateSubCircuit((int)hostElementId);
+                _assignmentsService.RequestSave();
+                StatusText = "SubCircuit created. Refreshing\u2026";
+                ExecuteRefresh();
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Could not create SubCircuit: {ex.Message}";
+            }
+        }
+
+        /// <summary>
+        /// Deletes the SubCircuit with the given ID, persists the store, then triggers a refresh.
+        /// </summary>
+        private void OnDeleteSubCircuitRequested(string subCircuitId)
+        {
+            if (string.IsNullOrEmpty(subCircuitId)) return;
+            try
+            {
+                _assignmentsService.DeleteSubCircuit(subCircuitId);
+                _assignmentsService.RequestSave();
+                StatusText = "SubCircuit deleted. Refreshing\u2026";
+                ExecuteRefresh();
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Could not delete SubCircuit: {ex.Message}";
+            }
         }
 
         /// <summary>

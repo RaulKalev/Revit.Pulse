@@ -247,6 +247,97 @@ namespace Pulse.Modules.FireAlarm
                 string sourceId = parentId ?? device.LoopId;
                 data.Edges.Add(new Edge(sourceId, device.EntityId, "contains"));
             }
+
+            // ── SubCircuit projection ─────────────────────────────────────────────────
+            // SubCircuits are virtual grouping nodes attached to host Output Module devices.
+            // They do NOT re-parent loop devices — they add a summary child under the host.
+            if (data.SubCircuits != null && data.SubCircuits.Count > 0)
+                BuildSubCircuitNodes(data);
+        }
+
+        /// <summary>
+        /// Project SubCircuits from <see cref="ModuleData.SubCircuits"/> into the graph.
+        ///
+        /// Each SubCircuit becomes a <c>"SubCircuit"</c> node that is attached to its host
+        /// device node via a <c>"hosts"</c> edge.  Device nodes that belong to the SubCircuit
+        /// are NOT re-parented — they remain children of their loop — but the SubCircuit node
+        /// stores aggregate Properties (DeviceCount, TotalMa) for UI display and rule evaluation.
+        /// </summary>
+        private static void BuildSubCircuitNodes(ModuleData data)
+        {
+            // Build a fast map: RevitElementId → Node (for host resolution + mA lookup)
+            var nodeByElementId = new Dictionary<long, Node>();
+            foreach (var node in data.Nodes)
+                if (node.RevitElementId.HasValue)
+                    nodeByElementId[node.RevitElementId.Value] = node;
+
+            // Build a fast map: RevitElementId → AddressableDevice (for mA aggregation)
+            var deviceByElementId = new Dictionary<long, AddressableDevice>();
+            foreach (var dev in data.Devices)
+                if (dev.RevitElementId.HasValue)
+                    deviceByElementId[dev.RevitElementId.Value] = dev;
+
+            foreach (var sc in data.SubCircuits)
+            {
+                if (string.IsNullOrEmpty(sc.Id)) continue;
+
+                // ── Aggregate device metrics ──────────────────────────────────────────
+                int deviceCount  = 0;
+                double totalMaNormal = 0;
+                double totalMaAlarm  = 0;
+                bool hasMaData       = false;
+
+                foreach (int elemId in sc.DeviceElementIds)
+                {
+                    deviceCount++;
+                    if (deviceByElementId.TryGetValue(elemId, out var dev)
+                        && dev.CurrentDraw.HasValue)
+                    {
+                        totalMaNormal += dev.CurrentDraw.Value;
+                        hasMaData = true;
+                        // Alarm draw: read from raw property, fall back to normal draw
+                        if (dev.Properties.TryGetValue("_CurrentDrawAlarm", out string alarmStr)
+                            && double.TryParse(alarmStr,
+                                System.Globalization.NumberStyles.Any,
+                                System.Globalization.CultureInfo.InvariantCulture,
+                                out double alarmMa))
+                            totalMaAlarm += alarmMa;
+                        else
+                            totalMaAlarm += dev.CurrentDraw.Value;
+                    }
+                }
+
+                // ── Create SubCircuit node ────────────────────────────────────────────
+                var scNode = new Node(
+                    id:       "subcircuit::" + sc.Id,
+                    label:    sc.Name ?? sc.Id,
+                    nodeType: "SubCircuit")
+                {
+                    // No RevitElementId — this is a virtual node
+                };
+
+                scNode.Properties["DeviceCount"] = deviceCount.ToString();
+                scNode.Properties["HostElementId"] = sc.HostElementId.ToString();
+                if (!string.IsNullOrEmpty(sc.WireTypeKey))
+                    scNode.Properties["WireType"] = sc.WireTypeKey;
+                if (hasMaData)
+                {
+                    scNode.Properties["TotalMaNormal"] = totalMaNormal.ToString(
+                        "F1", System.Globalization.CultureInfo.InvariantCulture);
+                    scNode.Properties["TotalMaAlarm"] = totalMaAlarm.ToString(
+                        "F1", System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                data.Nodes.Add(scNode);
+
+                // ── Edge: host device → SubCircuit ────────────────────────────────────
+                if (nodeByElementId.TryGetValue(sc.HostElementId, out var hostNode))
+                {
+                    data.Edges.Add(new Edge(hostNode.Id, scNode.Id, "hosts"));
+                }
+                // If host is deleted/missing, SubCircuit node is added as a root orphan.
+                // Rule engine can flag it; UI will show it under "(No Host)".
+            }
         }
     }
 }
