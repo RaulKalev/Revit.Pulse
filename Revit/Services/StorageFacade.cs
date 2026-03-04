@@ -45,6 +45,10 @@ namespace Pulse.Revit.Services
         private readonly PickElementHandler _pickElementHandler;
         private readonly ExternalEvent _pickElementEvent;
 
+        // Pick multiple elements from Revit viewport (SubCircuit device assignment)
+        private readonly PickMultipleElementsHandler _pickMultipleHandler;
+        private readonly ExternalEvent _pickMultipleEvent;
+
         // Draw wire routing visualisation (model lines)
         private readonly DrawWireRoutingHandler _drawWireHandler;
         private readonly ExternalEvent _drawWireEvent;
@@ -76,6 +80,9 @@ namespace Pulse.Revit.Services
 
             _pickElementHandler = new PickElementHandler();
             _pickElementEvent = ExternalEvent.Create(_pickElementHandler);
+
+            _pickMultipleHandler = new PickMultipleElementsHandler();
+            _pickMultipleEvent   = ExternalEvent.Create(_pickMultipleHandler);
 
             _drawWireHandler = new DrawWireRoutingHandler();
             _drawWireEvent = ExternalEvent.Create(_drawWireHandler);
@@ -255,6 +262,23 @@ namespace Pulse.Revit.Services
             _pickElementHandler.OnError       = onError;
             _pickElementEvent.Raise();
         }
+        /// <summary>
+        /// Lets the user pick multiple elements in the Revit viewport (multi-select session).
+        /// Minimise the plugin window before calling; restore it in the callbacks.
+        /// </summary>
+        public void PickMultipleElements(
+            string prompt,
+            Action<System.Collections.Generic.List<long>> onPicked,
+            Action onCancelled = null,
+            Action<Exception> onError = null)
+        {
+            _pickMultipleHandler.PromptMessage = prompt ?? "Select elements (finish to confirm)";
+            _pickMultipleHandler.OnPicked      = onPicked;
+            _pickMultipleHandler.OnCancelled   = onCancelled;
+            _pickMultipleHandler.OnError       = onError;
+            _pickMultipleEvent.Raise();
+        }
+
         /// <summary>
         /// Draw (or clear) Manhattan-routed model lines for a single loop.
         /// </summary>

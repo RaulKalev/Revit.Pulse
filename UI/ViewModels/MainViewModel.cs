@@ -188,8 +188,9 @@ namespace Pulse.UI.ViewModels
             Topology.SubDeviceRemoveRequested      += OnSubDeviceRemoveRequested;
 
             // SubCircuit CRUD events
-            Topology.CreateSubCircuitRequested += OnCreateSubCircuitRequested;
-            Topology.DeleteSubCircuitRequested += OnDeleteSubCircuitRequested;
+            Topology.CreateSubCircuitRequested          += OnCreateSubCircuitRequested;
+            Topology.DeleteSubCircuitRequested          += OnDeleteSubCircuitRequested;
+            Topology.PickMultipleForSubCircuitRequested += OnPickMultipleForSubCircuitRequested;
             Diagram   = new DiagramViewModel();
 
             // Metrics panel ViewModel — highlight callback is wired here so it can
@@ -827,6 +828,81 @@ namespace Pulse.UI.ViewModels
         /// Minimises the plugin window, starts a Revit pick session, then writes
         /// Loop + Address when the user selects an element.
         /// </summary>
+        private void OnPickMultipleForSubCircuitRequested(TopologyNodeViewModel subCircuitVm)
+        {
+            if (subCircuitVm == null) return;
+
+            string rawId = subCircuitVm.GraphNode?.Id ?? string.Empty;
+            string subCircuitId = rawId.StartsWith("subcircuit::")
+                ? rawId.Substring("subcircuit::".Length)
+                : rawId;
+
+            if (string.IsNullOrEmpty(subCircuitId)) return;
+
+            // Minimise the plugin window so the user can click in the Revit viewport
+            _ownerWindow?.Dispatcher.Invoke(() =>
+            {
+                if (_ownerWindow != null)
+                    _ownerWindow.WindowState = System.Windows.WindowState.Minimized;
+            });
+
+            StatusText = "Select devices for " + subCircuitVm.Label + " — finish selection (double-click or Finish button) to confirm…";
+
+            _storageFacade.PickMultipleElements(
+                "Select sounder/NAC devices for " + subCircuitVm.Label,
+                onPicked: pickedIds =>
+                {
+                    System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        // Restore window
+                        if (_ownerWindow != null)
+                        {
+                            _ownerWindow.WindowState = System.Windows.WindowState.Normal;
+                            _ownerWindow.Activate();
+                        }
+
+                        var intIds = new System.Collections.Generic.List<int>();
+                        foreach (long id in pickedIds) intIds.Add((int)id);
+
+                        bool ok = _assignmentsService.AddDevicesToSubCircuit(subCircuitId, intIds);
+                        if (ok)
+                        {
+                            StatusText = $"{intIds.Count} device(s) added to {subCircuitVm.Label}. Refreshing\u2026";
+                            _assignmentsService.RequestSave();
+                            ExecuteRefresh();
+                        }
+                        else
+                        {
+                            StatusText = $"Could not add devices — SubCircuit '{subCircuitId}' not found.";
+                        }
+                    }));
+                },
+                onCancelled: () =>
+                {
+                    System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        if (_ownerWindow != null)
+                        {
+                            _ownerWindow.WindowState = System.Windows.WindowState.Normal;
+                            _ownerWindow.Activate();
+                        }
+                        StatusText = "Pick cancelled.";
+                    }));
+                },
+                onError: ex =>
+                {
+                    System.Windows.Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                    {
+                        if (_ownerWindow != null)
+                        {
+                            _ownerWindow.WindowState = System.Windows.WindowState.Normal;
+                            _ownerWindow.Activate();
+                        }
+                        StatusText = $"Pick failed: {ex.Message}";
+                    }));
+                });
+        }
+
         private void OnPickElementForDeviceRequested(TopologyNodeViewModel hostVm)
         {
             if (hostVm == null) return;
