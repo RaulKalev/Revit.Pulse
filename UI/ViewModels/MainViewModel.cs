@@ -1345,7 +1345,9 @@ namespace Pulse.UI.ViewModels
 
             if (waypoints == null || waypoints.Count < 2)
             {
-                StatusText = $"No device coordinates for '{loopVm.Label}' — refresh first.";
+                StatusText = loopVm.NodeType == "SubCircuit"
+                    ? $"Cannot draw routing for '{loopVm.Label}' — add at least one member device first, or ensure the host element has location data."
+                    : $"No device coordinates for '{loopVm.Label}' — refresh first.";
                 // Revert the toggle since we can't draw
                 loopVm.SetWireRoutingVisibleSilent(false);
                 return;
@@ -1366,7 +1368,10 @@ namespace Pulse.UI.ViewModels
         }
 
         /// <summary>
-        /// Build waypoints for a SubCircuit node from its member device positions.
+        /// Build waypoints for a SubCircuit node.
+        /// The first waypoint is always the host device (Output Module / sub-device)
+        /// so the line originates from the panel output. Member devices follow in
+        /// ascending address order. Line can be drawn as soon as there is ≥ 1 member.
         /// </summary>
         private List<(double X, double Y, double Z)> BuildWaypointsForSubCircuit(TopologyNodeViewModel scVm)
         {
@@ -1375,11 +1380,28 @@ namespace Pulse.UI.ViewModels
 
             var waypoints = new List<(double X, double Y, double Z)>();
 
+            // ── Waypoint 0: host element (Output Module or sub-device) ────────────────
+            // HostElementId is stored as a Property on the SubCircuit graph node by
+            // FireAlarmTopologyBuilder.BuildSubCircuitNodes.
+            if (scVm.GraphNode?.Properties.TryGetValue("HostElementId", out string hostIdStr) == true
+                && int.TryParse(hostIdStr, out int hostElemId))
+            {
+                var hostDev = data.Devices.Find(d => d.RevitElementId == hostElemId);
+                if (hostDev?.LocationX.HasValue == true
+                    && hostDev.LocationY.HasValue
+                    && hostDev.LocationZ.HasValue)
+                {
+                    waypoints.Add((hostDev.LocationX.Value, hostDev.LocationY.Value, hostDev.LocationZ.Value));
+                }
+            }
+
+            // ── Subsequent waypoints: member devices ──────────────────────────────────
             foreach (var memberVm in scVm.Children)
             {
-                var elemId = memberVm.GraphNode?.RevitElementId;
-                if (!elemId.HasValue) continue;
-                var device = data.Devices.Find(d => d.RevitElementId == elemId);
+                if (memberVm.GraphNode?.Properties.TryGetValue("MemberElementId", out string memberIdStr) != true
+                    || !int.TryParse(memberIdStr, out int memberElemId))
+                    continue;
+                var device = data.Devices.Find(d => d.RevitElementId == memberElemId);
                 if (device == null || !device.LocationX.HasValue
                     || !device.LocationY.HasValue || !device.LocationZ.HasValue) continue;
                 waypoints.Add((device.LocationX.Value, device.LocationY.Value, device.LocationZ.Value));
