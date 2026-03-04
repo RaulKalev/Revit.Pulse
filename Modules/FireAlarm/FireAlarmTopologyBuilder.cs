@@ -277,6 +277,27 @@ namespace Pulse.Modules.FireAlarm
                 if (dev.RevitElementId.HasValue)
                     deviceByElementId[dev.RevitElementId.Value] = dev;
 
+            // Build a reverse map: sub-device node id → parent Device node id.
+            // Used so a SubCircuit whose HostElementId is a sub-device ("001.1") is
+            // displayed as a child of the Output Module ("001"), not the sub-device.
+            // The XAML only renders one level of Device children, so the SubCircuit must
+            // attach to the Output Module for it to be visible.
+            var nodeById = new Dictionary<string, Node>(StringComparer.Ordinal);
+            foreach (var n in data.Nodes)
+                nodeById[n.Id] = n;
+
+            var parentDeviceOfNode = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var edge in data.Edges)
+            {
+                if (nodeById.TryGetValue(edge.SourceId, out var src)
+                    && nodeById.TryGetValue(edge.TargetId, out var tgt)
+                    && src.NodeType == "Device"
+                    && tgt.NodeType == "Device")
+                {
+                    parentDeviceOfNode[edge.TargetId] = edge.SourceId;
+                }
+            }
+
             foreach (var sc in data.SubCircuits)
             {
                 if (string.IsNullOrEmpty(sc.Id)) continue;
@@ -331,9 +352,16 @@ namespace Pulse.Modules.FireAlarm
                 data.Nodes.Add(scNode);
 
                 // ── Edge: host device → SubCircuit ────────────────────────────────────
+                // If the host is a sub-device ("001.1"), attach to its parent Output Module
+                // ("001") instead so the SubCircuit appears at the correct XAML render level
+                // (Device children, not Device-grandchildren which are never rendered).
+                // HostElementId is still the sub-device — used for routing coordinates.
                 if (nodeByElementId.TryGetValue(sc.HostElementId, out var hostNode))
                 {
-                    data.Edges.Add(new Edge(hostNode.Id, scNode.Id, "hosts"));
+                    string edgeSourceId = parentDeviceOfNode.TryGetValue(hostNode.Id, out string parentId)
+                        ? parentId
+                        : hostNode.Id;
+                    data.Edges.Add(new Edge(edgeSourceId, scNode.Id, "hosts"));
                 }
                 // If host is deleted/missing, SubCircuit node is added as a root orphan.
                 // Rule engine can flag it; UI will show it under "(No Host)".
