@@ -117,11 +117,11 @@ namespace Pulse.UI.ViewModels
         // ── SubCircuit actions ────────────────────────────────────────────────────────
 
         /// <summary>
-        /// Fired when the user clicks "Add SubCircuit" on a Device (Output Module) node.
-        /// Carries the Revit ElementId of the host device.
-        /// MainViewModel calls <see cref="TopologyAssignmentsService.CreateSubCircuit"/> and refreshes.
+        /// Fired when the user clicks "Add SubCircuit" on a sub-device node.
+        /// Carries the sub-device's TopologyNodeViewModel so MainViewModel can resolve
+        /// the Revit element ID from live data even if the graph node cache is stale.
         /// </summary>
-        public event Action<long> CreateSubCircuitRequested;
+        public event Action<TopologyNodeViewModel> CreateSubCircuitRequested;
 
         /// <summary>
         /// Fired when the user clicks "Delete" on a SubCircuit node.
@@ -277,8 +277,8 @@ namespace Pulse.UI.ViewModels
             };
 
             // SubCircuit action delegates
-            Action<long> onAddSubCircuit = hostElemId =>
-                CreateSubCircuitRequested?.Invoke(hostElemId);
+            Action<TopologyNodeViewModel> onAddSubCircuit = vm =>
+                CreateSubCircuitRequested?.Invoke(vm);
 
             Action<string> onDeleteSubCircuit = subCircuitId =>
                 DeleteSubCircuitRequested?.Invoke(subCircuitId);
@@ -329,7 +329,7 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onPickElementForDevice = null,
             Action<TopologyNodeViewModel> onRemoveSubDevice = null,
             Action<TopologyNodeViewModel> onToggleWireRouting = null,
-            Action<long> onAddSubCircuit = null,
+            Action<TopologyNodeViewModel> onAddSubCircuit = null,
             Action<string> onDeleteSubCircuit = null,
             Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null,
             Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null,
@@ -833,7 +833,7 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onRemoveSubDevice = null,
             Action<TopologyNodeViewModel> onToggleWireRouting = null,
             bool initialWireRoutingVisible = false,
-            Action<long> onAddSubCircuit = null,
+            Action<TopologyNodeViewModel> onAddSubCircuit = null,
             Action<string> onDeleteSubCircuit = null,
             Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null,
             Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null,
@@ -859,12 +859,8 @@ namespace Pulse.UI.ViewModels
 
             // SubCircuit commands
             AddSubCircuitCommand = new RelayCommand(
-                _ =>
-                {
-                    if (graphNode.RevitElementId.HasValue)
-                        onAddSubCircuit?.Invoke(graphNode.RevitElementId.Value);
-                },
-                _ => onAddSubCircuit != null && graphNode.RevitElementId.HasValue);
+                _ => onAddSubCircuit?.Invoke(this),
+                _ => onAddSubCircuit != null);   // always enabled for sub-device rows
 
             DeleteSubCircuitCommand = new RelayCommand(
                 _ =>

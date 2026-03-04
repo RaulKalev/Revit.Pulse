@@ -1097,11 +1097,29 @@ namespace Pulse.UI.ViewModels
         /// Creates a new SubCircuit for the given host Output Module element ID,
         /// persists the store, then triggers a refresh so the new node appears in the tree.
         /// </summary>
-        private void OnCreateSubCircuitRequested(long hostElementId)
+        private void OnCreateSubCircuitRequested(TopologyNodeViewModel vm)
         {
+            // Resolve the Revit element ID — first from the cached graph node value,
+            // then by matching the node's EntityId in live collected data.
+            long? rawId = vm.GraphNode.RevitElementId;
+
+            if (!rawId.HasValue)
+            {
+                var match = _appController.CurrentData?.Devices
+                    .FirstOrDefault(d => d.EntityId == vm.GraphNode.Id);
+                if (match?.RevitElementId.HasValue == true)
+                    rawId = match.RevitElementId.Value;
+            }
+
+            if (!rawId.HasValue)
+            {
+                StatusText = "Cannot create SubCircuit: device has no Revit element ID — try refreshing first.";
+                return;
+            }
+
             try
             {
-                _assignmentsService.CreateSubCircuit((int)hostElementId);
+                _assignmentsService.CreateSubCircuit((int)rawId.Value);
                 _assignmentsService.RequestSave();
                 StatusText = "SubCircuit created. Refreshing\u2026";
                 ExecuteRefresh();
