@@ -332,7 +332,8 @@ namespace Pulse.UI.ViewModels
             Action<long> onAddSubCircuit = null,
             Action<string> onDeleteSubCircuit = null,
             Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null,
-            Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null)
+            Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null,
+            bool isSubDevice = false)
         {
             // Determine available config options and current assignment for this node type
             IReadOnlyList<string> availableConfigs = null;
@@ -373,7 +374,8 @@ namespace Pulse.UI.ViewModels
                 onRemoveSubDevice:        node.NodeType == "Device" ? onRemoveSubDevice : null,
                 onToggleWireRouting:      (node.NodeType == "Loop" || node.NodeType == "SubCircuit") ? onToggleWireRouting : null,
                 initialWireRoutingVisible: initialWireRoutingVisible,
-                onAddSubCircuit:          node.NodeType == "Device" ? onAddSubCircuit : null,
+                onAddSubCircuit:          (isSubDevice && node.NodeType == "Device") ? onAddSubCircuit : null,
+                isSubDevice:              isSubDevice && node.NodeType == "Device",
                 onDeleteSubCircuit:       node.NodeType == "SubCircuit" ? onDeleteSubCircuit : null,
                 onPickMultipleForSubCircuit: node.NodeType == "SubCircuit" ? onPickMultipleForSubCircuit : null,
                 onRemoveFromSubCircuit:   node.NodeType == "SubCircuitMember" ? onRemoveFromSubCircuit : null);
@@ -438,7 +440,8 @@ namespace Pulse.UI.ViewModels
                                                onAddSubCircuit: onAddSubCircuit,
                                                onDeleteSubCircuit: onDeleteSubCircuit,
                                                onPickMultipleForSubCircuit: onPickMultipleForSubCircuit,
-                                               onRemoveFromSubCircuit: onRemoveFromSubCircuit);
+                                               onRemoveFromSubCircuit: onRemoveFromSubCircuit,
+                                               isSubDevice: node.NodeType == "Device");
                     vm.Children.Add(childVm);
                 }
             }
@@ -808,6 +811,12 @@ namespace Pulse.UI.ViewModels
             // Do NOT close IsAddSlotOpen — the node is rebuilt on refresh anyway
         }
 
+        /// <summary>
+        /// True when this Device node is a sub-device (direct child of another Device).
+        /// Controls visibility of the Add SubCircuit ("⎇") button on this row.
+        /// </summary>
+        public bool IsSubDevice { get; }
+
         public TopologyNodeViewModel(
             Node graphNode,
             Action<TopologyNodeViewModel> onSelect = null,
@@ -827,9 +836,11 @@ namespace Pulse.UI.ViewModels
             Action<long> onAddSubCircuit = null,
             Action<string> onDeleteSubCircuit = null,
             Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null,
-            Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null)
+            Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null,
+            bool isSubDevice = false)
         {
-            GraphNode = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
+            GraphNode   = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
+            IsSubDevice = isSubDevice;
             SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
             _onAssignConfig         = onAssignConfig;
             _onAssignWire           = onAssignWire;
