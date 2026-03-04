@@ -64,10 +64,29 @@
                                            TextOptions.TextFormattingMode="Display"/>
                             </Border>
                             <!-- Entity name -->
-                            <TextBlock Text="{Binding Title}"
+                            <TextBlock x:Name="TitleDisplay"
+                                       Text="{Binding Title}"
                                        FontSize="15" FontWeight="Bold"
                                        Foreground="{DynamicResource ForegroundBrush}"
-                                       TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                       TextWrapping="Wrap" Margin="0,0,0,6"
+                                       Visibility="{Binding IsEditingLabel, Converter={StaticResource InverseBoolToVis}}"
+                                       Cursor="IBeam"
+                                       ToolTip="Double-click to rename (SubCircuit)"
+                                       MouseLeftButtonDown="TitleDisplay_MouseLeftButtonDown"/>
+                            <!-- Edit mode for SubCircuit label -->
+                            <TextBox x:Name="TitleTextBox"
+                                     Text="{Binding EditingLabelText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Visibility="{Binding IsEditingLabel, Converter={StaticResource BoolToVis}}"
+                                     FontSize="15" FontWeight="Bold"
+                                     Background="Transparent"
+                                     BorderThickness="0,0,0,1"
+                                     BorderBrush="{DynamicResource BorderBrush}"
+                                     Foreground="{DynamicResource ForegroundBrush}"
+                                     CaretBrush="{DynamicResource ForegroundBrush}"
+                                     Margin="0,0,0,6"
+                                     KeyDown="TitleTextBox_KeyDown"
+                                     LostFocus="TitleTextBox_LostFocus"
+                                     IsVisibleChanged="TitleTextBox_IsVisibleChanged"/>
                             <!-- Badge row -->
                             <StackPanel Orientation="Horizontal">
                                 <Border Style="{DynamicResource WarningBadgeStyle}"

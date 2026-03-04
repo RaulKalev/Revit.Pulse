@@ -356,9 +356,9 @@ namespace Pulse.UI.ViewModels
                 _assignmentsStore.LoopWireAssignments.TryGetValue(wireKey, out initialWire);
             }
 
-            // Seed wire routing visibility from stored state (Loop nodes only)
+            // Seed wire routing visibility from stored state (Loop and SubCircuit nodes)
             bool initialWireRoutingVisible = false;
-            if (node.NodeType == "Loop")
+            if (node.NodeType == "Loop" || node.NodeType == "SubCircuit")
             {
                 string wrKey = (parentLabel ?? string.Empty) + "::" + node.Label;
                 _assignmentsStore.LoopWireRoutingVisible.TryGetValue(wrKey, out initialWireRoutingVisible);
@@ -371,7 +371,7 @@ namespace Pulse.UI.ViewModels
                 onSubDeviceAssign:        (node.NodeType == "Device" || node.NodeType == "SubCircuit") ? onSubDeviceAssign : null,
                 onPickElementForDevice:   node.NodeType == "Device" ? onPickElementForDevice : null,
                 onRemoveSubDevice:        node.NodeType == "Device" ? onRemoveSubDevice : null,
-                onToggleWireRouting:      node.NodeType == "Loop" ? onToggleWireRouting : null,
+                onToggleWireRouting:      (node.NodeType == "Loop" || node.NodeType == "SubCircuit") ? onToggleWireRouting : null,
                 initialWireRoutingVisible: initialWireRoutingVisible,
                 onAddSubCircuit:          node.NodeType == "Device" ? onAddSubCircuit : null,
                 onDeleteSubCircuit:       node.NodeType == "SubCircuit" ? onDeleteSubCircuit : null,

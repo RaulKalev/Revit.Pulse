@@ -63,5 +63,28 @@ namespace Pulse.UI.Controls
         {
             if ((bool)e.NewValue && sender is TextBox tb) { tb.Focus(); tb.SelectAll(); }
         }
+
+        // ── Entity label (SubCircuit rename) ──────────────────────────────
+
+        private void TitleDisplay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2 && Vm?.ShowLabelEdit == true) { Vm.BeginEditLabel(); e.Handled = true; }
+        }
+
+        private void TitleTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)       { Vm?.CommitLabel(); e.Handled = true; }
+            else if (e.Key == Key.Escape) { Vm?.CancelEdit();  e.Handled = true; }
+        }
+
+        private void TitleTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            Vm?.CommitLabel();
+        }
+
+        private void TitleTextBox_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if ((bool)e.NewValue && sender is TextBox tb) { tb.Focus(); tb.SelectAll(); }
+        }
     }
 }

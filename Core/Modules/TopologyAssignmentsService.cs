@@ -128,11 +128,22 @@ namespace Pulse.Core.Modules
         }
 
         /// <summary>
+        /// Rename the specified SubCircuit.
+        /// Returns false if <paramref name="subCircuitId"/> is not found.
+        /// </summary>
+        public bool RenameSubCircuit(string subCircuitId, string newName)
+        {
+            EnsureSubCircuitCollections();
+            if (!_store.SubCircuits.TryGetValue(subCircuitId, out var sc)) return false;
+            sc.Name = newName ?? string.Empty;
+            return true;
+        }
+
+        /// <summary>
         /// Remove <paramref name="deviceIds"/> from the specified SubCircuit.
         /// Returns false if <paramref name="subCircuitId"/> is not found.
         /// </summary>
-        public bool RemoveDevicesFromSubCircuit(string subCircuitId, List<int> deviceIds)
-        {
+        public bool RemoveDevicesFromSubCircuit(string subCircuitId, List<int> deviceIds)        {
             EnsureSubCircuitCollections();
             if (!_store.SubCircuits.TryGetValue(subCircuitId, out var sc)) return false;
             if (deviceIds == null || deviceIds.Count == 0) return true;

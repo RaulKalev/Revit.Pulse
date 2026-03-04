@@ -183,6 +183,7 @@ namespace Pulse.UI.ViewModels
             Topology  = new TopologyViewModel();
             Inspector = new InspectorViewModel();
             Inspector.CurrentDrawValueCommitted += OnCurrentDrawValueCommitted;
+            Inspector.SubCircuitLabelCommitted  += OnSubCircuitLabelCommitted;
             Topology.SubDeviceAssignRequested      += OnSubDeviceAssignRequested;
             Topology.PickElementForDeviceRequested += OnPickElementForDeviceRequested;
             Topology.SubDeviceRemoveRequested      += OnSubDeviceRemoveRequested;
@@ -734,6 +735,22 @@ namespace Pulse.UI.ViewModels
         }
 
         /// <summary>
+        /// Called when the user commits a renamed SubCircuit label in the inspector.
+        /// Persists the new name and refreshes the topology.
+        /// </summary>
+        private void OnSubCircuitLabelCommitted(string scNodeId, string newName)
+        {
+            if (string.IsNullOrWhiteSpace(scNodeId)) return;
+            // scNodeId is "subcircuit::{guid}"
+            string scId = scNodeId.StartsWith("subcircuit::", StringComparison.Ordinal)
+                ? scNodeId.Substring("subcircuit::".Length)
+                : scNodeId;
+            _assignmentsService.RenameSubCircuit(scId, newName);
+            _assignmentsService.RequestSave();
+            ExecuteRefresh();
+        }
+
+        /// <summary>
         /// Called when the user picks an unassigned device from the add-slot combobox on a device row.
         /// Writes the Loop and Address parameters to Revit, then refreshes.
         /// </summary>
@@ -1279,8 +1296,8 @@ namespace Pulse.UI.ViewModels
         }
 
         /// <summary>
-        /// Handle per-loop wire routing toggle from the topology view.
-        /// Draws or clears model lines for a single loop.
+        /// Handle per-loop (or per-SubCircuit) wire routing toggle from the topology view.
+        /// Draws or clears model lines for a single loop or NAC SubCircuit.
         /// </summary>
         private void OnWireRoutingToggled(TopologyNodeViewModel loopVm)
         {
@@ -1288,7 +1305,7 @@ namespace Pulse.UI.ViewModels
 
             if (!loopVm.IsWireRoutingVisible)
             {
-                // Clear lines for this loop
+                // Clear lines for this loop/SubCircuit
                 StatusText = $"Clearing wire routing for {loopVm.Label}…";
                 _storageFacade.DrawWireRouting(
                     loopKey,
@@ -1301,11 +1318,16 @@ namespace Pulse.UI.ViewModels
                 return;
             }
 
-            // Build waypoints for this specific loop
-            var waypoints = BuildWaypointsForLoop(loopVm);
+            // Build waypoints — different strategy for SubCircuit vs Loop
+            List<(double X, double Y, double Z)> waypoints;
+            if (loopVm.NodeType == "SubCircuit")
+                waypoints = BuildWaypointsForSubCircuit(loopVm);
+            else
+                waypoints = BuildWaypointsForLoop(loopVm);
+
             if (waypoints == null || waypoints.Count < 2)
             {
-                StatusText = $"No device coordinates for '{loopVm.Label}' (parent='{loopVm.ParentLabel}') — refresh first.";
+                StatusText = $"No device coordinates for '{loopVm.Label}' — refresh first.";
                 // Revert the toggle since we can't draw
                 loopVm.SetWireRoutingVisibleSilent(false);
                 return;
@@ -1323,6 +1345,29 @@ namespace Pulse.UI.ViewModels
                     loopVm.SetWireRoutingVisibleSilent(false);
                     StatusText = $"Could not draw wire routing: {ex.Message}";
                 }));
+        }
+
+        /// <summary>
+        /// Build waypoints for a SubCircuit node from its member device positions.
+        /// </summary>
+        private List<(double X, double Y, double Z)> BuildWaypointsForSubCircuit(TopologyNodeViewModel scVm)
+        {
+            var data = _appController.CurrentData;
+            if (data == null) return null;
+
+            var waypoints = new List<(double X, double Y, double Z)>();
+
+            foreach (var memberVm in scVm.Children)
+            {
+                var elemId = memberVm.GraphNode?.RevitElementId;
+                if (!elemId.HasValue) continue;
+                var device = data.Devices.Find(d => d.RevitElementId == elemId);
+                if (device == null || !device.LocationX.HasValue
+                    || !device.LocationY.HasValue || !device.LocationZ.HasValue) continue;
+                waypoints.Add((device.LocationX.Value, device.LocationY.Value, device.LocationZ.Value));
+            }
+
+            return waypoints.Count >= 2 ? waypoints : null;
         }
 
         /// <summary>

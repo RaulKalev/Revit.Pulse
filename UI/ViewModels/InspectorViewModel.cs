@@ -84,6 +84,36 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _showGauges, value);
         }
 
+        // ── Label editing (SubCircuit only) ──────────────────────────────────
+
+        private bool _showLabelEdit;
+        /// <summary>True only for SubCircuit nodes — enables double-click rename in the header.</summary>
+        public bool ShowLabelEdit
+        {
+            get => _showLabelEdit;
+            set => SetField(ref _showLabelEdit, value);
+        }
+
+        private bool _isEditingLabel;
+        public bool IsEditingLabel
+        {
+            get => _isEditingLabel;
+            set => SetField(ref _isEditingLabel, value);
+        }
+
+        private string _editingLabelText;
+        public string EditingLabelText
+        {
+            get => _editingLabelText;
+            set => SetField(ref _editingLabelText, value);
+        }
+
+        /// <summary>
+        /// Raised when the user commits a renamed SubCircuit label.
+        /// Parameters: (scNodeId, newName) where scNodeId is the full node id, e.g. "subcircuit::{guid}".
+        /// </summary>
+        public event Action<string, string> SubCircuitLabelCommitted;
+
         // ── Current draw (Device only) ────────────────────────────────────
 
         private bool _showCurrentDraw;
@@ -238,8 +268,16 @@ namespace Pulse.UI.ViewModels
                     { Properties.Add(new PropertyItem { Key = "Load (alarm)", Value = kvp.Value + " mA" }); continue; }
                     if (kvp.Key == "WireType")
                     { Properties.Add(new PropertyItem { Key = "Wire type", Value = kvp.Value }); continue; }
-                }
-                Properties.Add(new PropertyItem { Key = kvp.Key, Value = kvp.Value });
+                }                // ── SubCircuitMember property labels ──────────────────────────────────
+                else if (node.NodeType == "SubCircuitMember")
+                {
+                    if (kvp.Key == "SubCircuitId")
+                    { Properties.Add(new PropertyItem { Key = "Circuit ID", Value = kvp.Value }); continue; }
+                    if (kvp.Key == "MemberElementId")
+                    { Properties.Add(new PropertyItem { Key = "Element ID", Value = kvp.Value }); continue; }
+                    if (kvp.Key == "CurrentDraw")
+                    { Properties.Add(new PropertyItem { Key = "Current draw", Value = kvp.Value + " mA" }); continue; }
+                }                Properties.Add(new PropertyItem { Key = kvp.Key, Value = kvp.Value });
             }
 
             // For Device nodes, resolve "Panel type" from the live assignments store
@@ -288,6 +326,9 @@ namespace Pulse.UI.ViewModels
                     });
                 }
 
+                // Reset label-edit mode (only SubCircuit enables it below)
+                ShowLabelEdit = false;
+
                 // Count child devices for panels and loops
                 if (node.NodeType == "Panel")
                 {
@@ -309,6 +350,12 @@ namespace Pulse.UI.ViewModels
                         ChildDeviceCount = dc;
                     else
                         ChildDeviceCount = 0;
+                    ShowGauges = false;
+                    ShowLabelEdit = true;
+                }
+                else if (node.NodeType == "SubCircuitMember")
+                {
+                    ChildDeviceCount = 0;
                     ShowGauges = false;
                 }
                 else
@@ -337,6 +384,9 @@ namespace Pulse.UI.ViewModels
             IsEditingCurrentDrawAlarm = false;
             EditingCurrentDrawNormalText = string.Empty;
             EditingCurrentDrawAlarmText = string.Empty;
+            ShowLabelEdit = false;
+            IsEditingLabel = false;
+            EditingLabelText = string.Empty;
             AddressesUsed = 0;
             AddressesMax  = 0;
             MaUsed        = 0;
@@ -385,6 +435,22 @@ namespace Pulse.UI.ViewModels
         {
             IsEditingCurrentDrawNormal = false;
             IsEditingCurrentDrawAlarm = false;
+            IsEditingLabel = false;
+        }
+
+        public void BeginEditLabel()
+        {
+            EditingLabelText = Title ?? string.Empty;
+            IsEditingLabel = true;
+        }
+
+        public void CommitLabel()
+        {
+            if (!IsEditingLabel) return;
+            IsEditingLabel = false;
+            var newName = EditingLabelText ?? string.Empty;
+            Title = newName; // optimistic update
+            SubCircuitLabelCommitted?.Invoke(EntityId, newName);
         }
 
         // ── Gauge helpers ─────────────────────────────────────────────────
