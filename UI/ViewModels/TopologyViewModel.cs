@@ -131,6 +131,12 @@ namespace Pulse.UI.ViewModels
         public event Action<string> DeleteSubCircuitRequested;
 
         /// <summary>
+        /// Fired when the user clicks the "−" button on a SubCircuitMember row.
+        /// MainViewModel calls <see cref="TopologyAssignmentsService.RemoveDevicesFromSubCircuit"/> and refreshes.
+        /// </summary>
+        public event Action<TopologyNodeViewModel> RemoveFromSubCircuitRequested;
+
+        /// <summary>
         /// Fired when the user clicks "Pick in Revit" on a SubCircuit add-slot panel.
         /// MainViewModel minimises the window, runs a multi-pick session, then stores
         /// the selected element IDs via <see cref="TopologyAssignmentsService.AddDevicesToSubCircuit"/>.
@@ -255,6 +261,9 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onRemoveSubDevice = vm =>
                 SubDeviceRemoveRequested?.Invoke(vm);
 
+            Action<TopologyNodeViewModel> onRemoveFromSubCircuit = vm =>
+                RemoveFromSubCircuitRequested?.Invoke(vm);
+
             Action<TopologyNodeViewModel> onToggleWireRouting = vm =>
             {
                 string key = (vm.ParentLabel ?? string.Empty) + "::" + vm.Label;
@@ -293,7 +302,8 @@ namespace Pulse.UI.ViewModels
                                           onToggleWireRouting: onToggleWireRouting,
                                           onAddSubCircuit: onAddSubCircuit,
                                           onDeleteSubCircuit: onDeleteSubCircuit,
-                                          onPickMultipleForSubCircuit: onPickMultipleForSubCircuit);
+                                          onPickMultipleForSubCircuit: onPickMultipleForSubCircuit,
+                                          onRemoveFromSubCircuit: onRemoveFromSubCircuit);
                     RootNodes.Add(vm);
                 }
             }
@@ -321,7 +331,8 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onToggleWireRouting = null,
             Action<long> onAddSubCircuit = null,
             Action<string> onDeleteSubCircuit = null,
-            Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null)
+            Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null,
+            Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null)
         {
             // Determine available config options and current assignment for this node type
             IReadOnlyList<string> availableConfigs = null;
@@ -364,7 +375,8 @@ namespace Pulse.UI.ViewModels
                 initialWireRoutingVisible: initialWireRoutingVisible,
                 onAddSubCircuit:          node.NodeType == "Device" ? onAddSubCircuit : null,
                 onDeleteSubCircuit:       node.NodeType == "SubCircuit" ? onDeleteSubCircuit : null,
-                onPickMultipleForSubCircuit: node.NodeType == "SubCircuit" ? onPickMultipleForSubCircuit : null);
+                onPickMultipleForSubCircuit: node.NodeType == "SubCircuit" ? onPickMultipleForSubCircuit : null,
+                onRemoveFromSubCircuit:   node.NodeType == "SubCircuitMember" ? onRemoveFromSubCircuit : null);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -425,7 +437,8 @@ namespace Pulse.UI.ViewModels
                                                onToggleWireRouting: onToggleWireRouting,
                                                onAddSubCircuit: onAddSubCircuit,
                                                onDeleteSubCircuit: onDeleteSubCircuit,
-                                               onPickMultipleForSubCircuit: onPickMultipleForSubCircuit);
+                                               onPickMultipleForSubCircuit: onPickMultipleForSubCircuit,
+                                               onRemoveFromSubCircuit: onRemoveFromSubCircuit);
                     vm.Children.Add(childVm);
                 }
             }
@@ -737,6 +750,12 @@ namespace Pulse.UI.ViewModels
         /// <summary>Opens a Revit multi-pick session to assign devices to this SubCircuit.</summary>
         public ICommand PickMultipleForSubCircuitCommand { get; private set; }
 
+        /// <summary>Removes this member device from its parent SubCircuit (enabled on SubCircuitMember nodes only).</summary>
+        public ICommand RemoveFromSubCircuitCommand { get; private set; }
+
+        /// <summary>True when this node represents a member device listed under a SubCircuit.</summary>
+        public bool IsSubCircuitMember => NodeType == "SubCircuitMember";
+
         private readonly Action<TopologyNodeViewModel, UnassignedDeviceOption> _onSubDeviceAssign;
         private int _subDeviceCount;
 
@@ -807,7 +826,8 @@ namespace Pulse.UI.ViewModels
             bool initialWireRoutingVisible = false,
             Action<long> onAddSubCircuit = null,
             Action<string> onDeleteSubCircuit = null,
-            Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null)
+            Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null,
+            Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null)
         {
             GraphNode = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
@@ -822,7 +842,8 @@ namespace Pulse.UI.ViewModels
             PickMultipleForSubCircuitCommand = new RelayCommand(
                 _ => { IsAddSlotOpen = false; onPickMultipleForSubCircuit?.Invoke(this); },
                 _ => onPickMultipleForSubCircuit != null);
-            RemoveSubDeviceCommand    = new RelayCommand(_ => onRemoveSubDevice?.Invoke(this), _ => onRemoveSubDevice != null);
+            RemoveSubDeviceCommand          = new RelayCommand(_ => onRemoveSubDevice?.Invoke(this), _ => onRemoveSubDevice != null);
+            RemoveFromSubCircuitCommand     = new RelayCommand(_ => onRemoveFromSubCircuit?.Invoke(this), _ => onRemoveFromSubCircuit != null);
             ToggleWireRoutingCommand  = new RelayCommand(_ => IsWireRoutingVisible = !IsWireRoutingVisible);
 
             // SubCircuit commands

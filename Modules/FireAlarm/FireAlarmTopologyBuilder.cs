@@ -337,6 +337,35 @@ namespace Pulse.Modules.FireAlarm
                 }
                 // If host is deleted/missing, SubCircuit node is added as a root orphan.
                 // Rule engine can flag it; UI will show it under "(No Host)".
+
+                // ── Member reference nodes (one per assigned device) ───────────────────
+                // These are virtual display-only nodes so devices appear listed under
+                // the SubCircuit card in the topology panel without being re-parented.
+                foreach (int elemId in sc.DeviceElementIds)
+                {
+                    string memberLabel = deviceByElementId.TryGetValue(elemId, out var memberDev)
+                        ? (memberDev.DisplayName ?? elemId.ToString())
+                        : elemId.ToString();
+
+                    var memberNode = new Node(
+                        id:       "scmember::" + sc.Id + "::" + elemId,
+                        label:    memberLabel,
+                        nodeType: "SubCircuitMember");
+
+                    memberNode.Properties["SubCircuitId"]    = sc.Id;
+                    memberNode.Properties["MemberElementId"] = elemId.ToString();
+
+                    if (deviceByElementId.TryGetValue(elemId, out var mDev))
+                    {
+                        if (mDev.CurrentDraw.HasValue)
+                            memberNode.Properties["CurrentDraw"] =
+                                mDev.CurrentDraw.Value.ToString("F1",
+                                System.Globalization.CultureInfo.InvariantCulture) + " mA";
+                    }
+
+                    data.Nodes.Add(memberNode);
+                    data.Edges.Add(new Edge(scNode.Id, memberNode.Id, "member"));
+                }
             }
         }
     }

@@ -190,7 +190,8 @@ namespace Pulse.UI.ViewModels
             // SubCircuit CRUD events
             Topology.CreateSubCircuitRequested          += OnCreateSubCircuitRequested;
             Topology.DeleteSubCircuitRequested          += OnDeleteSubCircuitRequested;
-            Topology.PickMultipleForSubCircuitRequested += OnPickMultipleForSubCircuitRequested;
+            Topology.PickMultipleForSubCircuitRequested  += OnPickMultipleForSubCircuitRequested;
+            Topology.RemoveFromSubCircuitRequested       += OnRemoveFromSubCircuitRequested;
             Diagram   = new DiagramViewModel();
 
             // Metrics panel ViewModel — highlight callback is wired here so it can
@@ -828,6 +829,30 @@ namespace Pulse.UI.ViewModels
         /// Minimises the plugin window, starts a Revit pick session, then writes
         /// Loop + Address when the user selects an element.
         /// </summary>
+        private void OnRemoveFromSubCircuitRequested(TopologyNodeViewModel memberVm)
+        {
+            if (memberVm?.GraphNode == null) return;
+
+            memberVm.GraphNode.Properties.TryGetValue("SubCircuitId",    out string scId);
+            memberVm.GraphNode.Properties.TryGetValue("MemberElementId", out string elemIdStr);
+
+            if (string.IsNullOrEmpty(scId) || !int.TryParse(elemIdStr, out int elemId)) return;
+
+            bool ok = _assignmentsService.RemoveDevicesFromSubCircuit(
+                scId, new System.Collections.Generic.List<int> { elemId });
+
+            if (ok)
+            {
+                StatusText = $"'{memberVm.Label}' removed from SubCircuit.";
+                _assignmentsService.RequestSave();
+                ExecuteRefresh();
+            }
+            else
+            {
+                StatusText = $"Could not remove '{memberVm.Label}' — SubCircuit not found.";
+            }
+        }
+
         private void OnPickMultipleForSubCircuitRequested(TopologyNodeViewModel subCircuitVm)
         {
             if (subCircuitVm == null) return;
