@@ -15,6 +15,22 @@ using Pulse.Core.SystemModel;
 namespace Pulse.UI.ViewModels
 {
     // ──────────────────────────────────────────────────────────────────────────
+    // Row ViewModel for SubCircuit member device listing
+    // ──────────────────────────────────────────────────────────────────────────
+
+    public sealed class ScMemberRowViewModel
+    {
+        public string Name        { get; }
+        public string CurrentDraw { get; }
+
+        internal ScMemberRowViewModel(string name, string currentDraw)
+        {
+            Name        = name;
+            CurrentDraw = currentDraw;
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
     // Row ViewModel for the Health Status section
     // ──────────────────────────────────────────────────────────────────────────
 
@@ -256,6 +272,9 @@ namespace Pulse.UI.ViewModels
             get => _childDeviceCount;
             private set => SetField(ref _childDeviceCount, value);
         }
+
+        public ObservableCollection<ScMemberRowViewModel> ScMembers { get; }
+            = new ObservableCollection<ScMemberRowViewModel>();
 
         // ──────────────────────────────────────────────────────────────────────
         // HEALTH STATUS SECTION
@@ -539,6 +558,20 @@ namespace Pulse.UI.ViewModels
                 int.TryParse(dcStr, out int devCount);
                 ChildDeviceCount = devCount;
 
+                // Populate member device list from scmember:: nodes in topology data
+                ScMembers.Clear();
+                string scRawId = _selectedNode.Id.StartsWith("subcircuit::")
+                    ? _selectedNode.Id.Substring("subcircuit::".Length)
+                    : _selectedNode.Id;
+                foreach (var mn in _lastData.Nodes)
+                {
+                    if (mn.NodeType != "SubCircuitMember") continue;
+                    if (!mn.Properties.TryGetValue("SubCircuitId", out string membSc)
+                        || membSc != scRawId) continue;
+                    string draw = mn.Properties.TryGetValue("CurrentDraw", out string d) ? d : "—";
+                    ScMembers.Add(new ScMemberRowViewModel(mn.Label, draw));
+                }
+
                 double maNormal = 0, maAlarm = 0;
                 if (_selectedNode.Properties.TryGetValue("TotalMaNormal", out string normalStr))
                     double.TryParse(normalStr,
@@ -704,6 +737,7 @@ namespace Pulse.UI.ViewModels
             MaNormal               = 0;
             ScMaMax                = 0;
             ChildDeviceCount       = 0;
+            ScMembers.Clear();
             IsCapacityEmpty        = true;
             AddressesUsed          = AddressesMax = 0;
             MaUsed                 = MaMax        = 0;

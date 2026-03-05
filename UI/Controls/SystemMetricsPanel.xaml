@@ -401,8 +401,9 @@
                                     </TextBlock>
                                 </Grid>
 
-                                <!-- Device count row -->
+                                <!-- Member devices section -->
                                 <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,4,0,4"/>
+                                <!-- Section header with count -->
                                 <Grid Margin="0,2">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto"/>
@@ -414,9 +415,10 @@
                                                              VerticalAlignment="Center"
                                                              Margin="0,0,5,0"
                                                              Foreground="{DynamicResource IconForegroundBrush}"/>
-                                    <TextBlock Grid.Column="1" Text="Member devices"
-                                               FontSize="10"
-                                               Foreground="{DynamicResource ForegroundBrush}"
+                                    <TextBlock Grid.Column="1" Text="MEMBER DEVICES"
+                                               FontSize="8" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource IconForegroundBrush}"
+                                               Opacity="0.7"
                                                VerticalAlignment="Center"/>
                                     <TextBlock Grid.Column="2"
                                                Text="{Binding ChildDeviceCount}"
@@ -424,6 +426,30 @@
                                                Foreground="{DynamicResource ForegroundBrush}"
                                                VerticalAlignment="Center"/>
                                 </Grid>
+                                <!-- Per-device rows -->
+                                <ItemsControl ItemsSource="{Binding ScMembers}" Margin="0,2,0,0">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid Margin="0,2">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0"
+                                                           Text="{Binding Name}"
+                                                           FontSize="9"
+                                                           Foreground="{DynamicResource ForegroundBrush}"
+                                                           TextTrimming="CharacterEllipsis"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding CurrentDraw}"
+                                                           FontSize="9" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                                           VerticalAlignment="Center"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
 
                             </StackPanel>
 
