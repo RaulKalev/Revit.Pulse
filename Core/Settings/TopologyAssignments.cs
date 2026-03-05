@@ -53,21 +53,24 @@ namespace Pulse.Core.Settings
         public Dictionary<string, bool> LoopWireRoutingVisible { get; set; }
             = new Dictionary<string, bool>(System.StringComparer.OrdinalIgnoreCase);
 
-        // ── SubCircuit persistence (additive – safe to absent in older documents) ──────
+        // ── Generic per-module blob store ────────────────────────────────────────────
 
         /// <summary>
-        /// Opaque JSON blob for all SubCircuits.  Owned and serialised by
-        /// <c>FireAlarmSubCircuitService</c> (Modules/FireAlarm) so that Core carries
-        /// no dependency on the FA-specific SubCircuit type.
-        /// Missing from old documents → null, treated as empty by the service.
+        /// Per-module opaque JSON blobs.  Any module stores its data here under a
+        /// module-specific key (e.g. <c>"FireAlarm.SubCircuits"</c>).  Core never
+        /// inspects the values — modules own their own serialisation.
+        ///
+        /// Adding a new module requires no changes to this class: the module simply
+        /// picks a unique key and reads/writes its blob through this dictionary.
         /// </summary>
-        public string SubCircuitsJson { get; set; }
+        public Dictionary<string, string> ModuleBlobs { get; set; }
+            = new Dictionary<string, string>(System.StringComparer.Ordinal);
 
         // ── Migration shims — read old field names written by previous versions ──────
 
         /// <summary>
         /// Absorbs the old "SubCircuits" Dictionary field from documents saved before
-        /// Gap-6.  When the blob slot is still empty the raw JSON token is stored as-is
+        /// Gap-6.  Copies the raw JSON token into <c>ModuleBlobs["FireAlarm.SubCircuits"]</c>
         /// so <c>FireAlarmSubCircuitService</c> can deserialise it on next load.
         /// </summary>
         [JsonProperty("SubCircuits")]
@@ -77,9 +80,28 @@ namespace Pulse.Core.Settings
             set
             {
                 if (value != null && value.Type != JTokenType.Null
-                    && string.IsNullOrEmpty(SubCircuitsJson))
+                    && !ModuleBlobs.ContainsKey(FireAlarmSubCircuitsKey))
                 {
-                    SubCircuitsJson = value.ToString(Formatting.None);
+                    ModuleBlobs[FireAlarmSubCircuitsKey] = value.ToString(Formatting.None);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Absorbs the old top-level <c>SubCircuitsJson</c> string field from documents
+        /// saved between Gap-6 and Gap-2.  Migrates the value into
+        /// <c>ModuleBlobs["FireAlarm.SubCircuits"]</c> on first load.
+        /// </summary>
+        [JsonProperty("SubCircuitsJson")]
+        internal string LegacySubCircuitsJsonBlob
+        {
+            get => null;
+            set
+            {
+                if (!string.IsNullOrEmpty(value)
+                    && !ModuleBlobs.ContainsKey(FireAlarmSubCircuitsKey))
+                {
+                    ModuleBlobs[FireAlarmSubCircuitsKey] = value;
                 }
             }
         }
@@ -96,5 +118,14 @@ namespace Pulse.Core.Settings
             // ReSharper disable once ValueParameterNotUsed
             set { /* intentionally discarded — index is rebuilt on load */ }
         }
+
+        // ── Internal constants shared with module services ────────────────────────────
+
+        /// <summary>
+        /// The key used by <c>FireAlarmSubCircuitService</c> inside <see cref="ModuleBlobs"/>.
+        /// Declared here so Core can set up migration shims without taking a direct
+        /// dependency on the FireAlarm module assembly.
+        /// </summary>
+        internal const string FireAlarmSubCircuitsKey = "FireAlarm.SubCircuits";
     }
 }

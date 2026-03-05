@@ -27,6 +27,13 @@ namespace Pulse.Modules.FireAlarm
     /// </summary>
     public sealed class FireAlarmSubCircuitService
     {
+        /// <summary>
+        /// The key under which this service stores its blob in
+        /// <see cref="TopologyAssignmentsStore.ModuleBlobs"/>.
+        /// Exposed so callers can reference it without a magic string.
+        /// </summary>
+        public const string BlobKey = TopologyAssignmentsStore.FireAlarmSubCircuitsKey;
+
         private readonly TopologyAssignmentsService _assignmentsService;
         private Dictionary<string, SubCircuit> _cache;
         private Dictionary<int, List<string>> _indexByHost;
@@ -59,7 +66,7 @@ namespace Pulse.Modules.FireAlarm
         public void PersistToStore()
         {
             if (_cache == null) return;
-            _assignmentsService.Store.SubCircuitsJson = JsonConvert.SerializeObject(_cache);
+            _assignmentsService.Store.ModuleBlobs[BlobKey] = JsonConvert.SerializeObject(_cache);
         }
 
         // ── Read access ──────────────────────────────────────────────────────────────
@@ -245,7 +252,7 @@ namespace Pulse.Modules.FireAlarm
         {
             if (_cache != null) return _cache;
 
-            var json = _assignmentsService.Store.SubCircuitsJson;
+            _assignmentsService.Store.ModuleBlobs.TryGetValue(BlobKey, out var json);
             _cache = !string.IsNullOrEmpty(json)
                 ? JsonConvert.DeserializeObject<Dictionary<string, SubCircuit>>(json)
                   ?? new Dictionary<string, SubCircuit>()

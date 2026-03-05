@@ -1,6 +1,6 @@
 # Pulse — Architecture Guide
 
-> Last updated after the **Gap 6 — SubCircuit out of Core** refactor.
+> Last updated after the **Gap 2 — Generic ModuleBlobs in TopologyAssignmentsStore** refactor.
 
 This document describes the runtime pipeline, module system, storage
 strategy, and diagram scene-graph that form the backbone of Pulse.
@@ -45,7 +45,8 @@ strategy, and diagram scene-graph that form the backbone of Pulse.
 │    SystemModel    — Panel, Loop, Zone, Device        │
 │    Rules          — IRule, RuleResult, Severity      │
 │    Settings       — ModuleSettings, TopologyAssignmentsStore│
-│                     (SubCircuitsJson blob — opaque)  │
+│                     (ModuleBlobs dict — opaque per-module   │
+│                      blobs, e.g. "FireAlarm.SubCircuits")   │
 │                     DeviceConfigStore, LevelVisibility│
 │    Logging        — ILogger abstraction             │
 └────────────────────────────────────────────────────┘
