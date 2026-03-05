@@ -621,6 +621,7 @@
                                                                                                                 <ColumnDefinition Width="Auto"/>
                                                                                                                 <ColumnDefinition Width="Auto"/>
                                                                                                                 <ColumnDefinition Width="Auto"/>
+                                                                                                                <ColumnDefinition Width="Auto"/>
                                                                                                             </Grid.ColumnDefinitions>
                                                                                                             <!-- SubCircuit select button -->
                                                                                                             <Button Grid.Column="0"
@@ -654,8 +655,18 @@
                                                                                                                     </Border>
                                                                                                                 </StackPanel>
                                                                                                             </Button>
+                                                                                                            <!-- Wire type combobox (hidden when no wires configured) -->
+                                                                                                            <ComboBox Grid.Column="1"
+                                                                                                                      ItemsSource="{Binding AvailableWires}"
+                                                                                                                      SelectedItem="{Binding AssignedWire, Mode=TwoWay}"
+                                                                                                                      Style="{StaticResource DarkComboBoxStyle}"
+                                                                                                                      VerticalAlignment="Center"
+                                                                                                                      MinWidth="90"
+                                                                                                                      Margin="0,0,4,0"
+                                                                                                                      Visibility="{Binding AvailableWires.Count,
+                                                                                                                                   Converter={StaticResource CountToVisibility}}"/>
                                                                                                             <!-- Wire routing toggle -->
-                                                                                                            <ToggleButton Grid.Column="1"
+                                                                                                            <ToggleButton Grid.Column="2"
                                                                                                                           IsChecked="{Binding IsWireRoutingVisible, Mode=TwoWay}"
                                                                                                                           ToolTip="Toggle 3-D wire routing lines"
                                                                                                                           OverridesDefaultStyle="True"
@@ -679,7 +690,7 @@
                                                                                                                 </ToggleButton.Template>
                                                                                                             </ToggleButton>
                                                                                                             <!-- "+" add device to SubCircuit button -->
-                                                                                                            <Button Grid.Column="2"
+                                                                                                            <Button Grid.Column="3"
                                                                                                                     Command="{Binding ToggleAddSlotCommand}"
                                                                                                                     ToolTip="Add a sounder/NAC device to this SubCircuit"
                                                                                                                     Width="18" Height="18"
@@ -719,7 +730,7 @@
                                                                                                                                          Foreground="{DynamicResource IconForegroundBrush}"/>
                                                                                                             </Button>
                                                                                                             <!-- Delete SubCircuit button -->
-                                                                                                            <Button Grid.Column="3"
+                                                                                                            <Button Grid.Column="4"
                                                                                                                     Command="{Binding DeleteSubCircuitCommand}"
                                                                                                                     ToolTip="Delete this SubCircuit"
                                                                                                                     Width="18" Height="18"

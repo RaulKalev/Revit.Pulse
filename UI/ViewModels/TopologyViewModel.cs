@@ -235,12 +235,24 @@ namespace Pulse.UI.ViewModels
 
             Action<TopologyNodeViewModel> onAssignWire = vm =>
             {
-                // vm.ParentLabel + "::" + vm.Label is the key used by DiagramViewModel
-                string key = (vm.ParentLabel ?? string.Empty) + "::" + vm.Label;
-                if (string.IsNullOrEmpty(vm.AssignedWire))
-                    _assignmentsStore.LoopWireAssignments.Remove(key);
+                if (vm.NodeType == "SubCircuit")
+                {
+                    // Save wire directly to SubCircuit model
+                    string scId = vm.GraphNode.Id.StartsWith("subcircuit::")
+                        ? vm.GraphNode.Id.Substring("subcircuit::".Length)
+                        : vm.GraphNode.Id;
+                    if (_assignmentsStore.SubCircuits.TryGetValue(scId, out var scDef))
+                        scDef.WireTypeKey = vm.AssignedWire ?? string.Empty;
+                }
                 else
-                    _assignmentsStore.LoopWireAssignments[key] = vm.AssignedWire;
+                {
+                    // Loop: vm.ParentLabel + "::" + vm.Label is the key used by DiagramViewModel
+                    string key = (vm.ParentLabel ?? string.Empty) + "::" + vm.Label;
+                    if (string.IsNullOrEmpty(vm.AssignedWire))
+                        _assignmentsStore.LoopWireAssignments.Remove(key);
+                    else
+                        _assignmentsStore.LoopWireAssignments[key] = vm.AssignedWire;
+                }
                 AssignmentsSaveRequested?.Invoke();
 
                 WireAssigned?.Invoke(vm);
@@ -356,6 +368,16 @@ namespace Pulse.UI.ViewModels
                 string wireKey = (parentLabel ?? string.Empty) + "::" + node.Label;
                 _assignmentsStore.LoopWireAssignments.TryGetValue(wireKey, out initialWire);
             }
+            else if (node.NodeType == "SubCircuit")
+            {
+                availableWires = wireOptions;
+                string scId = node.Id.StartsWith("subcircuit::")
+                    ? node.Id.Substring("subcircuit::".Length)
+                    : node.Id;
+                if (_assignmentsStore.SubCircuits.TryGetValue(scId, out var scDef)
+                    && !string.IsNullOrEmpty(scDef.WireTypeKey))
+                    initialWire = scDef.WireTypeKey;
+            }
 
             // Seed wire routing visibility from stored state (Loop and SubCircuit nodes)
             bool initialWireRoutingVisible = false;
@@ -396,14 +418,17 @@ namespace Pulse.UI.ViewModels
                     vm.SubInfo = info;
             }
 
-            // SubCircuit summary info: device count + mA load
+            // SubCircuit summary info: device count + mA load + cable length
             if (node.NodeType == "SubCircuit")
             {
                 node.Properties.TryGetValue("DeviceCount", out string scDc);
                 node.Properties.TryGetValue("TotalMaAlarm", out string scMa);
+                node.Properties.TryGetValue("CableLength",  out string scCl);
                 string scInfo = string.IsNullOrEmpty(scDc) ? "" : $"{scDc} devices";
                 if (!string.IsNullOrEmpty(scMa) && scMa != "0.0")
                     scInfo += (scInfo.Length > 0 ? "  " : "") + $"~{scMa} mA alarm";
+                if (!string.IsNullOrEmpty(scCl))
+                    scInfo += (scInfo.Length > 0 ? "  " : "") + $"~{scCl} m";
                 if (scInfo.Length > 0)
                     vm.SubInfo = scInfo;
             }

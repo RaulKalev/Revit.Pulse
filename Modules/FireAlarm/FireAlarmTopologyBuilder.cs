@@ -328,6 +328,38 @@ namespace Pulse.Modules.FireAlarm
                     }
                 }
 
+                // ── Cable length estimate (host → devices, Manhattan routing) ──────────
+                double cableLengthFeet = 0;
+                bool hasCableRoute = false;
+                double prevX = 0, prevY = 0, prevZ = 0;
+
+                if (deviceByElementId.TryGetValue(sc.HostElementId, out var hostDevLen)
+                    && hostDevLen.LocationX.HasValue
+                    && hostDevLen.LocationY.HasValue
+                    && hostDevLen.LocationZ.HasValue)
+                {
+                    prevX = hostDevLen.LocationX.Value;
+                    prevY = hostDevLen.LocationY.Value;
+                    prevZ = hostDevLen.LocationZ.Value;
+
+                    foreach (int elemId in sc.DeviceElementIds)
+                    {
+                        if (deviceByElementId.TryGetValue(elemId, out var lenDev)
+                            && lenDev.LocationX.HasValue
+                            && lenDev.LocationY.HasValue
+                            && lenDev.LocationZ.HasValue)
+                        {
+                            cableLengthFeet += Math.Abs(lenDev.LocationX.Value - prevX)
+                                             + Math.Abs(lenDev.LocationY.Value - prevY)
+                                             + Math.Abs(lenDev.LocationZ.Value - prevZ);
+                            prevX = lenDev.LocationX.Value;
+                            prevY = lenDev.LocationY.Value;
+                            prevZ = lenDev.LocationZ.Value;
+                            hasCableRoute = true;
+                        }
+                    }
+                }
+
                 // ── Create SubCircuit node ────────────────────────────────────────────
                 var scNode = new Node(
                     id:       "subcircuit::" + sc.Id,
@@ -341,6 +373,9 @@ namespace Pulse.Modules.FireAlarm
                 scNode.Properties["HostElementId"] = sc.HostElementId.ToString();
                 if (!string.IsNullOrEmpty(sc.WireTypeKey))
                     scNode.Properties["WireType"] = sc.WireTypeKey;
+                if (hasCableRoute)
+                    scNode.Properties["CableLength"] = (cableLengthFeet * 0.3048).ToString(
+                        "F1", System.Globalization.CultureInfo.InvariantCulture);
                 if (hasMaData)
                 {
                     scNode.Properties["TotalMaNormal"] = totalMaNormal.ToString(

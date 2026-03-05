@@ -1222,10 +1222,21 @@ namespace Pulse.UI.ViewModels
         /// <summary>
         /// Called when the user assigns a wire type to a loop in the topology tree.
         /// Writes the wire name to the configured Revit parameter on all descendant devices.
+        /// For SubCircuit nodes the wire drives voltage-drop calculation only — just
+        /// triggers a metrics refresh.
         /// </summary>
         private void OnTopologyWireAssigned(TopologyNodeViewModel vm)
         {
             if (vm == null) return;
+
+            // SubCircuit: wire is for voltage-drop calculation only — refresh metrics panel
+            if (vm.NodeType == "SubCircuit")
+            {
+                Application.Current?.Dispatcher?.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.DataBind,
+                    (Action)(() => Metrics.RebuildMetrics()));
+                return;
+            }
 
             string paramName = _appController.ActiveSettings?.GetRevitParameterName(FireAlarmParameterKeys.Wire);
             if (string.IsNullOrEmpty(paramName)) return;

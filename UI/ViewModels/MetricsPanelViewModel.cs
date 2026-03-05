@@ -275,6 +275,29 @@ namespace Pulse.UI.ViewModels
             private set => SetField(ref _childDeviceCount, value);
         }
 
+        // Voltage drop (SubCircuit only)
+        private double _scVDropVolts;
+        public  double ScVDropVolts
+        {
+            get => _scVDropVolts;
+            private set => SetField(ref _scVDropVolts, value);
+        }
+
+        // Maximum tolerable voltage drop (4 V for a 24 V NAC circuit)
+        private double _scVDropMax = 4.0;
+        public  double ScVDropMax
+        {
+            get => _scVDropMax;
+            private set => SetField(ref _scVDropMax, value);
+        }
+
+        private bool _showVDropGauge;
+        public  bool ShowVDropGauge
+        {
+            get => _showVDropGauge;
+            private set => SetField(ref _showVDropGauge, value);
+        }
+
         public ObservableCollection<ScMemberRowViewModel> ScMembers { get; }
             = new ObservableCollection<ScMemberRowViewModel>();
 
@@ -465,6 +488,12 @@ namespace Pulse.UI.ViewModels
         // Private rebuild
         // ──────────────────────────────────────────────────────────────────────
 
+        /// <summary>
+        /// Called externally (e.g. from MainViewModel) when only a minor property changes
+        /// (such as wire type) so the panel is re-computed without a full data refresh.
+        /// </summary>
+        public void RebuildMetrics() => Rebuild();
+
         private void Rebuild()
         {
             if (_lastData == null || _selectedNode == null)
@@ -545,6 +574,9 @@ namespace Pulse.UI.ViewModels
             MaNormal              = 0;
             ScMaMax               = 0;
             ChildDeviceCount      = 0;
+            ShowVDropGauge        = false;
+            ScVDropVolts          = 0;
+            ScVDropMax            = 4.0;
 
             // ── SubCircuit path ───────────────────────────────────────────────
             if (_selectedNode?.NodeType == "SubCircuit")
@@ -604,6 +636,36 @@ namespace Pulse.UI.ViewModels
                         var cfg = _lastDeviceStore.LoopModules
                             .FirstOrDefault(m => m.Name == modName);
                         if (cfg != null) ScMaMax = cfg.MaxMaPerLoop;
+                    }
+                }
+
+                // ── Voltage-drop calculation ────────────────────────────────────────
+                // Cable length is stored on the node as metres (set by topology builder)
+                double cableLengthMetres = 0;
+                _selectedNode.Properties.TryGetValue("CableLength", out string clStr);
+                double.TryParse(clStr,
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out cableLengthMetres);
+
+                // Wire type comes from live assignment store so ComboBox changes reflect immediately
+                string vdWireType = null;
+                if (_lastAssignments.SubCircuits.TryGetValue(scRawId, out var scAssign)
+                    && !string.IsNullOrEmpty(scAssign.WireTypeKey))
+                    vdWireType = scAssign.WireTypeKey;
+
+                if (cableLengthMetres > 0 && !string.IsNullOrEmpty(vdWireType))
+                {
+                    var wire = _lastDeviceStore.Wires.FirstOrDefault(w =>
+                        string.Equals(w.Name, vdWireType,
+                            System.StringComparison.OrdinalIgnoreCase));
+                    if (wire != null && wire.CoreSizeMm2 > 0)
+                    {
+                        // V = I × R   ;   R = 2 × ρ / A × L  (both conductors, copper ρ=0.0175 Ω·mm²/m)
+                        double rTotal = 2.0 * 0.0175 / wire.CoreSizeMm2 * cableLengthMetres;
+                        ScVDropVolts   = (maAlarm / 1000.0) * rTotal;  // maAlarm is mA → A
+                        ScVDropMax     = 4.0;
+                        ShowVDropGauge = true;
                     }
                 }
 
@@ -741,6 +803,9 @@ namespace Pulse.UI.ViewModels
             ScMaMax                = 0;
             ChildDeviceCount       = 0;
             ScMembers.Clear();
+            ShowVDropGauge         = false;
+            ScVDropVolts           = 0;
+            ScVDropMax             = 4.0;
             IsCapacityEmpty        = true;
             AddressesUsed          = AddressesMax = 0;
             MaUsed                 = MaMax        = 0;

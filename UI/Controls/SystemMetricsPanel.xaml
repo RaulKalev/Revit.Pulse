@@ -401,6 +401,39 @@
                                     </TextBlock>
                                 </Grid>
 
+                                <!-- Voltage drop gauge (shown when cable + wire assigned) -->
+                                <StackPanel Visibility="{Binding ShowVDropGauge, Converter={StaticResource BoolToVis}}">
+                                    <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,4,0,4"/>
+                                    <TextBlock Text="VOLTAGE DROP" FontSize="8" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource IconForegroundBrush}"
+                                               Opacity="0.7" Margin="0,0,0,4"/>
+                                    <Grid Height="100" Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <controls:GaugeControl Grid.Column="0"
+                                                               Value="{Binding ScVDropVolts}"
+                                                               Maximum="{Binding ScVDropMax}"
+                                                               Label="V-Drop"
+                                                               Unit="V"/>
+                                        <!-- Cable length info text -->
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                            <TextBlock FontSize="9" TextAlignment="Center"
+                                                       Foreground="{DynamicResource ForegroundBrush}">
+                                                <Run Text="{Binding ScVDropVolts, StringFormat=F2, Mode=OneWay}"/>
+                                                <Run Text=" V"/>
+                                            </TextBlock>
+                                            <TextBlock FontSize="8" Opacity="0.55" TextAlignment="Center"
+                                                       Foreground="{DynamicResource IconForegroundBrush}">
+                                                <Run Text="max "/>
+                                                <Run Text="{Binding ScVDropMax, StringFormat=F1, Mode=OneWay}"/>
+                                                <Run Text=" V"/>
+                                            </TextBlock>
+                                        </StackPanel>
+                                    </Grid>
+                                </StackPanel>
+
                                 <!-- Member devices section -->
                                 <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,4,0,4"/>
                                 <!-- Section header with count -->
