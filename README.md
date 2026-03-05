@@ -62,8 +62,8 @@ WPF user interface using Material Design:
 | Component | Purpose |
 |-----------|---------|
 | `MainWindow` | Borderless window shell with title bar, resize grips, theme support |
-| `TopologyView` | TreeView control — Panel → Loop → Device hierarchy |
-| `InspectorPanel` | Entity details, properties, warnings, capacity gauges |
+| `TopologyView` | TreeView control — Panel → Loop → Device hierarchy; SubCircuit cards with wire assignment, routing toggle, add/delete device controls |
+| `InspectorPanel` | Entity details, properties (including editable V-Drop limit for SubCircuits), warnings, capacity gauges |
 | `DiagramPanel` | Schematic wiring diagram canvas |
 | `SystemMetricsPanel` | 6-section System Intelligence Dashboard (capacity gauges, health status, device distribution, cabling & spatial, quick actions) |
 | `StatusStrip` | Bottom bar with status text, device/warning/error counts |
@@ -71,7 +71,7 @@ WPF user interface using Material Design:
 | `TopologyViewModel` | Topology tree + internal `CanvasGraphModel` projection |
 | `DiagramViewModel` | Diagram canvas state: levels, panels, loops, flip/wire/rank assignments |
 | `InspectorViewModel` | Selected entity details and capacity data |
-| `MetricsPanelViewModel` | System Intelligence Dashboard VM — capacity gauges, health issues (including capacity overload rows), device distribution, cabling info, AI prompt export |
+| `MetricsPanelViewModel` | System Intelligence Dashboard VM — capacity gauges, health issues (including capacity overload rows), device distribution, cabling info, AI prompt export; SubCircuit (NAC) circuit metrics with Normal Load, Alarm Load, V-Drop, and Remaining Voltage gauges |
 | `AiPromptInfoWindow` | Themed borderless popup shown after the AI system-check prompt is copied to clipboard |
 | `MetricsConverters` | `CapacityStatusToBrushConverter`, `HealthStatusToBrushConverter`, `CountToVisibilityConverter` |
 | `SettingsViewModel` | Parameter mapping editor |
@@ -95,7 +95,8 @@ First implemented module:
 | `FireAlarmTopologyBuilder` | Builds Panel → Loop → Device graph; attaches cable length to each loop node |
 | `CableLengthCalculator` | Calculates per-loop cable length using Manhattan (right-angle) routing in Revit internal units, returns metres |
 | `FireAlarmRulePack` | Validates data with 5 rules |
-| `FireAlarmParameterKeys` | Centralized logical parameter key constants || `FireAlarmBoqDataProvider` | Implements `IBoqDataProvider` — maps `ModuleData` to `BoqItem` rows with Revit family name, type name, level, panel, loop, address, and all discovered parameters |
+| `FireAlarmParameterKeys` | Centralized logical parameter key constants |
+| `FireAlarmBoqDataProvider` | Implements `IBoqDataProvider` — maps `ModuleData` to `BoqItem` rows with Revit family name, type name, level, panel, loop, address, and all discovered parameters |
 ---
 
 ## Features
@@ -142,6 +143,43 @@ The Fire Alarm module calculates the total cable length for each loop using **Ma
 - Distance metric: |Δx| + |Δy| + |Δz| in Revit internal units (feet), converted to metres
 - Result is displayed in each loop card header as `XX.X m`
 - Powered by `CableLengthCalculator.CalculateAll(panels)`
+
+### NAC SubCircuit Management
+
+NAC (Notification Appliance Circuit) outputs on PSU/sounder modules can be modelled as **SubCircuits** — named groupings of sounder devices hanging off a specific PSU output element.
+
+**Creating and editing SubCircuits:**
+- Expand a PSU device node in the topology tree to reveal its output ports
+- Click **+** on a port to create a new SubCircuit; give it a name
+- Add sounder devices via the **+** button on the SubCircuit card (pick unassigned or select directly in Revit)
+- Remove a device with the **−** button; delete the whole SubCircuit with the trash icon
+- **Wire type** is selectable per SubCircuit from the configured wire library
+- **Name** is editable in the inspector panel (double-click the title)
+- **V-Drop limit %** is editable in the inspector PROPERTIES section (double-click the value); Enter or click away to confirm, Escape to cancel
+
+**Persistence:** each SubCircuit (including its device list, wire assignment, and V-Drop limit %) is stored as a `SubCircuit` entry in `TopologyAssignmentsStore.SubCircuits` — serialised as JSON to Revit Extensible Storage and reloaded transparently on document open.
+
+---
+
+### NAC Circuit Metrics (CIRCUIT METRICS)
+
+When a SubCircuit node is selected, the **CIRCUIT METRICS** section of the System Intelligence Dashboard shows four live gauges:
+
+| Gauge | Description |
+|-------|-------------|
+| Normal Load | Aggregate normal-mode current draw vs. PSU output capacity (mA) |
+| Alarm Load | Aggregate alarm-mode current draw vs. PSU output capacity (mA) |
+| V-Drop | Calculated voltage drop along the circuit vs. configurable limit |
+| Remaining V | Nominal supply voltage minus calculated V-Drop |
+
+**V-Drop calculation:**
+- Formula: `V = I × (2ρL / A)` — copper resistivity ρ = 0.0175 Ω·mm²/m
+- Wire parameters (cross-section area, resistance per metre) come from the configured wire type
+- The gauge maximum is `NominalVoltage × (VDropLimitPct / 100)` — scaled to the PSU supply voltage
+- `NominalVoltage` is read from the PSU element via the `NominalVoltage` parameter mapping
+- `VDropLimitPct` defaults to 16.7 % (≈ 4 V on a 24 V NAC) and is editable per SubCircuit in the inspector
+
+---
 
 ### Per-Loop 3D Wire Routing Visualisation
 
@@ -222,6 +260,7 @@ Default Fire Alarm parameter mappings:
 | PanelElementCategory | Electrical Equipment | No |
 | PanelElementNameParam | Mark | No |
 | CircuitElementId | FA_Circuit_ElementId | No |
+| NominalVoltage | Nominal voltage | No |
 
 ---
 
@@ -250,6 +289,7 @@ The `TopologyAssignmentsStore` JSON blob includes:
 | `LoopExtraLines` / `LoopRankOverrides` | `Dict<string, *>` | Diagram layout overrides |
 | `LevelElevationOffsets` | `Dict<string, double>` | Per-level elevation adjustments |
 | `SymbolMappings` | `Dict<string, string>` | Device type → custom symbol |
+| `SubCircuits` | `Dict<string, SubCircuit>` | SubCircuit definitions; each entry stores `Id`, `HostElementId`, `Name`, `DeviceElementIds`, `WireTypeKey`, and `VDropLimitPct` |
 
 The `BoqSettings` JSON blob includes:
 
