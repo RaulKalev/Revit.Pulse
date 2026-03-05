@@ -67,6 +67,21 @@ namespace Pulse.UI.Converters
             => throw new NotSupportedException();
     }
 
+    /// <summary>
+    /// Returns a <see cref="GridLength"/> star unit when the bool value is <c>true</c>
+    /// (column participates equally in layout), or 0 when <c>false</c> (column collapses).
+    /// </summary>
+    public class BoolToGridLengthConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+            => value is bool b && b
+                ? new GridLength(1, GridUnitType.Star)
+                : new GridLength(0);
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => throw new NotSupportedException();
+    }
+
     /// <summary>Returns Visibility.Collapsed when value is null or empty string.</summary>
     public class NullToVisibilityConverter : IValueConverter
     {

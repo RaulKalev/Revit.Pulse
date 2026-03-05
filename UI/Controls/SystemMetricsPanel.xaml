@@ -20,6 +20,7 @@
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVis"/>
             <converters:CountToVisibilityConverter x:Key="CountToVis"/>
+            <converters:BoolToGridLengthConverter x:Key="BoolToGridLength"/>
 
             <!-- ── Metrics colour converters ── -->
             <converters:CapacityStatusToBrushConverter x:Key="CapStatusToBrush"/>
@@ -333,7 +334,7 @@
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="{Binding ShowVDropGauge, Converter={StaticResource BoolToGridLength}}"/>
                                     </Grid.ColumnDefinitions>
                                     <controls:GaugeControl Grid.Column="0"
                                                            Value="{Binding MaNormal}"
@@ -350,7 +351,6 @@
                                                            Maximum="{Binding ScVDropMax}"
                                                            Label="V-Drop"
                                                            Unit="V"
-                                                           Width="90"
                                                            Visibility="{Binding ShowVDropGauge, Converter={StaticResource BoolToVis}}"/>
                                 </Grid>
 
@@ -406,6 +406,34 @@
                                                VerticalAlignment="Center">
                                         <Run Text="{Binding MaUsed, StringFormat=F1, Mode=OneWay}"/>
                                         <Run Text=" mA"/>
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- Voltage drop row (shown when wire assigned) -->
+                                <Grid Margin="0,2"
+                                      Visibility="{Binding ShowVDropGauge, Converter={StaticResource BoolToVis}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Grid.Column="0" Kind="ArrowCollapseDown"
+                                                             Width="12" Height="12"
+                                                             VerticalAlignment="Center"
+                                                             Margin="0,0,5,0"
+                                                             Foreground="{DynamicResource IconForegroundBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="Voltage drop"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center">
+                                        <Run Text="{Binding ScVDropVolts, StringFormat=F2, Mode=OneWay}"/>
+                                        <Run Text=" V  (max "/>
+                                        <Run Text="{Binding ScVDropMax, StringFormat=F1, Mode=OneWay}"/>
+                                        <Run Text=" V)"/>
                                     </TextBlock>
                                 </Grid>
 
