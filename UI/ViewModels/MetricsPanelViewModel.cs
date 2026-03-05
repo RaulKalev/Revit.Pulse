@@ -847,6 +847,14 @@ namespace Pulse.UI.ViewModels
 
                 ShowSubCircuitMetrics = true;
                 IsCapacityEmpty       = false;
+
+                // When no output-current max is configured (OutputCurrentMaxMa not mapped on
+                // the PSU family), derive a display-only maximum so the arc gauges render with
+                // a coloured fill.  Uses 125% of the peak value as the ceiling so the highest
+                // reading comes in at ~80% — same visual language as V-Drop / Remaining V.
+                if (ScMaMax <= 0 && (MaNormal > 0 || MaUsed > 0))
+                    ScMaMax = Math.Max(MaNormal, MaUsed) * 1.25;
+
                 return;
             }
 
