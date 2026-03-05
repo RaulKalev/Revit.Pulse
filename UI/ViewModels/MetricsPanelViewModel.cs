@@ -242,8 +242,16 @@ namespace Pulse.UI.ViewModels
         public  bool ShowSubCircuitMetrics
         {
             get => _showSubCircuitMetrics;
-            private set => SetField(ref _showSubCircuitMetrics, value);
+            private set
+            {
+                if (SetField(ref _showSubCircuitMetrics, value))
+                    OnPropertyChanged(nameof(CapacitySectionTitle));
+            }
         }
+
+        /// <summary>Header label for the capacity section — context-sensitive.</summary>
+        public string CapacitySectionTitle
+            => ShowSubCircuitMetrics ? "CIRCUIT METRICS" : "CAPACITY";
 
         // True when neither panel/loop gauges nor SubCircuit metrics are visible
         private bool _isCapacityEmpty = true;

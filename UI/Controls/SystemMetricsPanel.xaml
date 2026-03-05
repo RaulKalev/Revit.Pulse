@@ -235,11 +235,11 @@
                         <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,2,8,0"/>
 
                         <!-- ═══════════════════════════════════════════════════ -->
-                        <!-- CAPACITY SECTION                                  -->
+                        <!-- CAPACITY / CIRCUIT METRICS SECTION                -->
                         <!-- ═══════════════════════════════════════════════════ -->
                         <ToggleButton Style="{StaticResource SectionHeaderToggle}"
                                       IsChecked="{Binding IsCapacitySectionExpanded, Mode=TwoWay}">
-                            <TextBlock Text="CAPACITY"
+                            <TextBlock Text="{Binding CapacitySectionTitle}"
                                        FontSize="9" FontWeight="SemiBold"
                                        Foreground="{DynamicResource IconForegroundBrush}"/>
                         </ToggleButton>
@@ -328,11 +328,12 @@
                             <StackPanel Margin="8,4,8,4"
                                         Visibility="{Binding ShowSubCircuitMetrics, Converter={StaticResource BoolToVis}}">
 
-                                <!-- Gauges: Normal and Alarm load vs host-loop max -->
+                                <!-- Gauges: Normal load | Alarm load | V-Drop (V-Drop col hides when no wire assigned) -->
                                 <Grid Height="110" Margin="0,0,0,4">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
                                     </Grid.ColumnDefinitions>
                                     <controls:GaugeControl Grid.Column="0"
                                                            Value="{Binding MaNormal}"
@@ -344,6 +345,13 @@
                                                            Maximum="{Binding ScMaMax}"
                                                            Label="Alarm Load"
                                                            Unit="mA"/>
+                                    <controls:GaugeControl Grid.Column="2"
+                                                           Value="{Binding ScVDropVolts}"
+                                                           Maximum="{Binding ScVDropMax}"
+                                                           Label="V-Drop"
+                                                           Unit="V"
+                                                           Width="90"
+                                                           Visibility="{Binding ShowVDropGauge, Converter={StaticResource BoolToVis}}"/>
                                 </Grid>
 
                                 <!-- Current draw header -->
@@ -400,39 +408,6 @@
                                         <Run Text=" mA"/>
                                     </TextBlock>
                                 </Grid>
-
-                                <!-- Voltage drop gauge (shown when cable + wire assigned) -->
-                                <StackPanel Visibility="{Binding ShowVDropGauge, Converter={StaticResource BoolToVis}}">
-                                    <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,4,0,4"/>
-                                    <TextBlock Text="VOLTAGE DROP" FontSize="8" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource IconForegroundBrush}"
-                                               Opacity="0.7" Margin="0,0,0,4"/>
-                                    <Grid Height="100" Margin="0,0,0,4">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <controls:GaugeControl Grid.Column="0"
-                                                               Value="{Binding ScVDropVolts}"
-                                                               Maximum="{Binding ScVDropMax}"
-                                                               Label="V-Drop"
-                                                               Unit="V"/>
-                                        <!-- Cable length info text -->
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center">
-                                            <TextBlock FontSize="9" TextAlignment="Center"
-                                                       Foreground="{DynamicResource ForegroundBrush}">
-                                                <Run Text="{Binding ScVDropVolts, StringFormat=F2, Mode=OneWay}"/>
-                                                <Run Text=" V"/>
-                                            </TextBlock>
-                                            <TextBlock FontSize="8" Opacity="0.55" TextAlignment="Center"
-                                                       Foreground="{DynamicResource IconForegroundBrush}">
-                                                <Run Text="max "/>
-                                                <Run Text="{Binding ScVDropMax, StringFormat=F1, Mode=OneWay}"/>
-                                                <Run Text=" V"/>
-                                            </TextBlock>
-                                        </StackPanel>
-                                    </Grid>
-                                </StackPanel>
 
                                 <!-- Member devices section -->
                                 <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,4,0,4"/>
