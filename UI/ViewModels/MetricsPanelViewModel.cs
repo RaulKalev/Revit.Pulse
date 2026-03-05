@@ -711,7 +711,7 @@ namespace Pulse.UI.ViewModels
                         if (nomVolts > 0)
                         {
                             ScNominalVoltage       = nomVolts;
-                            ScVDropMax             = nomVolts * 0.167;   // ~16.7% of supply (typical NAC limit)
+                            ScVDropMax             = nomVolts;           // scale 0→nomVolts so the drop is shown relative to the full supply
                             ScRemainingVolts       = Math.Max(0, nomVolts - ScVDropVolts);
                             ShowRemainingVoltGauge = true;
                         }
