@@ -318,7 +318,7 @@ canvas while the TreeView projection ignores them.
 |-------|---------|-------|
 | Module settings (categories, param maps) | ES — ModuleSettings schema | Per-document |
 | Diagram visibility (level line/text) | ES — DiagramSettings schema | Per-document |
-| Topology assignments (configs, flips, wires, ranks) | ES — TopologyAssignments schema | Per-document |
+| Topology assignments (configs, flips, wires, ranks) + `ModuleBlobs` generic per-module blobs (e.g. `"FireAlarm.SubCircuits"`) | ES — TopologyAssignments schema | Per-document |
 | BOQ settings (column visibility, grouping, sorting, custom columns) | ES — BoqSettings schema | Per-document |
 | Device config (panels, wires, symbols) | JSON `%APPDATA%\Pulse\` | Per-machine |
 | Diagram canvas settings (spacing, paper) | JSON `%APPDATA%\Pulse\` | Per-machine |
