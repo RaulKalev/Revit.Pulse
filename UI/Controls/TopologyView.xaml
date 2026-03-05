@@ -622,7 +622,6 @@
                                                                                                                 <ColumnDefinition Width="Auto"/>
                                                                                                                 <ColumnDefinition Width="Auto"/>
                                                                                                                 <ColumnDefinition Width="Auto"/>
-                                                                                                                <ColumnDefinition Width="Auto"/>
                                                                                                             </Grid.ColumnDefinitions>
                                                                                                             <!-- SubCircuit select button -->
                                                                                                             <Button Grid.Column="0"
@@ -656,27 +655,8 @@
                                                                                                                     </Border>
                                                                                                                 </StackPanel>
                                                                                                             </Button>
-                                                                                                            <!-- V-Drop limit % field -->
-                                                                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,4,0">
-                                                                                                                <TextBlock Text="VDrop%" FontSize="9"
-                                                                                                                           Foreground="{DynamicResource IconForegroundBrush}"
-                                                                                                                           VerticalAlignment="Center" Margin="0,0,2,0" Opacity="0.7"/>
-                                                                                                                <TextBox Width="34" FontSize="10"
-                                                                                                                         Text="{Binding VDropLimitPct, StringFormat=F1, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                                                                                                                         VerticalAlignment="Center"
-                                                                                                                         VerticalContentAlignment="Center"
-                                                                                                                         Padding="2,1"
-                                                                                                                         Background="{DynamicResource SecondaryBackgroundBrush}"
-                                                                                                                         Foreground="{DynamicResource ForegroundBrush}"
-                                                                                                                         BorderBrush="{DynamicResource BorderBrush}"
-                                                                                                                         BorderThickness="1"
-                                                                                                                         CaretBrush="{DynamicResource ForegroundBrush}"/>
-                                                                                                                <TextBlock Text="%" FontSize="9"
-                                                                                                                           Foreground="{DynamicResource IconForegroundBrush}"
-                                                                                                                           VerticalAlignment="Center" Margin="2,0,0,0" Opacity="0.7"/>
-                                                                                                            </StackPanel>
                                                                                                             <!-- Wire type combobox (hidden when no wires configured) -->
-                                                                                                            <ComboBox Grid.Column="2"
+                                                                                                            <ComboBox Grid.Column="1"
                                                                                                                       ItemsSource="{Binding AvailableWires}"
                                                                                                                       SelectedItem="{Binding AssignedWire, Mode=TwoWay}"
                                                                                                                       Style="{StaticResource DarkComboBoxStyle}"
@@ -686,7 +666,7 @@
                                                                                                                       Visibility="{Binding AvailableWires.Count,
                                                                                                                                    Converter={StaticResource CountToVisibility}}"/>
                                                                                                             <!-- Wire routing toggle -->
-                                                                                                            <ToggleButton Grid.Column="3"
+                                                                                                            <ToggleButton Grid.Column="2"
                                                                                                                           IsChecked="{Binding IsWireRoutingVisible, Mode=TwoWay}"
                                                                                                                           ToolTip="Toggle 3-D wire routing lines"
                                                                                                                           OverridesDefaultStyle="True"
@@ -710,7 +690,7 @@
                                                                                                                 </ToggleButton.Template>
                                                                                                             </ToggleButton>
                                                                                                             <!-- "+" add device to SubCircuit button -->
-                                                                                                            <Button Grid.Column="4"
+                                                                                                            <Button Grid.Column="3"
                                                                                                                     Command="{Binding ToggleAddSlotCommand}"
                                                                                                                     ToolTip="Add a sounder/NAC device to this SubCircuit"
                                                                                                                     Width="18" Height="18"
@@ -750,7 +730,7 @@
                                                                                                                                          Foreground="{DynamicResource IconForegroundBrush}"/>
                                                                                                             </Button>
                                                                                                             <!-- Delete SubCircuit button -->
-                                                                                                            <Button Grid.Column="5"
+                                                                                                            <Button Grid.Column="4"
                                                                                                                     Command="{Binding DeleteSubCircuitCommand}"
                                                                                                                     ToolTip="Delete this SubCircuit"
                                                                                                                     Width="18" Height="18"
@@ -786,6 +766,33 @@
                                                                                                                 <materialDesign:PackIcon Kind="DeleteOutline" Width="10" Height="10"
                                                                                                                                          Foreground="{DynamicResource IconForegroundBrush}"/>
                                                                                                             </Button>
+                                                                                                        </Grid>
+                                                                                                        <!-- NAC properties row -->
+                                                                                                        <Grid Margin="4,3,4,1">
+                                                                                                            <Grid.ColumnDefinitions>
+                                                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                                                <ColumnDefinition Width="Auto"/>
+                                                                                                                <ColumnDefinition Width="*"/>
+                                                                                                            </Grid.ColumnDefinitions>
+                                                                                                            <TextBlock Grid.Column="0" Text="V-Drop limit:"
+                                                                                                                       FontSize="9" Opacity="0.7"
+                                                                                                                       Foreground="{DynamicResource IconForegroundBrush}"
+                                                                                                                       VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                                                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                                                                                <TextBox Width="34" FontSize="10"
+                                                                                                                         Text="{Binding VDropLimitPct, StringFormat=F1, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
+                                                                                                                         VerticalAlignment="Center"
+                                                                                                                         VerticalContentAlignment="Center"
+                                                                                                                         Padding="2,1"
+                                                                                                                         Background="{DynamicResource SecondaryBackgroundBrush}"
+                                                                                                                         Foreground="{DynamicResource ForegroundBrush}"
+                                                                                                                         BorderBrush="{DynamicResource BorderBrush}"
+                                                                                                                         BorderThickness="1"
+                                                                                                                         CaretBrush="{DynamicResource ForegroundBrush}"/>
+                                                                                                                <TextBlock Text="%" FontSize="9"
+                                                                                                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                                                                                                           VerticalAlignment="Center" Margin="2,0,0,0" Opacity="0.7"/>
+                                                                                                            </StackPanel>
                                                                                                         </Grid>
                                                                                                         <!-- Add-device dropdown — visible only when IsAddSlotOpen=True on the SubCircuit VM -->
                                                                                                         <Border Visibility="{Binding IsAddSlotOpen, Converter={StaticResource BoolToVis}}"                                                                                                                Margin="0,4,0,2" Padding="6,5"
