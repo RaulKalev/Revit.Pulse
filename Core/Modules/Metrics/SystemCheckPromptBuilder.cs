@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Pulse.Core.Modules;
+using Pulse.Core.Modules.Metrics;
 using Pulse.Core.Settings;
 using Pulse.Core.SystemModel;
 using Pulse.Modules.FireAlarm;
 
-namespace Pulse.Core.Modules.Metrics
+namespace Pulse.Modules.FireAlarm.Metrics
 {
     /// <summary>
     /// Builds a structured English prompt describing the current fire alarm system
@@ -27,6 +28,8 @@ namespace Pulse.Core.Modules.Metrics
             DeviceConfigStore deviceStore)
         {
             if (data == null) return string.Empty;
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return string.Empty;
 
             var sb = new StringBuilder();
 
@@ -34,18 +37,18 @@ namespace Pulse.Core.Modules.Metrics
             sb.AppendLine("Analyze the following system configuration for compliance, capacity, and design quality.");
             sb.AppendLine();
 
-            int totalDevices = data.Devices.Count;
+            int totalDevices = fa.Devices.Count;
             int totalErrors  = data.ErrorCount;
             int totalWarnings = data.WarningCount;
 
             sb.AppendLine($"System Summary:");
             sb.AppendLine($"- Total devices: {totalDevices}");
-            sb.AppendLine($"- Panels: {data.Panels.Count}");
-            sb.AppendLine($"- Loops: {data.Loops.Count}");
+            sb.AppendLine($"- Panels: {fa.Panels.Count}");
+            sb.AppendLine($"- Loops: {fa.Loops.Count}");
             sb.AppendLine($"- Rule violations: {totalErrors} errors, {totalWarnings} warnings");
             sb.AppendLine();
 
-            foreach (var panel in data.Panels)
+            foreach (var panel in fa.Panels)
             {
                 sb.AppendLine($"Panel: {panel.DisplayName}");
                 sb.AppendLine($"  Total Loops: {panel.Loops.Count}");

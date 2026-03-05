@@ -19,26 +19,33 @@ namespace Pulse.Modules.FireAlarm
             data.Nodes.Clear();
             data.Edges.Clear();
 
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return;
+
             // Create panel nodes
-            foreach (Panel panel in data.Panels)
+            foreach (Panel panel in fa.Panels)
             {
                 var node = new Node(panel.EntityId, panel.DisplayName, "Panel")
                 {
                     RevitElementId = panel.RevitElementId,
                 };
+                // Write raw elevation (feet) so CanvasGraphBuilder can read it without the entity.
+                if (panel.Elevation.HasValue)
+                    node.Properties["_ElevationFt"] = panel.Elevation.Value.ToString(
+                        "R", System.Globalization.CultureInfo.InvariantCulture);
                 data.Nodes.Add(node);
             }
 
             // Create loop nodes and connect to panels
             // Pre-calculate cable lengths for all loops (keyed by loop EntityId).
-            var cableLengths = CableLengthCalculator.CalculateAll(data.Panels);
+            var cableLengths = CableLengthCalculator.CalculateAll(fa.Panels);
 
             // Pre-build panel lookup for routing-key reconstruction.
             var panelById = new Dictionary<string, Panel>(StringComparer.Ordinal);
-            foreach (var p in data.Panels)
+            foreach (var p in fa.Panels)
                 panelById[p.EntityId] = p;
 
-            foreach (Loop loop in data.Loops)
+            foreach (Loop loop in fa.Loops)
             {
                 var node = new Node(loop.EntityId, loop.DisplayName, "Loop")
                 {
@@ -72,7 +79,7 @@ namespace Pulse.Modules.FireAlarm
             }
 
             // Create zone nodes (if any)
-            foreach (Zone zone in data.Zones)
+            foreach (Zone zone in fa.Zones)
             {
                 var node = new Node(zone.EntityId, zone.DisplayName, "Zone");
                 data.Nodes.Add(node);
@@ -85,7 +92,7 @@ namespace Pulse.Modules.FireAlarm
             }
 
             // Create device nodes and connect to loops
-            foreach (AddressableDevice device in data.Devices)
+            foreach (AddressableDevice device in fa.Devices)
             {
                 var node = new Node(device.EntityId, device.DisplayName, "Device")
                 {
@@ -114,10 +121,17 @@ namespace Pulse.Modules.FireAlarm
                         System.Globalization.CultureInfo.InvariantCulture) + " m";
                 }
 
+                // Write raw elevation (feet) and loopId so CanvasGraphBuilder can group devices
+                // without accessing the entity collections directly.
+                if (device.Elevation.HasValue)
+                    node.Properties["_ElevationRaw"] = device.Elevation.Value.ToString(
+                        "R", System.Globalization.CultureInfo.InvariantCulture);
+                node.Properties["_LoopId"] = device.LoopId ?? string.Empty;
+
                 // 4. "Panel" = the panel display name the device is assigned to.
                 Panel panel = null;
                 if (!string.IsNullOrEmpty(device.PanelId))
-                    panel = data.Panels.Find(p => p.EntityId == device.PanelId);
+                    panel = fa.Panels.Find(p => p.EntityId == device.PanelId);
                 if (panel != null)
                     node.Properties["Panel"] = panel.DisplayName;
 
@@ -170,7 +184,7 @@ namespace Pulse.Modules.FireAlarm
             var deviceByLoopAndAddress      = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var deviceByLoopValueAndAddress = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             var deviceByAddressOnly         = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var device in data.Devices)
+            foreach (var device in fa.Devices)
             {
                 if (!string.IsNullOrEmpty(device.LoopId) && !string.IsNullOrEmpty(device.Address))
                     deviceByLoopAndAddress[device.LoopId + "|" + device.Address] = device.EntityId;
@@ -192,7 +206,7 @@ namespace Pulse.Modules.FireAlarm
 
             // Emit edges: dotted-address devices (e.g. "001.1") become children of
             // the base-address device ("001") in the same loop; others connect to loop.
-            foreach (var device in data.Devices)
+            foreach (var device in fa.Devices)
             {
                 if (string.IsNullOrEmpty(device.LoopId)) continue;
 
@@ -219,7 +233,7 @@ namespace Pulse.Modules.FireAlarm
                                 foreach (var cId in tier2Candidates)
                                 {
                                     if (cId == device.EntityId) continue; // skip self
-                                    var cand = data.Devices.FirstOrDefault(d => d.EntityId == cId);
+                                    var cand = fa.Devices.FirstOrDefault(d => d.EntityId == cId);
                                     if (cand != null
                                         && !string.IsNullOrEmpty(cand.LoopId)
                                         && !cand.LoopId.Contains("(No Panel)")
@@ -241,7 +255,7 @@ namespace Pulse.Modules.FireAlarm
                                 foreach (var cId in tier3Candidates)
                                 {
                                     if (cId == device.EntityId) continue;
-                                    var cand = data.Devices.FirstOrDefault(d => d.EntityId == cId);
+                                    var cand = fa.Devices.FirstOrDefault(d => d.EntityId == cId);
                                     if (cand != null
                                         && !string.IsNullOrEmpty(cand.LoopId)
                                         && !cand.LoopId.Contains("(No Panel)")
@@ -285,7 +299,7 @@ namespace Pulse.Modules.FireAlarm
                         }
 
                         // Propagate PanelId onto the device data object so rule evaluation sees a valid panel.
-                        var parentDevice = data.Devices.Find(d => d.EntityId == parentId);
+                        var parentDevice = fa.Devices.Find(d => d.EntityId == parentId);
                         if (parentDevice != null
                             && !string.IsNullOrEmpty(parentDevice.PanelId)
                             && !parentDevice.PanelId.Contains("(No Panel)"))
@@ -302,24 +316,24 @@ namespace Pulse.Modules.FireAlarm
             // node has no children in the graph and the parent panel may also be empty.
             // Remove those nodes/edges and the corresponding data objects so the UI doesn't
             // show phantom "(No Panel)" entries with nothing inside.
-            PruneEmptySubDeviceLoops(data);
+            PruneEmptySubDeviceLoops(data, fa);
 
-            // ── SubCircuit projection ─────────────────────────────────────────────────
+            // ── SubCircuit projection ────────────────────────────────────────────────
             // SubCircuits are virtual grouping nodes attached to host Output Module devices.
             // They do NOT re-parent loop devices — they add a summary child under the host.
-            if (data.SubCircuits != null && data.SubCircuits.Count > 0)
-                BuildSubCircuitNodes(data);
+            if (fa.SubCircuits != null && fa.SubCircuits.Count > 0)
+                BuildSubCircuitNodes(data, fa);
         }
 
         /// <summary>
-        /// Project SubCircuits from <see cref="ModuleData.SubCircuits"/> into the graph.
+        /// Project SubCircuits from <see cref="FireAlarmPayload.SubCircuits"/> into the graph.
         ///
         /// Each SubCircuit becomes a <c>"SubCircuit"</c> node that is attached to its host
         /// device node via a <c>"hosts"</c> edge.  Device nodes that belong to the SubCircuit
         /// are NOT re-parented — they remain children of their loop — but the SubCircuit node
         /// stores aggregate Properties (DeviceCount, TotalMa) for UI display and rule evaluation.
         /// </summary>
-        private static void BuildSubCircuitNodes(ModuleData data)
+        private static void BuildSubCircuitNodes(ModuleData data, FireAlarmPayload fa)
         {
             // Build a fast map: RevitElementId → Node (for host resolution + mA lookup)
             var nodeByElementId = new Dictionary<long, Node>();
@@ -329,7 +343,7 @@ namespace Pulse.Modules.FireAlarm
 
             // Build a fast map: RevitElementId → AddressableDevice (for mA aggregation)
             var deviceByElementId = new Dictionary<long, AddressableDevice>();
-            foreach (var dev in data.Devices)
+            foreach (var dev in fa.Devices)
                 if (dev.RevitElementId.HasValue)
                     deviceByElementId[dev.RevitElementId.Value] = dev;
 
@@ -354,7 +368,7 @@ namespace Pulse.Modules.FireAlarm
                 }
             }
 
-            foreach (var sc in data.SubCircuits)
+            foreach (var sc in fa.SubCircuits)
             {
                 if (string.IsNullOrEmpty(sc.Id)) continue;
 
@@ -584,7 +598,7 @@ namespace Pulse.Modules.FireAlarm
         /// to host device nodes.  Without this cleanup, the UI shows empty loop rows under
         /// a phantom "(No Panel)" panel entry.
         /// </summary>
-        private static void PruneEmptySubDeviceLoops(ModuleData data)
+        private static void PruneEmptySubDeviceLoops(ModuleData data, FireAlarmPayload fa)
         {
             // Build set of device node IDs that are direct children of a loop node
             // (i.e. they have an incoming "contains" edge whose source is a Loop node).
@@ -601,7 +615,7 @@ namespace Pulse.Modules.FireAlarm
 
             // Find loops whose every device is a sub-device (reparented to a host).
             var loopsToRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var loop in data.Loops)
+            foreach (var loop in fa.Loops)
             {
                 if (loop.Devices.Count == 0) continue; // not our concern
                 bool allSubDevices = loop.Devices.All(d =>
@@ -617,7 +631,7 @@ namespace Pulse.Modules.FireAlarm
 
             // Collect the panel IDs that own only-empty loops (candidate for pruning).
             var panelIdsOfRemovedLoops = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var loop in data.Loops)
+            foreach (var loop in fa.Loops)
                 if (loopsToRemove.Contains(loop.EntityId) && !string.IsNullOrEmpty(loop.PanelId))
                     panelIdsOfRemovedLoops.Add(loop.PanelId);
 
@@ -626,13 +640,13 @@ namespace Pulse.Modules.FireAlarm
             data.Edges.RemoveAll(e => loopsToRemove.Contains(e.TargetId) || loopsToRemove.Contains(e.SourceId));
 
             // Remove the loop data objects so rule/metrics code doesn't iterate them.
-            data.Loops.RemoveAll(l => loopsToRemove.Contains(l.EntityId));
+            fa.Loops.RemoveAll(l => loopsToRemove.Contains(l.EntityId));
 
             // Prune any panel that now has no loops (typically the virtual "(No Panel)" panel).
             var panelsToRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var panelId in panelIdsOfRemovedLoops)
             {
-                bool stillHasLoops = data.Loops.Any(l => string.Equals(l.PanelId, panelId, StringComparison.OrdinalIgnoreCase));
+                bool stillHasLoops = fa.Loops.Any(l => string.Equals(l.PanelId, panelId, StringComparison.OrdinalIgnoreCase));
                 if (!stillHasLoops)
                     panelsToRemove.Add(panelId);
             }
@@ -641,7 +655,7 @@ namespace Pulse.Modules.FireAlarm
             {
                 data.Nodes.RemoveAll(n => panelsToRemove.Contains(n.Id));
                 data.Edges.RemoveAll(e => panelsToRemove.Contains(e.SourceId) || panelsToRemove.Contains(e.TargetId));
-                data.Panels.RemoveAll(p => panelsToRemove.Contains(p.EntityId));
+                fa.Panels.RemoveAll(p => panelsToRemove.Contains(p.EntityId));
             }
         }
     }

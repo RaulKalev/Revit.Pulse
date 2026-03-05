@@ -285,7 +285,8 @@ namespace Pulse.Core.Modules.Metrics
             var result = new List<HealthIssueItem>();
             if (data == null || assignments == null || deviceStore == null) return result;
 
-            foreach (var sc in data.SubCircuits)
+            foreach (var sc in data.GetPayload<Pulse.Modules.FireAlarm.FireAlarmPayload>()?.SubCircuits
+                              ?? System.Linq.Enumerable.Empty<SubCircuit>())
             {
                 // Must have a wire type assigned
                 if (string.IsNullOrEmpty(sc.WireTypeKey)) continue;

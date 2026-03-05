@@ -11,6 +11,8 @@ using Pulse.Core.Modules.Metrics;
 using Pulse.Core.Rules;
 using Pulse.Core.Settings;
 using Pulse.Core.SystemModel;
+using Pulse.Modules.FireAlarm;
+using Pulse.Modules.FireAlarm.Metrics;
 
 namespace Pulse.UI.ViewModels
 {
@@ -95,6 +97,12 @@ namespace Pulse.UI.ViewModels
         private TopologyAssignmentsStore _lastAssignments = new TopologyAssignmentsStore();
         private DeviceConfigStore        _lastDeviceStore = new DeviceConfigStore();
         private CapacityMetrics          _lastCap;
+
+        /// <summary>
+        /// FA SubCircuit service — provides typed access to SubCircuits stored as a JSON blob.
+        /// Set by MainViewModel after construction.
+        /// </summary>
+        public FireAlarmSubCircuitService SubCircuitService { get; set; }
 
         // ── Callbacks injected by MainViewModel ───────────────────────────────
 
@@ -468,20 +476,21 @@ namespace Pulse.UI.ViewModels
                 return;
             }
 
+            var fa = data?.GetPayload<FireAlarmPayload>();
             _selectedPanel = node.NodeType == "Panel"
-                ? data.Panels.Find(p => p.EntityId == node.Id)
+                ? fa?.Panels.Find(p => p.EntityId == node.Id)
                 : null;
 
             _selectedLoop  = node.NodeType == "Loop"
-                ? data.Loops.Find(l => l.EntityId == node.Id)
+                ? fa?.Loops.Find(l => l.EntityId == node.Id)
                 : node.NodeType == "Device"
-                ? data.Loops.Find(l => l.Devices.Any(d => d.EntityId == node.Id))
+                ? fa?.Loops.Find(l => l.Devices.Any(d => d.EntityId == node.Id))
                 : null;
 
             if (_selectedLoop != null && _selectedPanel == null)
             {
                 // Resolve parent panel for the selected loop
-                _selectedPanel = data.Panels.FirstOrDefault(
+                _selectedPanel = fa?.Panels.FirstOrDefault(
                     p => p.Loops.Any(l => l.EntityId == _selectedLoop.EntityId));
             }
 
@@ -504,13 +513,14 @@ namespace Pulse.UI.ViewModels
             // If we had a node selected, rehydrate it from the fresh data
             if (_selectedNode != null && data != null)
             {
+                var fa = data.GetPayload<FireAlarmPayload>();
                 var freshPanel = _selectedPanel != null
-                    ? data.Panels.Find(p => p.EntityId == _selectedPanel.EntityId)
+                    ? fa?.Panels.Find(p => p.EntityId == _selectedPanel.EntityId)
                     : null;
                 var freshLoop  = _selectedLoop != null
-                    ? data.Loops.Find(l => l.EntityId == _selectedLoop.EntityId)
+                    ? fa?.Loops.Find(l => l.EntityId == _selectedLoop.EntityId)
                     : _selectedNode.NodeType == "Device"
-                    ? data.Loops.Find(l => l.Devices.Any(d => d.EntityId == _selectedNode.Id))
+                    ? fa?.Loops.Find(l => l.Devices.Any(d => d.EntityId == _selectedNode.Id))
                     : null;
                 _selectedPanel = freshPanel;
                 _selectedLoop  = freshLoop;
@@ -608,7 +618,8 @@ namespace Pulse.UI.ViewModels
             else
             {
                 ContextTitle    = "System Overview";
-                ContextSubtitle = $"{_lastData.Panels.Count} panels  ·  {_lastData.Devices.Count} devices";
+                var lastFa      = _lastData?.GetPayload<FireAlarmPayload>();
+                ContextSubtitle = $"{lastFa?.Panels?.Count ?? 0} panels  \u00b7  {lastFa?.Devices?.Count ?? 0} devices";
             }
         }
 
@@ -679,7 +690,7 @@ namespace Pulse.UI.ViewModels
                     && _selectedNode.Properties.TryGetValue("HostElementId", out string hostIdStr)
                     && long.TryParse(hostIdStr, out long hostElemId))
                 {
-                    var hostLoop = _lastData.Loops.FirstOrDefault(
+                    var hostLoop = _lastData?.GetPayload<FireAlarmPayload>()?.Loops.FirstOrDefault(
                         l => l.Devices.Any(d => d.RevitElementId == hostElemId));
                     if (hostLoop != null
                         && _lastAssignments.LoopAssignments.TryGetValue(
@@ -702,9 +713,9 @@ namespace Pulse.UI.ViewModels
 
                 // Wire type comes from live assignment store so ComboBox changes reflect immediately
                 string vdWireType = null;
-                if (_lastAssignments.SubCircuits.TryGetValue(scRawId, out var scAssign)
-                    && !string.IsNullOrEmpty(scAssign.WireTypeKey))
-                    vdWireType = scAssign.WireTypeKey;
+                var scEntry = SubCircuitService?.GetSubCircuit(scRawId);
+                if (scEntry != null && !string.IsNullOrEmpty(scEntry.WireTypeKey))
+                    vdWireType = scEntry.WireTypeKey;
 
                 if (cableLengthMetres > 0 && !string.IsNullOrEmpty(vdWireType))
                 {
@@ -725,8 +736,8 @@ namespace Pulse.UI.ViewModels
                             // ── Temperature derating (BS 7671 / IEC 60228 coefficient) ──
                             // α = 0.00393 /°C for annealed copper
                             double tempDegC = 20.0;
-                            if (_lastAssignments.SubCircuits.TryGetValue(scRawId, out var scTemp))
-                                tempDegC = scTemp.CableTemperatureDegC;
+                            if (scEntry != null)
+                                tempDegC = scEntry.CableTemperatureDegC;
                             double tempFactor = 1.0 + 0.00393 * (tempDegC - 20.0);
                             double rPerMetre = rPerMetreAt20 * tempFactor;
 
@@ -796,17 +807,17 @@ namespace Pulse.UI.ViewModels
                                     out double parsedNomVolts))
                                 nomVolts = parsedNomVolts;
 
-                            if (_lastAssignments.SubCircuits.TryGetValue(scRawId, out var scEol)
-                                && scEol.EolResistorOhms > 0 && nomVolts > 0)
+                            if (scEntry != null
+                                && scEntry.EolResistorOhms > 0 && nomVolts > 0)
                             {
-                                double supervisoryMa = (nomVolts / scEol.EolResistorOhms) * 1000.0;
+                                double supervisoryMa = (nomVolts / scEntry.EolResistorOhms) * 1000.0;
                                 MaNormal = MaNormal + supervisoryMa;
                             }
 
                             // ── Scale gauges by nominal voltage ───────────────────────
                             double vDropLimitPct = 16.7;
-                            if (_lastAssignments.SubCircuits.TryGetValue(scRawId, out var scAssignPct))
-                                vDropLimitPct = scAssignPct.VDropLimitPct;
+                            if (scEntry != null)
+                                vDropLimitPct = scEntry.VDropLimitPct;
 
                             if (nomVolts > 0)
                             {
@@ -919,7 +930,7 @@ namespace Pulse.UI.ViewModels
             else if (_selectedPanel != null)
                 devices = _selectedPanel.Loops.SelectMany(l => l.Devices);
             else
-                devices = _lastData.Devices;
+                devices = _lastData?.GetPayload<FireAlarmPayload>()?.Devices ?? new List<AddressableDevice>();
 
             var groups = SystemMetricsCalculator.ComputeDistribution(devices);
             DistributionGroups.Clear();

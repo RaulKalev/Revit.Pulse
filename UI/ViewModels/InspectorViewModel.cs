@@ -5,6 +5,7 @@ using Pulse.Core.Graph;
 using Pulse.Core.Modules;
 using Pulse.Core.Rules;
 using Pulse.Core.Settings;
+using Pulse.Modules.FireAlarm;
 
 namespace Pulse.UI.ViewModels
 {
@@ -76,6 +77,12 @@ namespace Pulse.UI.ViewModels
         /// Used to determine which config is assigned to the selected node.
         /// </summary>
         public TopologyAssignmentsStore AssignmentsStore { get; set; } = new TopologyAssignmentsStore();
+
+        /// <summary>
+        /// FA SubCircuit service — provides typed access to SubCircuits stored as a JSON blob.
+        /// Set by MainViewModel after construction.
+        /// </summary>
+        public FireAlarmSubCircuitService SubCircuitService { get; set; }
 
         private bool _showGauges;
         public bool ShowGauges
@@ -494,13 +501,15 @@ namespace Pulse.UI.ViewModels
                 // Count child devices for panels and loops
                 if (node.NodeType == "Panel")
                 {
-                    var panel = data.Panels.Find(p => p.EntityId == node.Id);
+                    var fa = data?.GetPayload<FireAlarmPayload>();
+                    var panel = fa?.Panels.Find(p => p.EntityId == node.Id);
                     ChildDeviceCount = panel?.Loops.Sum(l => l.Devices.Count) ?? 0;
                     LoadPanelGauges(node.Label, panel);
                 }
                 else if (node.NodeType == "Loop")
                 {
-                    var loop = data.Loops.Find(l => l.EntityId == node.Id);
+                    var fa = data?.GetPayload<FireAlarmPayload>();
+                    var loop = fa?.Loops.Find(l => l.EntityId == node.Id);
                     ChildDeviceCount = loop?.Devices.Count ?? 0;
                     LoadLoopGauges(node.Label, loop);
                 }
@@ -532,22 +541,23 @@ namespace Pulse.UI.ViewModels
                     string scRawId = node.Id.StartsWith("subcircuit::", StringComparison.Ordinal)
                         ? node.Id.Substring("subcircuit::".Length)
                         : node.Id;
-                    if (AssignmentsStore.SubCircuits.TryGetValue(scRawId, out var scAssign))
+                    var scAssign = SubCircuitService?.GetSubCircuit(scRawId);
+                    if (scAssign != null)
                         vDropPct = scAssign.VDropLimitPct;
                     VDropDisplay = vDropPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " %";
 
                     // Cable temperature
                     ShowTempEdit = true;
                     double tempDegC = 20.0;
-                    if (AssignmentsStore.SubCircuits.TryGetValue(scRawId, out var scAssignT))
-                        tempDegC = scAssignT.CableTemperatureDegC;
+                    if (scAssign != null)
+                        tempDegC = scAssign.CableTemperatureDegC;
                     TempDisplay = tempDegC.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " °C";
 
                     // EOL resistor
                     ShowEolEdit = true;
                     double eolOhms = 0.0;
-                    if (AssignmentsStore.SubCircuits.TryGetValue(scRawId, out var scAssignE))
-                        eolOhms = scAssignE.EolResistorOhms;
+                    if (scAssign != null)
+                        eolOhms = scAssign.EolResistorOhms;
                     EolDisplay = eolOhms <= 0
                         ? "—"
                         : eolOhms.ToString("F0", System.Globalization.CultureInfo.InvariantCulture) + " Ω";

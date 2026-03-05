@@ -1,13 +1,13 @@
 using System.Collections.Generic;
 using Pulse.Core.Graph;
 using Pulse.Core.Rules;
-using Pulse.Core.SystemModel;
 
 namespace Pulse.Core.Modules
 {
     /// <summary>
     /// Container for all data collected and built by a module.
-    /// Holds the topology graph, typed entities, and rule results.
+    /// Holds the generic topology graph, Revit levels, rule results, and a
+    /// module-specific <see cref="Payload"/> for typed entity collections.
     /// Passed between IModuleCollector, ITopologyBuilder, and IRulePack.
     /// </summary>
     public class ModuleData
@@ -21,24 +21,19 @@ namespace Pulse.Core.Modules
         /// <summary>All edges (relationships) in the topology graph.</summary>
         public List<Edge> Edges { get; } = new List<Edge>();
 
-        /// <summary>All panels discovered by the collector.</summary>
-        public List<Panel> Panels { get; } = new List<Panel>();
-
-        /// <summary>All loops discovered by the collector.</summary>
-        public List<Loop> Loops { get; } = new List<Loop>();
-
-        /// <summary>All zones discovered by the collector (may be empty in MVP).</summary>
-        public List<Zone> Zones { get; } = new List<Zone>();
-
-        /// <summary>All devices discovered by the collector.</summary>
-        public List<AddressableDevice> Devices { get; } = new List<AddressableDevice>();
+        /// <summary>
+        /// Module-specific typed entity collections.
+        /// Set by the module's <see cref="IModuleCollector"/> and consumed by
+        /// the topology builder, rules, BOQ providers, and (via cast) UI ViewModels.
+        /// Cast with <see cref="GetPayload{T}"/> — returns null for a non-matching module.
+        /// </summary>
+        public object Payload { get; set; }
 
         /// <summary>
-        /// SubCircuits hydrated from <see cref="TopologyAssignmentsStore"/> during the build phase.
-        /// Populated by <see cref="FireAlarmTopologyBuilder"/> (and any future topology builders).
-        /// Empty by default — safe if no SubCircuits have been created yet.
+        /// Returns the <see cref="Payload"/> cast to <typeparamref name="T"/>,
+        /// or null if the payload is absent or a different type.
         /// </summary>
-        public List<SubCircuit> SubCircuits { get; } = new List<SubCircuit>();
+        public T GetPayload<T>() where T : class => Payload as T;
 
         /// <summary>All Revit levels in the project, ordered by elevation ascending.</summary>
         public List<LevelInfo> Levels { get; } = new List<LevelInfo>();

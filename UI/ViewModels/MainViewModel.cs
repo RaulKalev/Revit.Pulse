@@ -41,6 +41,7 @@ namespace Pulse.UI.ViewModels
 
         // ── Feature services ─────────────────────────────────────────────────
         private readonly TopologyAssignmentsService _assignmentsService;
+        private readonly FireAlarmSubCircuitService _scService;
         private readonly SymbolMappingOrchestrator _symbolOrchestrator;
         private readonly DiagramFeatureService _diagramFeatureService;
         private readonly BoqSettingsService _boqSettingsService;
@@ -175,13 +176,16 @@ namespace Pulse.UI.ViewModels
                 SaveRequested = store => _storageFacade.SaveTopologyAssignments(store),
                 SyncWriteRequested = (doc, store) => _storageFacade.SyncWriteTopologyAssignments(doc, store)
             };
+            _scService = new FireAlarmSubCircuitService(_assignmentsService);
             _symbolOrchestrator = new SymbolMappingOrchestrator();
             _diagramFeatureService = new DiagramFeatureService(_appController);
             _boqSettingsService = new BoqSettingsService(_storageFacade);
 
             // Create child ViewModels
             Topology  = new TopologyViewModel();
+            Topology.SubCircuitService = _scService;
             Inspector = new InspectorViewModel();
+            Inspector.SubCircuitService = _scService;
             Inspector.CurrentDrawValueCommitted += OnCurrentDrawValueCommitted;
             Inspector.SubCircuitLabelCommitted  += OnSubCircuitLabelCommitted;
             Inspector.VDropLimitPctCommitted    += OnInspectorVDropPctCommitted;
@@ -201,6 +205,7 @@ namespace Pulse.UI.ViewModels
             // Metrics panel ViewModel — highlight callback is wired here so it can
             // reach the SelectionHighlightFacade without coupling the ViewModel to Revit.
             Metrics = new MetricsPanelViewModel();
+            Metrics.SubCircuitService = _scService;
             Metrics.HighlightElementsRequested = ids =>
                 _selectionFacade.HighlightElements(ids ?? System.Linq.Enumerable.Empty<long>());
             Metrics.Toggle3DRoutingRequested = () =>
@@ -244,38 +249,39 @@ namespace Pulse.UI.ViewModels
             // Also purges stale SubCircuit references to deleted Revit elements.
             _refreshPipeline.PreBuildHook = moduleData =>
             {
-                var store = _assignmentsService.Store;
-                if (store == null) return;
+                var subCircuits = _scService.SubCircuits;
+                if (subCircuits.Count == 0) return;
 
                 // ── Auto-purge deleted / missing devices from SubCircuits ───────────────
                 // Build the set of collected device element IDs.
-                if (store.SubCircuits != null && store.SubCircuits.Count > 0)
-                {
-                    var collectedElementIds = new System.Collections.Generic.HashSet<int>();
-                    foreach (var dev in moduleData.Devices)
+                var fa = moduleData.GetPayload<FireAlarmPayload>();
+                var collectedElementIds = new System.Collections.Generic.HashSet<int>();
+                if (fa != null)
+                    foreach (var dev in fa.Devices)
                         if (dev.RevitElementId.HasValue)
                             collectedElementIds.Add((int)dev.RevitElementId.Value);
 
-                    // Remove any device IDs from SubCircuits that weren't collected
-                    // (element was deleted from the Revit model).
-                    foreach (var sc in store.SubCircuits.Values)
-                        sc.DeviceElementIds.RemoveAll(id => !collectedElementIds.Contains(id));
+                // Remove any device IDs from SubCircuits that weren't collected
+                // (element was deleted from the Revit model).
+                foreach (var sc in subCircuits.Values)
+                    sc.DeviceElementIds.RemoveAll(id => !collectedElementIds.Contains(id));
+                _scService.PersistToStore();
 
-                    // Auto-purge SubCircuits whose host element no longer exists.
-                    var orphanHosts = new System.Collections.Generic.List<int>();
-                    foreach (var sc in store.SubCircuits.Values)
-                    {
-                        if (!collectedElementIds.Contains(sc.HostElementId))
-                            orphanHosts.Add(sc.HostElementId);
-                    }
-                    foreach (int orphanHost in orphanHosts)
-                        _assignmentsService.PurgeSubCircuitsForHost(orphanHost);
+                // Auto-purge SubCircuits whose host element no longer exists.
+                var orphanHosts = new System.Collections.Generic.List<int>();
+                foreach (var sc in subCircuits.Values)
+                {
+                    if (!collectedElementIds.Contains(sc.HostElementId))
+                        orphanHosts.Add(sc.HostElementId);
                 }
+                foreach (int orphanHost in orphanHosts)
+                    _scService.PurgeSubCircuitsForHost(orphanHost);
 
                 // ── Copy SubCircuits into ModuleData for the topology builder ─────────
-                if (store.SubCircuits == null || store.SubCircuits.Count == 0) return;
-                foreach (var sc in store.SubCircuits.Values)
-                    moduleData.SubCircuits.Add(sc);
+                var faPayload = moduleData.GetPayload<FireAlarmPayload>();
+                if (faPayload == null) return;
+                foreach (var sc in _scService.SubCircuits.Values)
+                    faPayload.SubCircuits.Add(sc);
             };
 
             // Wire diagram wire-assignment writes (guarded by Wiring capability)
@@ -351,7 +357,8 @@ namespace Pulse.UI.ViewModels
             // made between the last save event firing and this refresh completing.
 
             // Update statistics
-            TotalDevices = data.Devices.Count;
+            var fa = data.GetPayload<FireAlarmPayload>();
+            TotalDevices = fa?.Devices?.Count ?? 0;
             TotalWarnings = data.WarningCount;
             TotalErrors = data.ErrorCount;
 
@@ -372,17 +379,17 @@ namespace Pulse.UI.ViewModels
             Diagram.LoadLevels(data.Levels);
             Diagram.LoadAssignments(_topologyAssignments);
             Diagram.LoadLevelElevationOffsets(_topologyAssignments);
-            Diagram.LoadPanels(data.Panels, data.Loops, devStore);
+            Diagram.LoadPanels(fa?.Panels ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.Panel>(), fa?.Loops ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.Loop>(), devStore);
 
             // Populate SubCircuit diagram blocks (additive — no-op if no SubCircuits exist)
-            Diagram.LoadSubCircuits(data.SubCircuits, data.Devices, data.Panels, data.Loops);
+            Diagram.LoadSubCircuits(fa?.SubCircuits ?? new System.Collections.Generic.List<Pulse.Modules.FireAlarm.SubCircuit>(), fa?.Devices ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.AddressableDevice>(), fa?.Panels ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.Panel>(), fa?.Loops ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.Loop>());
 
             // Refresh metrics panel with the new data
             Metrics.Refresh(data, _topologyAssignments, devStore);
 
             // Update status
-            int panelCount = data.Panels.Count;
-            int loopCount  = data.Loops.Count;
+            int panelCount = fa?.Panels?.Count ?? 0;
+            int loopCount  = fa?.Loops?.Count ?? 0;
             StatusText = $"{TotalDevices} devices | {panelCount} panels | {loopCount} loops | {TotalWarnings} warnings | {TotalErrors} errors";
 
             // Sub-device assignment diagnostic: tell the user exactly why a pick did/didn't appear.
@@ -391,7 +398,7 @@ namespace Pulse.UI.ViewModels
                 long checkId = _pendingSubDeviceElementId.Value;
                 _pendingSubDeviceElementId = null;
 
-                var found = data.Devices.FirstOrDefault(d => d.RevitElementId == checkId);
+                var found = fa?.Devices?.FirstOrDefault(d => d.RevitElementId == checkId);
                 if (found == null)
                 {
                     StatusText = $"\u26a0 Element {checkId} was NOT collected after refresh. " +
@@ -409,9 +416,9 @@ namespace Pulse.UI.ViewModels
                     string loopId = found.LoopId ?? "(none)";
                     var edge = data.Edges.FirstOrDefault(e => e.TargetId == found.EntityId);
                     string parentEntityId = edge?.SourceId ?? "(no edge)";
-                    bool parentIsDevice = data.Devices.Any(d => d.EntityId == parentEntityId);
+                    bool parentIsDevice = fa?.Devices?.Any(d => d.EntityId == parentEntityId) ?? false;
                     string parentLabel = parentIsDevice
-                        ? data.Devices.First(d => d.EntityId == parentEntityId).DisplayName
+                        ? fa.Devices.First(d => d.EntityId == parentEntityId).DisplayName
                         : parentEntityId;
                     StatusText = $"\u2139 '{found.DisplayName}' addr='{found.Address}' loopId='{loopId}' → parent='{parentLabel}' (isDevice={parentIsDevice})";
                 }
@@ -462,13 +469,16 @@ namespace Pulse.UI.ViewModels
 
             if (currentData == null || node.NodeType != "Device") return result;
 
+            var currentFa = currentData.GetPayload<FireAlarmPayload>();
+            if (currentFa == null) return result;
+
             // Find the device entry matching this node
-            var device = currentData.Devices.Find(
+            var device = currentFa.Devices.Find(
                 d => d.RevitElementId.HasValue && d.RevitElementId.Value == node.RevitElementId.Value);
             if (device == null) return result;
 
             // Get all sibling devices on the same loop, sorted by numeric address
-            var siblings = currentData.Devices
+            var siblings = currentFa.Devices
                 .FindAll(d => d.LoopId == device.LoopId && d.RevitElementId.HasValue);
 
             siblings.Sort((a, b) => ParseAddress(a.Address).CompareTo(ParseAddress(b.Address)));
@@ -587,6 +597,7 @@ namespace Pulse.UI.ViewModels
 
                 // Load per-document topology assignments
                 _assignmentsService.Load(_storageFacade.ReadTopologyAssignments(doc));
+                _scService.OnStoreLoaded();
                 Inspector.DeviceStore = DeviceConfigService.Load();
                 Inspector.AssignmentsStore = _topologyAssignments;
 
@@ -754,7 +765,7 @@ namespace Pulse.UI.ViewModels
             string scId = scNodeId.StartsWith("subcircuit::", StringComparison.Ordinal)
                 ? scNodeId.Substring("subcircuit::".Length)
                 : scNodeId;
-            _assignmentsService.RenameSubCircuit(scId, newName);
+            _scService.RenameSubCircuit(scId, newName);
             _assignmentsService.RequestSave();
             ExecuteRefresh();
         }
@@ -769,8 +780,8 @@ namespace Pulse.UI.ViewModels
             string scId = scNodeId.StartsWith("subcircuit::", StringComparison.Ordinal)
                 ? scNodeId.Substring("subcircuit::".Length)
                 : scNodeId;
-            if (_topologyAssignments.SubCircuits.TryGetValue(scId, out var scDef))
-                scDef.VDropLimitPct = newPct;
+            var scDef = _scService.GetSubCircuit(scId);
+            if (scDef != null) { scDef.VDropLimitPct = newPct; _scService.PersistToStore(); }
             _assignmentsService.RequestSave();
             Application.Current?.Dispatcher?.BeginInvoke(
                 System.Windows.Threading.DispatcherPriority.DataBind,
@@ -786,8 +797,8 @@ namespace Pulse.UI.ViewModels
             string scId = scNodeId.StartsWith("subcircuit::", StringComparison.Ordinal)
                 ? scNodeId.Substring("subcircuit::".Length)
                 : scNodeId;
-            if (_topologyAssignments.SubCircuits.TryGetValue(scId, out var scDef))
-                scDef.CableTemperatureDegC = newTempC;
+            var scDef = _scService.GetSubCircuit(scId);
+            if (scDef != null) { scDef.CableTemperatureDegC = newTempC; _scService.PersistToStore(); }
             _assignmentsService.RequestSave();
             Application.Current?.Dispatcher?.BeginInvoke(
                 System.Windows.Threading.DispatcherPriority.DataBind,
@@ -803,8 +814,8 @@ namespace Pulse.UI.ViewModels
             string scId = scNodeId.StartsWith("subcircuit::", StringComparison.Ordinal)
                 ? scNodeId.Substring("subcircuit::".Length)
                 : scNodeId;
-            if (_topologyAssignments.SubCircuits.TryGetValue(scId, out var scDef))
-                scDef.EolResistorOhms = newOhms;
+            var scDef = _scService.GetSubCircuit(scId);
+            if (scDef != null) { scDef.EolResistorOhms = newOhms; _scService.PersistToStore(); }
             _assignmentsService.RequestSave();
             Application.Current?.Dispatcher?.BeginInvoke(
                 System.Windows.Threading.DispatcherPriority.DataBind,
@@ -831,7 +842,7 @@ namespace Pulse.UI.ViewModels
 
                 if (string.IsNullOrEmpty(subCircuitId)) return;
 
-                bool ok = _assignmentsService.AddDevicesToSubCircuit(
+                bool ok = _scService.AddDevicesToSubCircuit(
                     subCircuitId, new System.Collections.Generic.List<int> { (int)option.ElementId });
 
                 if (ok)
@@ -916,7 +927,7 @@ namespace Pulse.UI.ViewModels
 
             if (string.IsNullOrEmpty(scId) || !int.TryParse(elemIdStr, out int elemId)) return;
 
-            bool ok = _assignmentsService.RemoveDevicesFromSubCircuit(
+            bool ok = _scService.RemoveDevicesFromSubCircuit(
                 scId, new System.Collections.Generic.List<int> { elemId });
 
             if (ok)
@@ -967,7 +978,7 @@ namespace Pulse.UI.ViewModels
                         var intIds = new System.Collections.Generic.List<int>();
                         foreach (long id in pickedIds) intIds.Add((int)id);
 
-                        bool ok = _assignmentsService.AddDevicesToSubCircuit(subCircuitId, intIds);
+                        bool ok = _scService.AddDevicesToSubCircuit(subCircuitId, intIds);
                         if (ok)
                         {
                             StatusText = $"{intIds.Count} device(s) added to {subCircuitVm.Label}. Refreshing\u2026";
@@ -1166,8 +1177,8 @@ namespace Pulse.UI.ViewModels
 
             if (!rawId.HasValue)
             {
-                var match = _appController.CurrentData?.Devices
-                    .FirstOrDefault(d => d.EntityId == vm.GraphNode.Id);
+                var match = _appController.CurrentData?.GetPayload<FireAlarmPayload>()
+                    ?.Devices.FirstOrDefault(d => d.EntityId == vm.GraphNode.Id);
                 if (match?.RevitElementId.HasValue == true)
                     rawId = match.RevitElementId.Value;
             }
@@ -1180,7 +1191,7 @@ namespace Pulse.UI.ViewModels
 
             try
             {
-                _assignmentsService.CreateSubCircuit((int)rawId.Value);
+                _scService.CreateSubCircuit((int)rawId.Value);
                 _assignmentsService.RequestSave();
                 StatusText = "SubCircuit created. Refreshing\u2026";
                 ExecuteRefresh();
@@ -1199,7 +1210,7 @@ namespace Pulse.UI.ViewModels
             if (string.IsNullOrEmpty(subCircuitId)) return;
             try
             {
-                _assignmentsService.DeleteSubCircuit(subCircuitId);
+                _scService.DeleteSubCircuit(subCircuitId);
                 _assignmentsService.RequestSave();
                 StatusText = "SubCircuit deleted. Refreshing\u2026";
                 ExecuteRefresh();
@@ -1341,7 +1352,7 @@ namespace Pulse.UI.ViewModels
             if (string.IsNullOrEmpty(paramName)) return;
 
             // Find the loop by display name
-            var loop = currentData.Loops.Find(l =>
+            var loop = currentData.GetPayload<FireAlarmPayload>()?.Loops.Find(l =>
                 string.Equals(l.DisplayName, loopName, StringComparison.OrdinalIgnoreCase));
             if (loop == null) return;
 
@@ -1449,6 +1460,7 @@ namespace Pulse.UI.ViewModels
         {
             var data = _appController.CurrentData;
             if (data == null) return null;
+            var fa = data.GetPayload<FireAlarmPayload>();
 
             var waypoints = new List<(double X, double Y, double Z)>();
 
@@ -1458,7 +1470,7 @@ namespace Pulse.UI.ViewModels
             if (scVm.GraphNode?.Properties.TryGetValue("HostElementId", out string hostIdStr) == true
                 && int.TryParse(hostIdStr, out int hostElemId))
             {
-                var hostDev = data.Devices.Find(d => d.RevitElementId == hostElemId);
+                var hostDev = fa?.Devices.Find(d => d.RevitElementId == hostElemId);
                 if (hostDev?.LocationX.HasValue == true
                     && hostDev.LocationY.HasValue
                     && hostDev.LocationZ.HasValue)
@@ -1473,7 +1485,7 @@ namespace Pulse.UI.ViewModels
                 if (memberVm.GraphNode?.Properties.TryGetValue("MemberElementId", out string memberIdStr) != true
                     || !int.TryParse(memberIdStr, out int memberElemId))
                     continue;
-                var device = data.Devices.Find(d => d.RevitElementId == memberElemId);
+                var device = fa?.Devices.Find(d => d.RevitElementId == memberElemId);
                 if (device == null || !device.LocationX.HasValue
                     || !device.LocationY.HasValue || !device.LocationZ.HasValue) continue;
                 waypoints.Add((device.LocationX.Value, device.LocationY.Value, device.LocationZ.Value));
@@ -1490,9 +1502,11 @@ namespace Pulse.UI.ViewModels
         {
             var data = _appController.CurrentData;
             if (data == null) return null;
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return null;
 
             // Find the matching panel + loop in the data model
-            foreach (var panel in data.Panels)
+            foreach (var panel in fa.Panels)
             {
                 if (!string.Equals(panel.DisplayName, loopVm.ParentLabel, StringComparison.OrdinalIgnoreCase))
                     continue;

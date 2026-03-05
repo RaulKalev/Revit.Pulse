@@ -1,5 +1,6 @@
 using System.Collections.Generic;
-using Pulse.Core.SystemModel;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Pulse.Core.Settings
 {
@@ -55,17 +56,45 @@ namespace Pulse.Core.Settings
         // ── SubCircuit persistence (additive – safe to absent in older documents) ──────
 
         /// <summary>
-        /// All SubCircuits keyed by their stable <see cref="SubCircuit.Id"/>.
-        /// Missing from old documents → deserialised as null and lazily initialised.
+        /// Opaque JSON blob for all SubCircuits.  Owned and serialised by
+        /// <c>FireAlarmSubCircuitService</c> (Modules/FireAlarm) so that Core carries
+        /// no dependency on the FA-specific SubCircuit type.
+        /// Missing from old documents → null, treated as empty by the service.
         /// </summary>
-        public Dictionary<string, SubCircuit> SubCircuits { get; set; }
-            = new Dictionary<string, SubCircuit>();
+        public string SubCircuitsJson { get; set; }
+
+        // ── Migration shims — read old field names written by previous versions ──────
 
         /// <summary>
-        /// hostElementId (int) → list of SubCircuit IDs attached to that host.
-        /// Used for fast look-up without scanning <see cref="SubCircuits"/>.
+        /// Absorbs the old "SubCircuits" Dictionary field from documents saved before
+        /// Gap-6.  When the blob slot is still empty the raw JSON token is stored as-is
+        /// so <c>FireAlarmSubCircuitService</c> can deserialise it on next load.
         /// </summary>
-        public Dictionary<int, List<string>> SubCircuitIdsByHostElementId { get; set; }
-            = new Dictionary<int, List<string>>();
+        [JsonProperty("SubCircuits")]
+        internal JToken LegacySubCircuitsToken
+        {
+            get => null;
+            set
+            {
+                if (value != null && value.Type != JTokenType.Null
+                    && string.IsNullOrEmpty(SubCircuitsJson))
+                {
+                    SubCircuitsJson = value.ToString(Formatting.None);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Absorbs the old "SubCircuitIdsByHostElementId" index field.
+        /// The index is now rebuilt in-memory by <c>FireAlarmSubCircuitService</c>
+        /// and is no longer persisted.
+        /// </summary>
+        [JsonProperty("SubCircuitIdsByHostElementId")]
+        internal object LegacySubCircuitIndexToken
+        {
+            get => null;
+            // ReSharper disable once ValueParameterNotUsed
+            set { /* intentionally discarded — index is rebuilt on load */ }
+        }
     }
 }

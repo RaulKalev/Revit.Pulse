@@ -7,6 +7,7 @@ using Pulse.Core.Graph;
 using Pulse.Core.Graph.Canvas;
 using Pulse.Core.Modules;
 using Pulse.Core.Settings;
+using Pulse.Modules.FireAlarm;
 
 namespace Pulse.UI.ViewModels
 {
@@ -57,6 +58,12 @@ namespace Pulse.UI.ViewModels
 
         /// <summary>Current topology assignments store — per-document, from Extensible Storage.</summary>
         private TopologyAssignmentsStore _assignmentsStore = new TopologyAssignmentsStore();
+
+        /// <summary>
+        /// FA SubCircuit service — provides typed access to SubCircuits stored as a JSON blob.
+        /// Set by MainViewModel after construction.
+        /// </summary>
+        public FireAlarmSubCircuitService SubCircuitService { get; set; }
 
         /// <summary>
         /// Raised after any assignment mutation so that MainViewModel can persist
@@ -245,8 +252,12 @@ namespace Pulse.UI.ViewModels
                     string scId = vm.GraphNode.Id.StartsWith("subcircuit::")
                         ? vm.GraphNode.Id.Substring("subcircuit::".Length)
                         : vm.GraphNode.Id;
-                    if (_assignmentsStore.SubCircuits.TryGetValue(scId, out var scDef))
+                    var scDef = SubCircuitService?.GetSubCircuit(scId);
+                    if (scDef != null)
+                    {
                         scDef.WireTypeKey = vm.AssignedWire ?? string.Empty;
+                        SubCircuitService.PersistToStore();
+                    }
                 }
                 else
                 {
@@ -267,14 +278,18 @@ namespace Pulse.UI.ViewModels
                 string scId = vm.GraphNode.Id.StartsWith("subcircuit::")
                     ? vm.GraphNode.Id.Substring("subcircuit::".Length)
                     : vm.GraphNode.Id;
-                if (_assignmentsStore.SubCircuits.TryGetValue(scId, out var scDef))
+                var scDef = SubCircuitService?.GetSubCircuit(scId);
+                if (scDef != null)
+                {
                     scDef.VDropLimitPct = vm.VDropLimitPct;
+                    SubCircuitService.PersistToStore();
+                }
                 AssignmentsSaveRequested?.Invoke();
                 VDropPctChanged?.Invoke(vm);
             };
 
             // Build unassigned device pool (devices not connected to any loop)
-            var unassignedOptions = data.Devices
+            var unassignedOptions = (data.GetPayload<FireAlarmPayload>()?.Devices ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.AddressableDevice>())
                 .Where(d => string.IsNullOrEmpty(d.LoopId) && d.RevitElementId.HasValue)
                 .Select(d => new UnassignedDeviceOption(d.DisplayName, d.RevitElementId.Value))
                 .ToList();
@@ -392,7 +407,8 @@ namespace Pulse.UI.ViewModels
                 string scId = node.Id.StartsWith("subcircuit::")
                     ? node.Id.Substring("subcircuit::".Length)
                     : node.Id;
-                if (_assignmentsStore.SubCircuits.TryGetValue(scId, out var scDef))
+                var scDef = SubCircuitService?.GetSubCircuit(scId);
+                if (scDef != null)
                 {
                     if (!string.IsNullOrEmpty(scDef.WireTypeKey))
                         initialWire = scDef.WireTypeKey;

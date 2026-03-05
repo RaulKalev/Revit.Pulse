@@ -21,11 +21,14 @@ namespace Pulse.Modules.FireAlarm.Rules
 
             // Group devices by loop, then check for duplicate addresses within each loop
             var nacMemberIds = new System.Collections.Generic.HashSet<long>();
-            foreach (var sc in data.SubCircuits)
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return results;
+
+            foreach (var sc in fa.SubCircuits)
                 foreach (var id in sc.DeviceElementIds)
                     nacMemberIds.Add(id);
 
-            foreach (Loop loop in data.Loops)
+            foreach (Loop loop in fa.Loops)
             {
                 var addressMap = new Dictionary<string, List<AddressableDevice>>(System.StringComparer.OrdinalIgnoreCase);
 

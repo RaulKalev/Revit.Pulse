@@ -16,13 +16,15 @@ namespace Pulse.Modules.FireAlarm.Rules
         public IReadOnlyList<RuleResult> Evaluate(ModuleData data)
         {
             var results = new List<RuleResult>();
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return results;
 
             var nacMemberIds = new System.Collections.Generic.HashSet<long>();
-            foreach (var sc in data.SubCircuits)
+            foreach (var sc in fa.SubCircuits)
                 foreach (var id in sc.DeviceElementIds)
                     nacMemberIds.Add(id);
 
-            foreach (var device in data.Devices)
+            foreach (var device in fa.Devices)
             {
                 if (device.RevitElementId.HasValue && nacMemberIds.Contains(device.RevitElementId.Value))
                     continue;

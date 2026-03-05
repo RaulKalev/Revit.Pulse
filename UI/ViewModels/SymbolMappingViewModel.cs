@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows.Input;
 using Pulse.Core.Modules;
 using Pulse.Core.Settings;
+using Pulse.Modules.FireAlarm;
 
 namespace Pulse.UI.ViewModels
 {
@@ -138,8 +139,9 @@ namespace Pulse.UI.ViewModels
 
             if (data != null)
             {
+                var fa = data.GetPayload<FireAlarmPayload>();
                 // Group devices by DeviceType, sorted alphabetically
-                var groups = data.Devices
+                var groups = (fa?.Devices ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.AddressableDevice>())
                     .GroupBy(
                         d => string.IsNullOrWhiteSpace(d.DeviceType) ? "(Unknown)" : d.DeviceType.Trim(),
                         StringComparer.OrdinalIgnoreCase)

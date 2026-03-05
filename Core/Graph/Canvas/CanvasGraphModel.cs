@@ -217,55 +217,79 @@ namespace Pulse.Core.Graph.Canvas
                 hasParent.Add(e.TargetId);
             }
 
-            // Build device lookup by loop node id
-            var devicesByLoop = data.Devices
-                .GroupBy(d => d.LoopId ?? string.Empty)
-                .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+            // Build device-node lookup by loop id (stored as node property by topology builder)
+            var deviceNodesByLoop = new Dictionary<string, List<Node>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var n in data.Nodes)
+            {
+                if (n.NodeType != "Device") continue;
+                n.Properties.TryGetValue("_LoopId", out string lid);
+                string loopKey = lid ?? string.Empty;
+                if (!deviceNodesByLoop.TryGetValue(loopKey, out var bucket))
+                    deviceNodesByLoop[loopKey] = bucket = new List<Node>();
+                bucket.Add(n);
+            }
 
             // Build panels
             var panels = new List<PanelAnchor>();
-            foreach (var p in data.Panels)
+            foreach (var pNode in data.Nodes)
             {
+                if (pNode.NodeType != "Panel") continue;
+
+                double? panelElevation = null;
+                if (pNode.Properties.TryGetValue("_ElevationFt", out string elevStr)
+                    && double.TryParse(elevStr, System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture, out double elevFt))
+                    panelElevation = elevFt;
+
                 var loopAnchors = new List<LoopAnchor>();
-                var panelChildIds = children.TryGetValue(p.EntityId, out var pc) ? pc : new List<string>();
+                var panelChildIds = children.TryGetValue(pNode.Id, out var pc) ? pc : new List<string>();
                 foreach (var loopId in panelChildIds)
                 {
                     if (!nodeIndex.TryGetValue(loopId, out var loopNode) || loopNode.NodeType != "Loop")
                         continue;
 
-                    var devicesOnLoop = devicesByLoop.TryGetValue(loopId, out var dl) ? dl : new List<SystemModel.AddressableDevice>();
+                    var devNodes = deviceNodesByLoop.TryGetValue(loopId, out var dl) ? dl : new List<Node>();
 
-                    // Group devices by elevation for clusters
-                    var clusters = devicesOnLoop
-                        .GroupBy(d => d.Elevation.HasValue ? Math.Round(d.Elevation.Value, 3) : double.MinValue)
+                    // Group device nodes by raw elevation (feet) for clusters
+                    var clusters = devNodes
+                        .GroupBy(d =>
+                        {
+                            if (d.Properties.TryGetValue("_ElevationRaw", out string er)
+                                && double.TryParse(er, System.Globalization.NumberStyles.Any,
+                                    System.Globalization.CultureInfo.InvariantCulture, out double elev))
+                                return Math.Round(elev, 3);
+                            return double.MinValue;
+                        })
                         .OrderBy(g => g.Key)
                         .Select(g => new DeviceCluster(
                             g.Key == double.MinValue ? (double?)null : g.Key,
                             g.Select(d => new DeviceChip(
-                                d.EntityId ?? string.Empty,
-                                d.Address ?? string.Empty,
-                                d.DeviceType ?? string.Empty,
+                                d.Id,
+                                d.Properties.TryGetValue("Address", out string addr) ? addr : string.Empty,
+                                d.Properties.TryGetValue("Name",    out string dType) ? dType : string.Empty,
                                 d.RevitElementId,
-                                Warnings(d.EntityId)
+                                Warnings(d.Id)
                             )).ToList()))
                         .ToList();
 
                     loopAnchors.Add(new LoopAnchor(
-                        loopId, loopNode.Label, p.EntityId,
-                        devicesOnLoop.Count, Warnings(loopId), clusters));
+                        loopId, loopNode.Label, pNode.Id,
+                        devNodes.Count, Warnings(loopId), clusters));
                 }
 
                 panels.Add(new PanelAnchor(
-                    p.EntityId, p.DisplayName, p.Elevation,
-                    Warnings(p.EntityId), loopAnchors));
+                    pNode.Id, pNode.Label, panelElevation,
+                    Warnings(pNode.Id), loopAnchors));
             }
 
             // Build zones
-            var zones = data.Zones
-                .Select(z => new ZoneAnchor(
-                    z.EntityId, z.DisplayName,
-                    z.DeviceIds?.Count ?? 0, Warnings(z.EntityId)))
-                .ToList();
+            var zones = new List<ZoneAnchor>();
+            foreach (var zNode in data.Nodes)
+            {
+                if (zNode.NodeType != "Zone") continue;
+                int zoneDevCount = children.TryGetValue(zNode.Id, out var zc) ? zc.Count : 0;
+                zones.Add(new ZoneAnchor(zNode.Id, zNode.Label, zoneDevCount, Warnings(zNode.Id)));
+            }
 
             // Build global overlays (capacity warnings)
             var overlays = new List<CanvasOverlay>();

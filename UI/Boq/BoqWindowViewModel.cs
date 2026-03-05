@@ -323,7 +323,7 @@ namespace Pulse.UI.Boq
                 {
                     ApplyData(data);
                     IsLoading  = false;
-                    StatusText = $"{RowCount} rows | {_currentData?.Devices?.Count ?? 0} devices";
+                    StatusText = $"{RowCount} rows | {_currentData?.GetPayload<Pulse.Modules.FireAlarm.FireAlarmPayload>()?.Devices?.Count ?? 0} devices";
                 }),
                 ex => Application.Current?.Dispatcher?.Invoke(() =>
                 {

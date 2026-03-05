@@ -28,8 +28,10 @@ namespace Pulse.Modules.FireAlarm.Rules
         public IReadOnlyList<RuleResult> Evaluate(ModuleData data)
         {
             var results = new List<RuleResult>();
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return results;
 
-            foreach (var device in data.Devices)
+            foreach (var device in fa.Devices)
             {
                 foreach (string key in RequiredKeys)
                 {

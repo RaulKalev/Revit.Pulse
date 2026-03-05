@@ -20,14 +20,16 @@ namespace Pulse.Modules.FireAlarm.Rules
         public IReadOnlyList<RuleResult> Evaluate(ModuleData data)
         {
             var results = new List<RuleResult>();
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return results;
 
-            if (data.SubCircuits == null || data.SubCircuits.Count < 2)
+            if (fa.SubCircuits == null || fa.SubCircuits.Count < 2)
                 return results;
 
             // Count how many SubCircuits each device element ID appears in.
             var membershipCount = new Dictionary<int, List<string>>(); // elementId → subCircuit names
 
-            foreach (var sc in data.SubCircuits)
+            foreach (var sc in fa.SubCircuits)
             {
                 foreach (int elemId in sc.DeviceElementIds)
                 {
@@ -39,7 +41,7 @@ namespace Pulse.Modules.FireAlarm.Rules
 
             // Build a reverse lookup: Revit ElementId → device EntityId (for entityId on the result)
             var entityIdByElementId = new Dictionary<int, string>();
-            foreach (var device in data.Devices)
+            foreach (var device in fa.Devices)
             {
                 if (device.RevitElementId.HasValue)
                     entityIdByElementId[(int)device.RevitElementId.Value] = device.EntityId;

@@ -1,6 +1,6 @@
 # Pulse — Architecture Guide
 
-> Last updated after the **Gap 1 — Typed Payload Decoupling** refactor.
+> Last updated after the **Gap 6 — SubCircuit out of Core** refactor.
 
 This document describes the runtime pipeline, module system, storage
 strategy, and diagram scene-graph that form the backbone of Pulse.
@@ -26,12 +26,15 @@ strategy, and diagram scene-graph that form the backbone of Pulse.
 │  Modules/                                          │
 │    FireAlarm/     — Collector, TopologyBuilder,     │
 │                     RulePack, ParameterKeys         │
+│                     SubCircuit (entity + CRUD),     │
+│                     FireAlarmSubCircuitService       │
 ├────────────────────────────────────────────────────┤
 │  Core/            — NO Revit dependency             │
 │    Modules        — PulseAppController, ModuleCatalog│
 │                     IModuleDefinition, Capabilities  │
 │                     ModuleData (Payload slot)         │
-│                     TopologyAssignmentsService,       │
+│                     TopologyAssignmentsService        │
+│                     (lifecycle only — no FA types)   │
 │                     SymbolMappingOrchestrator         │
 │    Modules/Metrics — SystemMetricsCalculator,         │
 │                     CapacityMetrics, HealthIssueItem  │
@@ -42,6 +45,7 @@ strategy, and diagram scene-graph that form the backbone of Pulse.
 │    SystemModel    — Panel, Loop, Zone, Device        │
 │    Rules          — IRule, RuleResult, Severity      │
 │    Settings       — ModuleSettings, TopologyAssignmentsStore│
+│                     (SubCircuitsJson blob — opaque)  │
 │                     DeviceConfigStore, LevelVisibility│
 │    Logging        — ILogger abstraction             │
 └────────────────────────────────────────────────────┘

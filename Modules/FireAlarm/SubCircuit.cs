@@ -1,14 +1,15 @@
 using System;
 using System.Collections.Generic;
 
-namespace Pulse.Core.SystemModel
+namespace Pulse.Modules.FireAlarm
 {
     /// <summary>
     /// Represents a one-way NAC (Notification Appliance Circuit) branch attached to
     /// an Output Module on a loop.  Unlike a loop, a SubCircuit is not bi-directional
     /// and is not closed — it is a single cable run driving sounder/NAC devices.
     ///
-    /// SubCircuits are persisted inside <see cref="Pulse.Core.Settings.TopologyAssignmentsStore"/>
+    /// SubCircuits are persisted as a JSON blob inside
+    /// <see cref="Pulse.Core.Settings.TopologyAssignmentsStore.SubCircuitsJson"/>
     /// and projected into the topology graph as child nodes of their host element.
     /// </summary>
     public class SubCircuit

@@ -6,6 +6,7 @@ using Pulse.Core.Graph.Canvas;
 using Pulse.Core.Modules;
 using Pulse.Core.Settings;
 using Pulse.Core.SystemModel;
+using Pulse.Modules.FireAlarm;
 
 namespace Pulse.UI.ViewModels
 {
@@ -187,7 +188,7 @@ namespace Pulse.UI.ViewModels
         /// for the next <see cref="RebuildScene"/> call.
         /// </summary>
         public void LoadSubCircuits(
-            IEnumerable<Pulse.Core.SystemModel.SubCircuit> subCircuits,
+            IEnumerable<SubCircuit> subCircuits,
             IEnumerable<Pulse.Core.SystemModel.AddressableDevice> devices,
             IEnumerable<Panel> panels,
             IEnumerable<Loop> loops)

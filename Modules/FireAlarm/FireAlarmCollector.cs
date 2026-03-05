@@ -15,6 +15,8 @@ namespace Pulse.Modules.FireAlarm
         public ModuleData Collect(ICollectorContext collectorContext, ModuleSettings settings)
         {
             var data = new ModuleData { ModuleName = "FireAlarm" };
+            var fa   = new FireAlarmPayload();
+            data.Payload = fa;
 
             // Get the list of Revit parameter names we need to extract
             List<string> paramNames = settings.GetAllRevitParameterNames();
@@ -23,11 +25,11 @@ namespace Pulse.Modules.FireAlarm
             foreach (string category in settings.Categories)
             {
                 var elements = collectorContext.GetElements(category, paramNames);
-                ProcessElements(elements, settings, data);
+                ProcessElements(elements, settings, fa);
             }
 
             // Second pass: resolve Panel.RevitElementId from a dedicated element category
-            ResolvePanelElementIds(collectorContext, settings, data);
+            ResolvePanelElementIds(collectorContext, settings, fa);
 
             // Third pass: read lengths of "Pulse Wire – " model lines drawn by the wire routing feature.
             foreach (var kvp in collectorContext.GetRoutedWireLengths())
@@ -43,7 +45,7 @@ namespace Pulse.Modules.FireAlarm
         private static void ResolvePanelElementIds(
             ICollectorContext collectorContext,
             ModuleSettings settings,
-            ModuleData data)
+            FireAlarmPayload fa)
         {
             string panelCategory  = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelElementCategory);
             string panelNameParam = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelElementNameParam);
@@ -53,7 +55,7 @@ namespace Pulse.Modules.FireAlarm
 
             // Quick lookup: panel display name → Panel
             var panelByLabel = new Dictionary<string, Panel>(StringComparer.OrdinalIgnoreCase);
-            foreach (var panel in data.Panels)
+            foreach (var panel in fa.Panels)
                 panelByLabel[panel.DisplayName] = panel;
 
             var paramList = new System.Collections.Generic.List<string>();
@@ -138,7 +140,7 @@ namespace Pulse.Modules.FireAlarm
         /// Process collected elements into typed system entities.
         /// Groups devices by panel and loop.
         /// </summary>
-        private void ProcessElements(IReadOnlyList<ElementData> elements, ModuleSettings settings, ModuleData data)
+        private void ProcessElements(IReadOnlyList<ElementData> elements, ModuleSettings settings, FireAlarmPayload fa)
         {
             // Resolve Revit parameter names from logical keys
             string panelParam           = settings.GetRevitParameterName(FireAlarmParameterKeys.Panel);
@@ -176,7 +178,7 @@ namespace Pulse.Modules.FireAlarm
                 {
                     panel = new Panel($"panel_{panelKey}", panelKey);
                     panelMap[panelKey] = panel;
-                    data.Panels.Add(panel);
+                    fa.Panels.Add(panel);
                 }
 
                 // Create or find loop (scoped to panel)
@@ -190,7 +192,7 @@ namespace Pulse.Modules.FireAlarm
                     };
                     loopMap[compositeLoopKey] = loop;
                     panel.Loops.Add(loop);
-                    data.Loops.Add(loop);
+                    fa.Loops.Add(loop);
                 }
 
                 // Resolve Loop.RevitElementId from the circuit element ID parameter (first device wins)
@@ -341,7 +343,7 @@ namespace Pulse.Modules.FireAlarm
                     device.LocationZ = lz;
 
                 loop.Devices.Add(device);
-                data.Devices.Add(device);
+                fa.Devices.Add(device);
             }
         }
 

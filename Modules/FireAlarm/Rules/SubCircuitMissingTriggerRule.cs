@@ -20,19 +20,21 @@ namespace Pulse.Modules.FireAlarm.Rules
         public IReadOnlyList<RuleResult> Evaluate(ModuleData data)
         {
             var results = new List<RuleResult>();
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return results;
 
-            if (data.SubCircuits == null || data.SubCircuits.Count == 0)
+            if (fa.SubCircuits == null || fa.SubCircuits.Count == 0)
                 return results;
 
             // Build quick lookup: Revit ElementId → LoopId
             var loopByElementId = new Dictionary<long, string>();
-            foreach (var device in data.Devices)
+            foreach (var device in fa.Devices)
             {
                 if (device.RevitElementId.HasValue)
                     loopByElementId[device.RevitElementId.Value] = device.LoopId ?? string.Empty;
             }
 
-            foreach (var sc in data.SubCircuits)
+            foreach (var sc in fa.SubCircuits)
             {
                 // Try to find the host device by its RevitElementId
                 if (!loopByElementId.TryGetValue(sc.HostElementId, out string loopId)

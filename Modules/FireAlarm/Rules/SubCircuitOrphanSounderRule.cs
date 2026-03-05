@@ -32,17 +32,19 @@ namespace Pulse.Modules.FireAlarm.Rules
         public IReadOnlyList<RuleResult> Evaluate(ModuleData data)
         {
             var results = new List<RuleResult>();
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return results;
 
-            if (data.SubCircuits == null)
+            if (fa.SubCircuits == null)
                 return results;
 
             // Build the set of device element IDs covered by any SubCircuit.
             var coveredBySubCircuit = new HashSet<int>();
-            foreach (var sc in data.SubCircuits)
+            foreach (var sc in fa.SubCircuits)
                 foreach (int id in sc.DeviceElementIds)
                     coveredBySubCircuit.Add(id);
 
-            foreach (var device in data.Devices)
+            foreach (var device in fa.Devices)
             {
                 // Is this device a sounder-type?
                 string typeLabel = (device.DeviceType ?? string.Empty).ToLowerInvariant();

@@ -30,13 +30,15 @@ namespace Pulse.Modules.FireAlarm.Rules
         public IReadOnlyList<RuleResult> Evaluate(ModuleData data)
         {
             var results = new List<RuleResult>();
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return results;
 
-            if (data.SubCircuits == null || data.SubCircuits.Count == 0)
+            if (fa.SubCircuits == null || fa.SubCircuits.Count == 0)
                 return results;
 
             // Check if any device in the topology looks like a PSU/fault monitor.
             bool hasFaultMonitor = false;
-            foreach (var device in data.Devices)
+            foreach (var device in fa.Devices)
             {
                 string typeLabel = (device.DeviceType ?? string.Empty).ToLowerInvariant();
                 foreach (string keyword in _faultKeywords)
@@ -55,7 +57,7 @@ namespace Pulse.Modules.FireAlarm.Rules
                 results.Add(new RuleResult(
                     Name,
                     DefaultSeverity,
-                    $"{data.SubCircuits.Count} SubCircuit(s) found but no PSU fault monitoring input module " +
+                    $"{fa.SubCircuits.Count} SubCircuit(s) found but no PSU fault monitoring input module " +
                     "was detected in the system. Ensure a fault input device monitors each PSU/NAC circuit.",
                     elementId: null,
                     entityId: null));

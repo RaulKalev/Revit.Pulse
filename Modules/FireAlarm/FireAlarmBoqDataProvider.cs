@@ -25,14 +25,16 @@ namespace Pulse.Modules.FireAlarm
         public IReadOnlyList<BoqItem> GetItems(ModuleData data)
         {
             if (data == null) return Array.Empty<BoqItem>();
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return Array.Empty<BoqItem>();
 
             // Build fast lookup maps from the topology.
-            var loopById  = data.Loops.ToDictionary(l => l.EntityId, l => l, StringComparer.OrdinalIgnoreCase);
-            var panelById = data.Panels.ToDictionary(p => p.EntityId, p => p, StringComparer.OrdinalIgnoreCase);
+            var loopById  = fa.Loops.ToDictionary(l => l.EntityId, l => l, StringComparer.OrdinalIgnoreCase);
+            var panelById = fa.Panels.ToDictionary(p => p.EntityId, p => p, StringComparer.OrdinalIgnoreCase);
 
-            var items = new List<BoqItem>(data.Devices.Count);
+            var items = new List<BoqItem>(fa.Devices.Count);
 
-            foreach (var device in data.Devices)
+            foreach (var device in fa.Devices)
             {
                 var item = new BoqItem
                 {
@@ -87,9 +89,11 @@ namespace Pulse.Modules.FireAlarm
         public IReadOnlyList<string> DiscoverParameterKeys(ModuleData data)
         {
             if (data == null) return Array.Empty<string>();
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return Array.Empty<string>();
 
             var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var device in data.Devices)
+            foreach (var device in fa.Devices)
             {
                 foreach (var key in device.Properties.Keys)
                 {

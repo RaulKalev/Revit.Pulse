@@ -48,7 +48,7 @@ namespace Pulse.UI.ViewModels
             if (string.IsNullOrEmpty(paramName)) return;
 
             // Find the loop by display name
-            var loop = currentData.Loops.Find(l =>
+            var loop = currentData.GetPayload<FireAlarmPayload>()?.Loops.Find(l =>
                 string.Equals(l.DisplayName, loopName, StringComparison.OrdinalIgnoreCase));
             if (loop == null) return;
 

@@ -159,7 +159,7 @@ NAC (Notification Appliance Circuit) outputs on PSU/sounder modules can be model
 - **Name** is editable in the inspector panel (double-click the title)
 - **V-Drop limit %** is editable in the inspector PROPERTIES section (double-click the value); Enter or click away to confirm, Escape to cancel
 
-**Persistence:** each SubCircuit (including its device list, wire assignment, and V-Drop limit %) is stored as a `SubCircuit` entry in `TopologyAssignmentsStore.SubCircuits` — serialised as JSON to Revit Extensible Storage and reloaded transparently on document open.
+**Persistence:** each SubCircuit (including its device list, wire assignment, and V-Drop limit %) is stored as a JSON blob (`TopologyAssignmentsStore.SubCircuitsJson`) managed by `FireAlarmSubCircuitService` — serialised to Revit Extensible Storage and reloaded transparently on document open. Documents saved before Gap-6 are migrated automatically via a JSON shim on first load.
 
 ---
 
