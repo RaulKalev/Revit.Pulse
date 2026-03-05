@@ -169,10 +169,15 @@ When a SubCircuit node is selected, the **CIRCUIT METRICS** section of the Syste
 
 | Gauge | Description |
 |-------|-------------|
-| Normal Load | Aggregate normal-mode current draw vs. PSU output capacity (mA) |
-| Alarm Load | Aggregate alarm-mode current draw vs. PSU output capacity (mA) |
+| Normal Load | Sum of device **standby** current draws — pure device current only (EOL supervisory not included) |
+| Alarm Load | Sum of device **alarm** current draws |
 | V-Drop | Calculated voltage drop along the circuit vs. configurable limit |
 | Remaining V | Nominal supply voltage minus calculated V-Drop |
+
+**Current draw sourcing:**
+- **Normal Load** and **Alarm Load** read per-device mA values from the `CurrentDraw` parameter (a single column split into standby/alarm by convention).
+- **PSU output capacity** (`ScMaMax`) is sourced from the `_OutputCurrentMaxMa` raw device parameter on the PSU host element (set as `OutputCurrentMaxMa` in the topology node). When that parameter is not mapped, the gauge ceiling falls back to `max(Normal, Alarm) × 1.25` so the arc fills to ~80 % at peak load.
+- When the PSU capacity is unknown (ceiling = 0), the gauge shows `"425 mA"` without a denominator or percent — no misleading `"425 / 0 mA 0%"` text.
 
 **V-Drop calculation:**
 - Formula: `V = I × (2ρL / A)` — copper resistivity ρ = 0.0175 Ω·mm²/m

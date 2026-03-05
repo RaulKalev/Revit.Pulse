@@ -1,6 +1,6 @@
 # Pulse — Architecture Guide
 
-> Last updated after the **Gap 2 — Generic ModuleBlobs in TopologyAssignmentsStore** refactor.
+> Last updated after the **NAC Circuit Metrics gauge fixes** (Normal/Alarm Load, 3D Route toggle, GaugeControl fallback display).
 
 This document describes the runtime pipeline, module system, storage
 strategy, and diagram scene-graph that form the backbone of Pulse.
@@ -381,6 +381,27 @@ After `BuildCapacity()` stores the computed `CapacityMetrics` in `_lastCap`,
 rule-based health items. This means address or mA overreach automatically
 appears as Warning/Error rows in the Health Status section without any
 duplication of threshold logic.
+
+### 9.5 NAC Circuit Metrics Pipeline
+
+When a SubCircuit node is selected, `MetricsPanelViewModel` computes four
+circuit-level gauges from the node's properties and sub-device list:
+
+| Property | Source |
+|----------|--------|
+| `MaNormal` | Sum of standby current draws across all assigned sounder devices (pure device current — EOL supervisory is **not** included) |
+| `MaUsed` (Alarm Load) | Sum of alarm current draws across all assigned sounder devices |
+| `ScMaMax` | `OutputCurrentMaxMa` node property set by `FireAlarmTopologyBuilder`; when absent, falls back to `max(MaNormal, MaUsed) × 1.25` so the gauge fills to ~80 % at peak |
+| V-Drop / Remaining V | Derived from wire parameters (ρ, A) and cable length — unchanged |
+
+**`GaugeControl` display when `Maximum = 0`:** shows `"value unit"` only
+(e.g. `"425 mA"`), omitting the denominator and percent text, so an
+unknown ceiling is still readable.
+
+**3D Route toggle in Quick Actions:** `Metrics.Toggle3DRoutingRequested`
+toggled `IsWireRoutingVisible` on the currently selected Loop or
+SubCircuit node; if no compatible node is selected, a status-bar prompt
+is shown instead.
 
 ---
 
