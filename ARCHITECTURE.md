@@ -1,6 +1,6 @@
 # Pulse — Architecture Guide
 
-> Last updated after the **NAC Circuit Metrics gauge fixes** (Normal/Alarm Load, 3D Route toggle, GaugeControl fallback display).
+> Last updated after **Gap 3 — per-module device config** (`IProvidesDeviceConfig`, `IModuleDeviceConfig`, `FireAlarmDeviceConfig`, `DeviceConfigStore.ModuleConfigBlobs`).
 
 This document describes the runtime pipeline, module system, storage
 strategy, and diagram scene-graph that form the backbone of Pulse.
@@ -47,7 +47,13 @@ strategy, and diagram scene-graph that form the backbone of Pulse.
 │    Settings       — ModuleSettings, TopologyAssignmentsStore│
 │                     (ModuleBlobs dict — opaque per-module   │
 │                      blobs, e.g. "FireAlarm.SubCircuits")   │
-│                     DeviceConfigStore, LevelVisibility│
+│                     DeviceConfigStore                        │
+│                     (ModuleConfigBlobs dict — opaque per-   │
+│                      module hardware blobs, keyed by ModuleId│
+│                      e.g. "FireAlarm" → FireAlarmDeviceConfig│
+│                      JSON; loaded via DeviceConfigService)  │
+│                     IModuleDeviceConfig (marker interface)  │
+│                     LevelVisibility│
 │    Logging        — ILogger abstraction             │
 └────────────────────────────────────────────────────┘
 ```
@@ -159,7 +165,8 @@ a hardcoded fallback list is used.
 
 Capabilities are queried via `PulseAppController.HasCapability()`.
 Optional feature interfaces (`IProvidesDiagramFeatures`,
-`IProvidesWiringFeatures`, `IProvidesSymbolMapping`) are retrieved via
+`IProvidesWiringFeatures`, `IProvidesSymbolMapping`,
+`IProvidesDeviceConfig`) are retrieved via
 `PulseAppController.GetFeature<T>()`.
 
 ---
@@ -409,7 +416,14 @@ is shown instead.
 
 1. Create `Modules/YourModule/` with a class implementing `IModuleDefinition`.
 2. Declare `Capabilities` flags for the features your module supports.
-3. Optionally implement feature interfaces (`IProvidesWiringFeatures`, etc.).
+3. Optionally implement feature interfaces:
+   - `IProvidesWiringFeatures` — wire parameter key for Revit write-back
+   - `IProvidesSymbolMapping` — custom device-type symbol library
+   - `IProvidesDeviceConfig` — hardware device config; return your `IModuleDeviceConfig`
+     subclass from `GetDefaultDeviceConfig()`; load/save via
+     `DeviceConfigService.LoadModuleConfig<T>(moduleId)` /
+     `DeviceConfigService.SaveModuleConfig(moduleId, config)` — stored as a JSON blob in
+     `DeviceConfigStore.ModuleConfigBlobs[moduleId]`; Core never inspects the value.
 4. Implement `IModuleCollector`, `ITopologyBuilder`, `IRulePack`.
 5. In your `IModuleCollector.Collect()`, create a module-specific payload class
    (e.g. `YourModulePayload`) and assign it: `data.Payload = new YourModulePayload()`.

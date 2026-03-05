@@ -36,7 +36,7 @@ Framework-agnostic contracts and models:
 | `Core.Rules` | `IRule`, `RuleResult`, `Severity` — validation engine |
 | `Core.Modules` | `IModuleDefinition`, `PulseAppController`, `ModuleCatalog`, `ModuleCapabilities`, `TopologyAssignmentsService`, `SymbolMappingOrchestrator`; `ModuleData` — pipeline container with typed `Payload` slot |
 | `Core.Modules.Metrics` | `SystemMetricsCalculator`, `CapacityMetrics`, `HealthIssueItem`, `DistributionGroup`, `CablingMetrics` — System Intelligence metrics engine |
-| `Core.Settings` | `ModuleSettings`, `ParameterMapping`, `TopologyAssignmentsStore`, `DeviceConfigStore`, `CustomSymbolDefinition`, `LevelVisibilitySettings`, `DiagramCanvasSettings`, `UiStateService`; `ControlPanelConfig.MaxAddresses` for per-panel address cap override |
+| `Core.Settings` | `ModuleSettings`, `ParameterMapping`, `TopologyAssignmentsStore`, `DeviceConfigStore` (+ `ModuleConfigBlobs` opaque per-module hardware blobs), `IModuleDeviceConfig`, `CustomSymbolDefinition`, `LevelVisibilitySettings`, `DiagramCanvasSettings`, `UiStateService`; `ControlPanelConfig.MaxAddresses` for per-panel address cap override |
 | `Core.Logging` | `ILogger` abstraction |
 
 ### Pulse.Revit
@@ -92,7 +92,8 @@ First implemented module:
 
 | Component | Purpose |
 |-----------|---------|
-| `FireAlarmModuleDefinition` | Registers the module and provides factory methods |
+| `FireAlarmModuleDefinition` | Registers the module and provides factory methods; implements `IProvidesDeviceConfig` |
+| `FireAlarmDeviceConfig` | `IModuleDeviceConfig` wrapper — holds `ControlPanels`, `LoopModules`, and `Wires` libraries; stored as a blob in `DeviceConfigStore.ModuleConfigBlobs["FireAlarm"]` |
 | `FireAlarmCollector` | Collects fire alarm devices from configured Revit categories |
 | `FireAlarmTopologyBuilder` | Builds Panel → Loop → Device graph; attaches cable length (routed or Manhattan) to loop and SubCircuit nodes |
 | `CableLengthCalculator` | Calculates per-loop cable length using Manhattan (right-angle) routing in Revit internal units, returns metres |
@@ -233,7 +234,10 @@ The **System Intelligence Dashboard** (`SystemMetricsPanel`) provides a live ove
    - `Capabilities` — declare supported `ModuleCapabilities` flags
    - `GetDefaultSettings()` returning default categories and parameter mappings
    - Factory methods for collector, topology builder, and rule pack
-3. Optionally implement feature interfaces (`IProvidesWiringFeatures`, `IProvidesSymbolMapping`, etc.).
+3. Optionally implement feature interfaces:
+   - `IProvidesWiringFeatures` — wire parameter key for Revit write-back
+   - `IProvidesSymbolMapping` — custom device-type symbol library
+   - `IProvidesDeviceConfig` — hardware device config (panels, circuits, wires); implement `GetDefaultDeviceConfig()` returning your `IModuleDeviceConfig` subclass; load/save via `DeviceConfigService.LoadModuleConfig<T>()` / `SaveModuleConfig()` — stored in `DeviceConfigStore.ModuleConfigBlobs[ModuleId]`
 4. Implement `IModuleCollector` to extract elements from Revit via `ICollectorContext`.
 5. Implement `ITopologyBuilder` to build the graph from collected entities.
 6. Implement `IRulePack` with validation rules implementing `IRule`.
