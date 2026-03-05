@@ -37,8 +37,35 @@ Use this if you just want to get productive fast.
 
 ---
 
+## Glossary
+
+| Term | Meaning |
+|------|---------|
+| **Panel** | The fire alarm control panel (FACP) — the central unit that supervises all loops and devices. |
+| **Loop / SLC** | Signalling Line Circuit — the addressable wiring ring that connects field devices back to the panel. |
+| **Address** | A unique number assigned to each device on a loop so the panel can identify it individually. |
+| **Config** | A named hardware model (panel or loop module) stored in the Device Configurator. Selecting a config unlocks that model's capacity limits. |
+| **Wire type** | A named cable entry (e.g. FP200 2×1.5 mm²) stored in the Device Configurator. Used for diagram labelling and voltage-drop calculations. |
+| **SubCircuit (NAC)** | Notification Appliance Circuit — a one-way output circuit driven by a PSU or output module that powers sounders, strobes, and horns. Modelled separately from the addressable loop. |
+| **PSU** | Power Supply Unit — a device in the tree that can host one or more NAC SubCircuit outputs. |
+| **V-drop** | Voltage drop across a cable run. Pulse calculates this for SubCircuits to confirm the end-of-line voltage stays above the device minimum. |
+| **EOL resistor** | End-of-Line resistor — placed at the far end of a NAC circuit to allow the panel to supervise the wiring. Its value affects V-drop calculations. |
+| **Topology Tree** | The left-hand panel in Pulse showing the Panel → Loop → Device hierarchy of all collected fire alarm elements. |
+| **Inspector** | The detail panel that shows properties of whatever is currently selected in the Topology Tree. |
+| **Dashboard** | The System Intelligence panel showing capacity gauges, health issues, distribution, and cabling info for the selected panel, loop, or SubCircuit. |
+| **BOQ** | Bill of Quantities — a configurable schedule of all collected devices with grouping, sorting, and custom formula columns. |
+| **Refresh** | The action that re-reads the Revit model and rebuilds the topology, diagram, and dashboard. Run this after any model changes. |
+| **Symbol Mapping** | The table that links a DeviceType string from Revit to a vector symbol shown in the diagram. |
+| **Symbol Designer** | The built-in editor for creating and modifying vector symbols used in the diagram. |
+| **Run System Check** | Exports a structured plain-text system summary to the clipboard for pasting into an AI assistant. |
+| **Level line** | A horizontal reference line drawn in the diagram at the elevation of a Revit level where devices exist. |
+| **Rank** | The vertical order of a loop in the diagram when two or more loops share the same level elevation. |
+
+---
+
 ## Table of Contents
 
+0. [Glossary](#glossary)
 1. [Overview](#1-overview)
 2. [Launching the Plugin](#2-launching-the-plugin)
 3. [Initial Setup — Parameter Mapping](#3-initial-setup--parameter-mapping)
