@@ -817,13 +817,6 @@ namespace Pulse.UI.ViewModels
                                     out double parsedNomVolts))
                                 nomVolts = parsedNomVolts;
 
-                            if (scEntry != null
-                                && scEntry.EolResistorOhms > 0 && nomVolts > 0)
-                            {
-                                double supervisoryMa = (nomVolts / scEntry.EolResistorOhms) * 1000.0;
-                                MaNormal = MaNormal + supervisoryMa;
-                            }
-
                             // ── Scale gauges by nominal voltage ───────────────────────
                             double vDropLimitPct = 16.7;
                             if (scEntry != null)
