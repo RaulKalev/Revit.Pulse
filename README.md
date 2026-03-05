@@ -46,7 +46,7 @@ Revit API integration:
 | `RefreshPipeline` | Owns `CollectDevicesHandler` + `ExternalEvent` for the refresh cycle |
 | `SelectionHighlightFacade` | Owns select, override, and reset handlers |
 | `StorageFacade` | Read/write helpers for ES and JSON persistence |
-| `RevitCollectorService` | Implements `ICollectorContext` — extracts elements and parameters |
+| `RevitCollectorService` | Implements `ICollectorContext` — extracts elements, parameters, and routed wire lengths |
 | `SelectionService` | Selects elements in the Revit model |
 | `TemporaryOverrideService` | Applies/resets graphic overrides to highlight elements |
 | `ExtensibleStorageService` | Reads/writes module settings to Revit Extensible Storage (single-schema, Public access) |
@@ -92,7 +92,7 @@ First implemented module:
 |-----------|---------|
 | `FireAlarmModuleDefinition` | Registers the module and provides factory methods |
 | `FireAlarmCollector` | Collects fire alarm devices from configured Revit categories |
-| `FireAlarmTopologyBuilder` | Builds Panel → Loop → Device graph; attaches cable length to each loop node |
+| `FireAlarmTopologyBuilder` | Builds Panel → Loop → Device graph; attaches cable length (routed or Manhattan) to loop and SubCircuit nodes |
 | `CableLengthCalculator` | Calculates per-loop cable length using Manhattan (right-angle) routing in Revit internal units, returns metres |
 | `FireAlarmRulePack` | Validates data with 5 rules |
 | `FireAlarmParameterKeys` | Centralized logical parameter key constants |
@@ -137,12 +137,12 @@ The **BOQ window** is a modeless panel opened from the main toolbar that shows a
 
 ### Cable Length Calculation
 
-The Fire Alarm module calculates the total cable length for each loop using **Manhattan (right-angle) routing**:
+The Fire Alarm module determines cable length for each loop and SubCircuit using the following priority:
 
-- Route: Panel origin → devices sorted by address → return to Panel
-- Distance metric: |Δx| + |Δy| + |Δz| in Revit internal units (feet), converted to metres
-- Result is displayed in each loop card header as `XX.X m`
-- Powered by `CableLengthCalculator.CalculateAll(panels)`
+1. **Routed wire lines (primary)** — when the wire routing feature has been used to draw `"Pulse Wire – "` model lines for a loop or SubCircuit, `RevitCollectorService.GetRoutedWireLengths()` reads those model lines back at refresh time and sums their curve lengths (converted from Revit internal feet to metres). No user configuration required — the plugin reads its own drawn lines automatically.
+2. **Manhattan estimate (fallback)** — if no routed lines exist, `CableLengthCalculator` computes an estimate via right-angle routing: Panel origin → devices sorted by address → back to Panel; distance = |Δx| + |Δy| + |Δz|.
+
+The result is displayed in the loop or SubCircuit card as `XX.X m` and used by the V-Drop calculator.
 
 ### NAC SubCircuit Management
 
@@ -181,14 +181,15 @@ When a SubCircuit node is selected, the **CIRCUIT METRICS** section of the Syste
 
 ---
 
-### Per-Loop 3D Wire Routing Visualisation
+### Per-Loop / Per-SubCircuit 3D Wire Routing Visualisation
 
-Each loop card header contains a **wire routing toggle button**. Clicking it draws orthogonal model lines in the active Revit 3D view — one set per loop:
+Each loop and SubCircuit card contains a **wire routing toggle button**. Clicking it draws orthogonal model lines in the active Revit 3D view:
 
-- Each loop's lines use a dedicated line-style subcategory (`Pulse Wire – {panel} - {loop}`) so they can be toggled on/off independently
-- Lines follow the same Panel → devices → Panel Manhattan route as the cable calculator
-- **State is persisted** to Revit Extensible Storage (`LoopWireRoutingVisible` in `TopologyAssignmentsStore`) — re-opening the plugin restores all visible loops automatically
-- The toggle icon turns red when wires are visible; clicking again clears only that loop's lines
+- Each loop or SubCircuit gets its own line-style subcategory (`Pulse Wire – {panel} - {loop}` or `Pulse Wire – {device} - {subcircuit}`) so they can be toggled independently
+- Lines follow a Manhattan-routed path through the assigned devices
+- **Cable length is read back automatically** — on the next Refresh, `RevitCollectorService` reads these model lines and uses their total length as `CableLength` for that node, replacing the Manhattan estimate with the actual routed measurement
+- **State is persisted** to Revit Extensible Storage (`LoopWireRoutingVisible` in `TopologyAssignmentsStore`) — re-opening the plugin restores all visible routing automatically
+- The toggle icon turns red when wires are visible; clicking again clears only that loop's or SubCircuit's lines
 
 ### System Intelligence Dashboard
 
@@ -261,6 +262,8 @@ Default Fire Alarm parameter mappings:
 | PanelElementNameParam | Mark | No |
 | CircuitElementId | FA_Circuit_ElementId | No |
 | NominalVoltage | Nominal voltage | No |
+
+> **Note:** Cable length is derived automatically from `"Pulse Wire – "` model lines drawn by the routing feature — no parameter mapping is needed for cable routes.
 
 ---
 
