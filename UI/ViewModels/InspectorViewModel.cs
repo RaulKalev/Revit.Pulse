@@ -417,7 +417,29 @@ namespace Pulse.UI.ViewModels
                     { Properties.Add(new PropertyItem { Key = "Element ID", Value = kvp.Value }); continue; }
                     if (kvp.Key == "CurrentDraw")
                     { Properties.Add(new PropertyItem { Key = "Current draw", Value = kvp.Value + " mA" }); continue; }
-                }                Properties.Add(new PropertyItem { Key = kvp.Key, Value = kvp.Value });
+                }
+                // ── Device nodes: only show the user-facing allowlist ─────────────
+                else if (node.NodeType == "Device")
+                {
+                    switch (kvp.Key)
+                    {
+                        case "Name":
+                        case "Level":
+                        case "Elevation":
+                        case "Panel":
+                        case "Panel type":
+                        case "Loop":
+                        case "Address":
+                        case "Wire":
+                        case "Loop module":
+                        case "IsSubDevice":
+                            break;          // fall through to add below
+                        default:
+                            continue;       // skip everything else
+                    }
+                    if (kvp.Key == "IsSubDevice") continue; // internal flag — never show
+                }
+                Properties.Add(new PropertyItem { Key = kvp.Key, Value = kvp.Value });
             }
 
             // For Device nodes, resolve "Panel type" from the live assignments store
