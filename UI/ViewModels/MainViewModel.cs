@@ -209,7 +209,13 @@ namespace Pulse.UI.ViewModels
             Metrics.HighlightElementsRequested = ids =>
                 _selectionFacade.HighlightElements(ids ?? System.Linq.Enumerable.Empty<long>());
             Metrics.Toggle3DRoutingRequested = () =>
-                StatusText = "Toggle 3D Routing: select a loop in the tree to enable routing.";
+            {
+                var vm = Topology.SelectedNode;
+                if (vm?.NodeType == "Loop" || vm?.NodeType == "SubCircuit")
+                    vm.IsWireRoutingVisible = !vm.IsWireRoutingVisible;
+                else
+                    StatusText = "Toggle 3D Routing: select a loop or NAC circuit in the tree to enable routing.";
+            };
             Metrics.OpenBOQRequested = ExecuteOpenBOQ;
 
             // Wire up topology selection events

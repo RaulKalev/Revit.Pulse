@@ -513,6 +513,16 @@ namespace Pulse.Modules.FireAlarm
                     scNode.Properties["NominalVoltage"] = scNomVoltStr;
                 }
 
+                // Output current maximum from host device (requires "_OutputCurrentMaxMa"
+                // mapped as a Pulse ParameterKey on the PSU / Output Module family).
+                // When present enables the Normal Load and Alarm Load capacity gauges.
+                if (deviceByElementId.TryGetValue(sc.HostElementId, out var hostDevOutMax)
+                    && hostDevOutMax.Properties.TryGetValue("_OutputCurrentMaxMa", out string outMaxStr)
+                    && !string.IsNullOrEmpty(outMaxStr))
+                {
+                    scNode.Properties["OutputCurrentMaxMa"] = outMaxStr;
+                }
+
                 data.Nodes.Add(scNode);
 
                 // ── Edge: host device → SubCircuit ────────────────────────────────────

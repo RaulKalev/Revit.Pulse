@@ -261,6 +261,17 @@ namespace Pulse.UI.ViewModels
         public string CapacitySectionTitle
             => ShowSubCircuitMetrics ? "CIRCUIT METRICS" : "CAPACITY";
 
+        // True when ScMaMax > 0 so the Normal Load / Alarm Load arc gauges should render.
+        // When false (output current max unknown) the gauge columns collapse and the text
+        // rows below still display the raw mA values — same hide/show pattern as
+        // ShowVDropGauge and ShowRemainingVoltGauge.
+        private bool _showCurrentGauges;
+        public  bool ShowCurrentGauges
+        {
+            get => _showCurrentGauges;
+            private set => SetField(ref _showCurrentGauges, value);
+        }
+
         // True when neither panel/loop gauges nor SubCircuit metrics are visible
         private bool _isCapacityEmpty = true;
         public  bool IsCapacityEmpty
@@ -629,6 +640,7 @@ namespace Pulse.UI.ViewModels
         {
             // Reset SubCircuit-specific fields on every rebuild
             ShowSubCircuitMetrics = false;
+            ShowCurrentGauges     = false;
             MaNormal              = 0;
             ScMaMax               = 0;
             ChildDeviceCount      = 0;
@@ -685,22 +697,20 @@ namespace Pulse.UI.ViewModels
                 MaNormal = maNormal;
                 MaUsed   = maAlarm;
 
-                // Look up host loop's MaMax from the device config store
-                if (_lastData != null
-                    && _selectedNode.Properties.TryGetValue("HostElementId", out string hostIdStr)
-                    && long.TryParse(hostIdStr, out long hostElemId))
-                {
-                    var hostLoop = _lastData?.GetPayload<FireAlarmPayload>()?.Loops.FirstOrDefault(
-                        l => l.Devices.Any(d => d.RevitElementId == hostElemId));
-                    if (hostLoop != null
-                        && _lastAssignments.LoopAssignments.TryGetValue(
-                               hostLoop.DisplayName, out string modName))
-                    {
-                        var cfg = _lastDeviceStore.LoopModules
-                            .FirstOrDefault(m => m.Name == modName);
-                        if (cfg != null) ScMaMax = cfg.MaxMaPerLoop;
-                    }
-                }
+                // Output current max from the SubCircuit node property.
+                // The topology builder sets "OutputCurrentMaxMa" from the host device's
+                // "_OutputCurrentMaxMa" raw parameter (requires it to be mapped as a
+                // Pulse ParameterKey on the PSU / Output Module family).
+                // NAC hosts are PSU output ports, NOT SLC loop devices, so looking up
+                // the loop module config (previous approach) was always incorrect here.
+                if (_selectedNode.Properties.TryGetValue("OutputCurrentMaxMa", out string outMaxStr)
+                    && double.TryParse(outMaxStr,
+                        System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out double outMax) && outMax > 0)
+                    ScMaMax = outMax;
+
+                ShowCurrentGauges = ScMaMax > 0;
 
                 // ── Voltage-drop calculation ────────────────────────────────────────
                 // Cable length is stored on the node as metres (set by topology builder)
