@@ -1,6 +1,6 @@
 # Pulse — Architecture Guide
 
-> Last updated after the **BOQ Window** feature branch.
+> Last updated after the **Gap 1 — Typed Payload Decoupling** refactor.
 
 This document describes the runtime pipeline, module system, storage
 strategy, and diagram scene-graph that form the backbone of Pulse.
@@ -30,12 +30,12 @@ strategy, and diagram scene-graph that form the backbone of Pulse.
 │  Core/            — NO Revit dependency             │
 │    Modules        — PulseAppController, ModuleCatalog│
 │                     IModuleDefinition, Capabilities  │
-│                     TopologyAssignmentsService,      │
-│                     SymbolMappingOrchestrator        │
-│    Modules/Metrics — SystemMetricsCalculator,        │
-│                     CapacityMetrics, HealthIssueItem │
-│                     DistributionGroup, CablingMetrics│
-│                     SystemCheckPromptBuilder         │
+│                     ModuleData (Payload slot)         │
+│                     TopologyAssignmentsService,       │
+│                     SymbolMappingOrchestrator         │
+│    Modules/Metrics — SystemMetricsCalculator,         │
+│                     CapacityMetrics, HealthIssueItem  │
+│                     DistributionGroup, CablingMetrics │
 │    Graph          — Node, Edge (topology tree)       │
 │    Graph/Canvas   — DiagramScene, CanvasGraphModel,  │
 │                     LevelAnchor, PanelCluster …      │
@@ -360,7 +360,7 @@ MainViewModel.LoadNode(node) / Refresh()
 | `DistributionGroup` | `Core/Modules/Metrics/` | Device-type group with name, count, fraction |
 | `CablingMetrics` | `Core/Modules/Metrics/` | Per-loop cable data + aggregate total |
 | `SystemMetricsCalculator` | `Core/Modules/Metrics/` | Stateless calculator — all `Compute*` methods |
-| `SystemCheckPromptBuilder` | `Core/Modules/Metrics/` | Builds structured AI review prompt string |
+| `SystemCheckPromptBuilder` | `Modules/FireAlarm/` | Builds structured AI review prompt string (FA-specific; moved out of Core) |
 
 ### 9.3 MaxAddresses Override
 
@@ -385,4 +385,13 @@ duplication of threshold logic.
 2. Declare `Capabilities` flags for the features your module supports.
 3. Optionally implement feature interfaces (`IProvidesWiringFeatures`, etc.).
 4. Implement `IModuleCollector`, `ITopologyBuilder`, `IRulePack`.
-5. `ModuleCatalog.Discover()` finds it automatically via reflection.
+5. In your `IModuleCollector.Collect()`, create a module-specific payload class
+   (e.g. `YourModulePayload`) and assign it: `data.Payload = new YourModulePayload()`.
+6. In your `ITopologyBuilder`, `IRulePack`, and any UI consumers, retrieve it with
+   `data.GetPayload<YourModulePayload>()` — returns `null` for other modules.
+7. `ModuleCatalog.Discover()` finds it automatically via reflection.
+
+> **`ModuleData.Payload` pattern** — `ModuleData` carries only a single `object Payload`
+> slot plus the generic graph (`Nodes`, `Edges`) and cross-cutting fields (`Levels`,
+> `RuleResults`, etc.). All module-specific typed entities live in the payload class,
+> keeping `ModuleData` module-agnostic.
