@@ -4,6 +4,8 @@
 
 Pulse is a modular Revit plugin that provides a system control center for MEP addressable systems. It replaces element-first workflows with system-first topology visualization, real-time validation, and progressive disclosure of detail.
 
+> **User manual →** see [MANUAL.md](MANUAL.md) for setup, features, and formula reference.
+
 > **Architecture deep-dive →** see [ARCHITECTURE.md](ARCHITECTURE.md) for the runtime
 > pipeline, module discovery, capabilities pattern, storage hardening strategy,
 > and diagram scene graph.
