@@ -184,6 +184,7 @@ namespace Pulse.UI.ViewModels
             Inspector = new InspectorViewModel();
             Inspector.CurrentDrawValueCommitted += OnCurrentDrawValueCommitted;
             Inspector.SubCircuitLabelCommitted  += OnSubCircuitLabelCommitted;
+            Inspector.VDropLimitPctCommitted    += OnInspectorVDropPctCommitted;
             Topology.SubDeviceAssignRequested      += OnSubDeviceAssignRequested;
             Topology.PickElementForDeviceRequested += OnPickElementForDeviceRequested;
             Topology.SubDeviceRemoveRequested      += OnSubDeviceRemoveRequested;
@@ -754,6 +755,24 @@ namespace Pulse.UI.ViewModels
             _assignmentsService.RenameSubCircuit(scId, newName);
             _assignmentsService.RequestSave();
             ExecuteRefresh();
+        }
+
+        /// <summary>
+        /// Called when the user commits a V-Drop limit % edit in the inspector.
+        /// Updates the assignments store, saves, and rebuilds metrics.
+        /// </summary>
+        private void OnInspectorVDropPctCommitted(string scNodeId, double newPct)
+        {
+            if (string.IsNullOrWhiteSpace(scNodeId)) return;
+            string scId = scNodeId.StartsWith("subcircuit::", StringComparison.Ordinal)
+                ? scNodeId.Substring("subcircuit::".Length)
+                : scNodeId;
+            if (_topologyAssignments.SubCircuits.TryGetValue(scId, out var scDef))
+                scDef.VDropLimitPct = newPct;
+            _assignmentsService.RequestSave();
+            Application.Current?.Dispatcher?.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.DataBind,
+                (Action)(() => Metrics.RebuildMetrics()));
         }
 
         /// <summary>

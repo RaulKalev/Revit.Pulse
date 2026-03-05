@@ -86,5 +86,28 @@ namespace Pulse.UI.Controls
         {
             if ((bool)e.NewValue && sender is TextBox tb) { tb.Focus(); tb.SelectAll(); }
         }
+
+        // ── V-Drop limit (SubCircuit) ──────────────────────────────────────
+
+        private void VDropDisplay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2) { Vm?.BeginEditVDrop(); e.Handled = true; }
+        }
+
+        private void VDropTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)       { Vm?.CommitVDrop(); e.Handled = true; }
+            else if (e.Key == Key.Escape) { Vm?.CancelEdit();  e.Handled = true; }
+        }
+
+        private void VDropTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            Vm?.CommitVDrop();
+        }
+
+        private void VDropTextBox_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if ((bool)e.NewValue && sender is TextBox tb) { tb.Focus(); tb.SelectAll(); }
+        }
     }
 }

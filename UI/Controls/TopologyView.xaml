@@ -767,33 +767,6 @@
                                                                                                                                          Foreground="{DynamicResource IconForegroundBrush}"/>
                                                                                                             </Button>
                                                                                                         </Grid>
-                                                                                                        <!-- NAC properties row -->
-                                                                                                        <Grid Margin="4,3,4,1">
-                                                                                                            <Grid.ColumnDefinitions>
-                                                                                                                <ColumnDefinition Width="Auto"/>
-                                                                                                                <ColumnDefinition Width="Auto"/>
-                                                                                                                <ColumnDefinition Width="*"/>
-                                                                                                            </Grid.ColumnDefinitions>
-                                                                                                            <TextBlock Grid.Column="0" Text="V-Drop limit:"
-                                                                                                                       FontSize="9" Opacity="0.7"
-                                                                                                                       Foreground="{DynamicResource IconForegroundBrush}"
-                                                                                                                       VerticalAlignment="Center" Margin="0,0,4,0"/>
-                                                                                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                                                                                <TextBox Width="34" FontSize="10"
-                                                                                                                         Text="{Binding VDropLimitPct, StringFormat=F1, UpdateSourceTrigger=LostFocus, Mode=TwoWay}"
-                                                                                                                         VerticalAlignment="Center"
-                                                                                                                         VerticalContentAlignment="Center"
-                                                                                                                         Padding="2,1"
-                                                                                                                         Background="{DynamicResource SecondaryBackgroundBrush}"
-                                                                                                                         Foreground="{DynamicResource ForegroundBrush}"
-                                                                                                                         BorderBrush="{DynamicResource BorderBrush}"
-                                                                                                                         BorderThickness="1"
-                                                                                                                         CaretBrush="{DynamicResource ForegroundBrush}"/>
-                                                                                                                <TextBlock Text="%" FontSize="9"
-                                                                                                                           Foreground="{DynamicResource IconForegroundBrush}"
-                                                                                                                           VerticalAlignment="Center" Margin="2,0,0,0" Opacity="0.7"/>
-                                                                                                            </StackPanel>
-                                                                                                        </Grid>
                                                                                                         <!-- Add-device dropdown — visible only when IsAddSlotOpen=True on the SubCircuit VM -->
                                                                                                         <Border Visibility="{Binding IsAddSlotOpen, Converter={StaticResource BoolToVis}}"                                                                                                                Margin="0,4,0,2" Padding="6,5"
                                                                                                                 BorderBrush="{DynamicResource BorderBrush}"

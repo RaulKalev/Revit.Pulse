@@ -132,25 +132,57 @@
                                            VerticalAlignment="Center"/>
                             </StackPanel>
                         </Expander.Header>
-                        <ItemsControl ItemsSource="{Binding Properties}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,2">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" MinWidth="80" MaxWidth="110"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Column="0" Text="{Binding Key}" FontSize="11"
-                                                   Foreground="{DynamicResource IconForegroundBrush}"
-                                                   VerticalAlignment="Top"
-                                                   Margin="0,0,8,0" TextWrapping="NoWrap"/>
-                                        <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11"
-                                                   Foreground="{DynamicResource ForegroundBrush}"
-                                                   TextWrapping="Wrap"/>
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <StackPanel>
+                            <ItemsControl ItemsSource="{Binding Properties}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" MinWidth="80" MaxWidth="110"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Key}" FontSize="11"
+                                                       Foreground="{DynamicResource IconForegroundBrush}"
+                                                       VerticalAlignment="Top"
+                                                       Margin="0,0,8,0" TextWrapping="NoWrap"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Value}" FontSize="11"
+                                                       Foreground="{DynamicResource ForegroundBrush}"
+                                                       TextWrapping="Wrap"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <!-- V-Drop limit (SubCircuit only, double-click to edit) -->
+                            <Grid Margin="0,2"
+                                  Visibility="{Binding ShowVDropEdit, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" MinWidth="80" MaxWidth="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="V-Drop limit" FontSize="11"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Grid.Column="1"
+                                           x:Name="VDropDisplay"
+                                           Text="{Binding VDropDisplay}" FontSize="11"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           Cursor="IBeam" ToolTip="Double-click to edit"
+                                           Visibility="{Binding IsEditingVDrop, Converter={StaticResource InverseBoolToVis}}"
+                                           MouseLeftButtonDown="VDropDisplay_MouseLeftButtonDown"/>
+                                <TextBox Grid.Column="1"
+                                         x:Name="VDropTextBox"
+                                         Text="{Binding EditingVDropText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Visibility="{Binding IsEditingVDrop, Converter={StaticResource BoolToVis}}"
+                                         FontSize="11" Background="Transparent"
+                                         BorderThickness="0,0,0,1"
+                                         BorderBrush="{DynamicResource BorderBrush}"
+                                         Foreground="{DynamicResource ForegroundBrush}"
+                                         CaretBrush="{DynamicResource ForegroundBrush}"
+                                         KeyDown="VDropTextBox_KeyDown"
+                                         LostFocus="VDropTextBox_LostFocus"
+                                         IsVisibleChanged="VDropTextBox_IsVisibleChanged"/>
+                            </Grid>
+                        </StackPanel>
                     </Expander>
 
                     <!-- ╔══════════════════════════╗ -->                    <!-- ║  CURRENT DRAW CARD         ║ -->

@@ -118,6 +118,39 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public event Action<string, string> SubCircuitLabelCommitted;
 
+        // ── V-Drop limit (SubCircuit only) ────────────────────────────────
+
+        private bool _showVDropEdit;
+        public bool ShowVDropEdit
+        {
+            get => _showVDropEdit;
+            set => SetField(ref _showVDropEdit, value);
+        }
+
+        private string _vDropDisplay;
+        public string VDropDisplay
+        {
+            get => _vDropDisplay;
+            set => SetField(ref _vDropDisplay, value);
+        }
+
+        private bool _isEditingVDrop;
+        public bool IsEditingVDrop
+        {
+            get => _isEditingVDrop;
+            set => SetField(ref _isEditingVDrop, value);
+        }
+
+        private string _editingVDropText;
+        public string EditingVDropText
+        {
+            get => _editingVDropText;
+            set => SetField(ref _editingVDropText, value);
+        }
+
+        /// <summary>Raised when the user commits an edited V-Drop limit. Parameters: (scNodeId, newPct).</summary>
+        public event Action<string, double> VDropLimitPctCommitted;
+
         // ── Current draw (Device only) ────────────────────────────────────
 
         private bool _showCurrentDraw;
@@ -401,6 +434,16 @@ namespace Pulse.UI.ViewModels
                     ShowGauges = false;
                     ShowSubCircuitMetrics = true;
                     ShowLabelEdit = true;
+
+                    // V-Drop limit — load from assignments store
+                    ShowVDropEdit = true;
+                    double vDropPct = 16.7;
+                    string scRawId = node.Id.StartsWith("subcircuit::", StringComparison.Ordinal)
+                        ? node.Id.Substring("subcircuit::".Length)
+                        : node.Id;
+                    if (AssignmentsStore.SubCircuits.TryGetValue(scRawId, out var scAssign))
+                        vDropPct = scAssign.VDropLimitPct;
+                    VDropDisplay = $"{vDropPct:F1} %";
                 }
                 else if (node.NodeType == "SubCircuitMember")
                 {
@@ -439,6 +482,10 @@ namespace Pulse.UI.ViewModels
             ShowLabelEdit = false;
             IsEditingLabel = false;
             EditingLabelText = string.Empty;
+            ShowVDropEdit = false;
+            VDropDisplay = string.Empty;
+            IsEditingVDrop = false;
+            EditingVDropText = string.Empty;
             AddressesUsed = 0;
             AddressesMax  = 0;
             MaUsed        = 0;
@@ -489,6 +536,7 @@ namespace Pulse.UI.ViewModels
             IsEditingCurrentDrawNormal = false;
             IsEditingCurrentDrawAlarm = false;
             IsEditingLabel = false;
+            IsEditingVDrop = false;
         }
 
         public void BeginEditLabel()
@@ -504,6 +552,29 @@ namespace Pulse.UI.ViewModels
             var newName = EditingLabelText ?? string.Empty;
             Title = newName; // optimistic update
             SubCircuitLabelCommitted?.Invoke(EntityId, newName);
+        }
+
+        public void BeginEditVDrop()
+        {
+            IsEditingCurrentDrawNormal = false;
+            IsEditingCurrentDrawAlarm = false;
+            IsEditingLabel = false;
+            // strip trailing " %" to get bare number for editing
+            EditingVDropText = VDropDisplay?.Replace("%", "").Trim() ?? "16.7";
+            IsEditingVDrop = true;
+        }
+
+        public void CommitVDrop()
+        {
+            if (!IsEditingVDrop) return;
+            IsEditingVDrop = false;
+            if (!double.TryParse(EditingVDropText ?? "16.7",
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out double pct))
+                return;
+            pct = pct < 1.0 ? 1.0 : pct > 50.0 ? 50.0 : pct;
+            VDropDisplay = $"{pct:F1} %";
+            VDropLimitPctCommitted?.Invoke(EntityId, pct);
         }
 
         // ── Gauge helpers ─────────────────────────────────────────────────
