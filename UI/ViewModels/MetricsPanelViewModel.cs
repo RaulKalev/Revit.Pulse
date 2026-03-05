@@ -708,16 +708,22 @@ namespace Pulse.UI.ViewModels
                                 out double parsedNomVolts))
                             nomVolts = parsedNomVolts;
 
+                        // Read user-configured V-drop limit percentage (falls back to 16.7 if not set)
+                        double vDropLimitPct = 16.7;
+                        if (_lastAssignments.SubCircuits.TryGetValue(scRawId, out var scAssignPct))
+                            vDropLimitPct = scAssignPct.VDropLimitPct;
+
                         if (nomVolts > 0)
                         {
                             ScNominalVoltage       = nomVolts;
-                            ScVDropMax             = nomVolts * 0.167;   // ~16.7% of supply (typical NAC limit), derived from PSU voltage
+                            ScVDropMax             = nomVolts * (vDropLimitPct / 100.0);
                             ScRemainingVolts       = Math.Max(0, nomVolts - ScVDropVolts);
                             ShowRemainingVoltGauge = true;
                         }
                         else
                         {
-                            ScVDropMax = 4.0;
+                            // No nominal voltage configured — apply the user's pct against the 24 V default
+                            ScVDropMax = 24.0 * (vDropLimitPct / 100.0);
                         }
                         ShowVDropGauge = true;
                     }

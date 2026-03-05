@@ -37,6 +37,12 @@ namespace Pulse.Core.SystemModel
         /// </summary>
         public string WireTypeKey { get; set; }
 
+        /// <summary>
+        /// Maximum allowable voltage-drop expressed as a percentage of the nominal supply voltage.
+        /// Default 16.7 % (≈ 4 V on a 24 V NAC circuit — the typical EN 54-4 limit).
+        /// </summary>
+        public double VDropLimitPct { get; set; } = 16.7;
+
         public SubCircuit() { }
 
         public SubCircuit(string id, int hostElementId, string name)

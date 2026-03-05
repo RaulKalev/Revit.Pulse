@@ -89,6 +89,10 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public event Action<TopologyNodeViewModel> WireAssigned;
 
+        /// <summary>Fired whenever the user edits the V-Drop limit % on a SubCircuit node.
+        /// MainViewModel subscribes and calls Metrics.RebuildMetrics() via BeginInvoke.</summary>
+        public event Action<TopologyNodeViewModel> VDropPctChanged;
+
         /// <summary>
         /// Fired when the user selects an unassigned device to attach beneath a host device.
         /// Carries: (hostDeviceVm, selectedOption).
@@ -258,6 +262,17 @@ namespace Pulse.UI.ViewModels
                 WireAssigned?.Invoke(vm);
             };
 
+            Action<TopologyNodeViewModel> onVDropPctChanged = vm =>
+            {
+                string scId = vm.GraphNode.Id.StartsWith("subcircuit::")
+                    ? vm.GraphNode.Id.Substring("subcircuit::".Length)
+                    : vm.GraphNode.Id;
+                if (_assignmentsStore.SubCircuits.TryGetValue(scId, out var scDef))
+                    scDef.VDropLimitPct = vm.VDropLimitPct;
+                AssignmentsSaveRequested?.Invoke();
+                VDropPctChanged?.Invoke(vm);
+            };
+
             // Build unassigned device pool (devices not connected to any loop)
             var unassignedOptions = data.Devices
                 .Where(d => string.IsNullOrEmpty(d.LoopId) && d.RevitElementId.HasValue)
@@ -315,7 +330,8 @@ namespace Pulse.UI.ViewModels
                                           onAddSubCircuit: onAddSubCircuit,
                                           onDeleteSubCircuit: onDeleteSubCircuit,
                                           onPickMultipleForSubCircuit: onPickMultipleForSubCircuit,
-                                          onRemoveFromSubCircuit: onRemoveFromSubCircuit);
+                                          onRemoveFromSubCircuit: onRemoveFromSubCircuit,
+                                          onVDropPctChanged: onVDropPctChanged);
                     RootNodes.Add(vm);
                 }
             }
@@ -345,6 +361,7 @@ namespace Pulse.UI.ViewModels
             Action<string> onDeleteSubCircuit = null,
             Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null,
             Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null,
+            Action<TopologyNodeViewModel> onVDropPctChanged = null,
             bool isSubDevice = false)
         {
             // Determine available config options and current assignment for this node type
@@ -352,6 +369,7 @@ namespace Pulse.UI.ViewModels
             string initialAssignment = null;
             IReadOnlyList<string> availableWires = null;
             string initialWire = null;
+            double initialVDropPct = 16.7;
 
             if (node.NodeType == "Panel")
             {
@@ -374,9 +392,12 @@ namespace Pulse.UI.ViewModels
                 string scId = node.Id.StartsWith("subcircuit::")
                     ? node.Id.Substring("subcircuit::".Length)
                     : node.Id;
-                if (_assignmentsStore.SubCircuits.TryGetValue(scId, out var scDef)
-                    && !string.IsNullOrEmpty(scDef.WireTypeKey))
-                    initialWire = scDef.WireTypeKey;
+                if (_assignmentsStore.SubCircuits.TryGetValue(scId, out var scDef))
+                {
+                    if (!string.IsNullOrEmpty(scDef.WireTypeKey))
+                        initialWire = scDef.WireTypeKey;
+                    initialVDropPct = scDef.VDropLimitPct;
+                }
             }
 
             // Seed wire routing visibility from stored state (Loop and SubCircuit nodes)
@@ -400,7 +421,9 @@ namespace Pulse.UI.ViewModels
                 isSubDevice:              isSubDevice && node.NodeType == "Device",
                 onDeleteSubCircuit:       node.NodeType == "SubCircuit" ? onDeleteSubCircuit : null,
                 onPickMultipleForSubCircuit: node.NodeType == "SubCircuit" ? onPickMultipleForSubCircuit : null,
-                onRemoveFromSubCircuit:   node.NodeType == "SubCircuitMember" ? onRemoveFromSubCircuit : null);
+                onRemoveFromSubCircuit:   node.NodeType == "SubCircuitMember" ? onRemoveFromSubCircuit : null,
+                onVDropPctChanged:        node.NodeType == "SubCircuit" ? onVDropPctChanged : null,
+                initialVDropPct:          initialVDropPct);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -466,6 +489,7 @@ namespace Pulse.UI.ViewModels
                                                onDeleteSubCircuit: onDeleteSubCircuit,
                                                onPickMultipleForSubCircuit: onPickMultipleForSubCircuit,
                                                onRemoveFromSubCircuit: onRemoveFromSubCircuit,
+                                               onVDropPctChanged: onVDropPctChanged,
                                                isSubDevice: node.NodeType == "Device");
                     vm.Children.Add(childVm);
                 }
@@ -684,6 +708,7 @@ namespace Pulse.UI.ViewModels
         private readonly Action<TopologyNodeViewModel> _onAssignWire;
         private readonly Action<TopologyNodeViewModel> _onPickElementForDevice;
         private readonly Action<TopologyNodeViewModel> _onToggleWireRouting;
+        private readonly Action<TopologyNodeViewModel> _onVDropPctChanged;
 
         private bool _isWireRoutingVisible;
         /// <summary>Whether 3-D wire routing model lines are currently shown for this loop.</summary>
@@ -729,6 +754,20 @@ namespace Pulse.UI.ViewModels
             {
                 if (SetField(ref _assignedWire, value))
                     _onAssignWire?.Invoke(this);
+            }
+        }
+
+        private double _vDropLimitPct;
+        /// <summary>Max allowable V-drop as % of nominal supply voltage (SubCircuit only). Editable by the user.</summary>
+        public double VDropLimitPct
+        {
+            get => _vDropLimitPct;
+            set
+            {
+                // Clamp to a sensible range (1 %–50 %)
+                double clamped = value < 1.0 ? 1.0 : value > 50.0 ? 50.0 : value;
+                if (SetField(ref _vDropLimitPct, clamped))
+                    _onVDropPctChanged?.Invoke(this);
             }
         }
 
@@ -862,7 +901,9 @@ namespace Pulse.UI.ViewModels
             Action<string> onDeleteSubCircuit = null,
             Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null,
             Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null,
-            bool isSubDevice = false)
+            bool isSubDevice = false,
+            Action<TopologyNodeViewModel> onVDropPctChanged = null,
+            double initialVDropPct = 16.7)
         {
             GraphNode   = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             IsSubDevice = isSubDevice;
@@ -872,6 +913,7 @@ namespace Pulse.UI.ViewModels
             _onSubDeviceAssign      = onSubDeviceAssign;
             _onPickElementForDevice = onPickElementForDevice;
             _onToggleWireRouting    = onToggleWireRouting;
+            _onVDropPctChanged      = onVDropPctChanged;
             ParentLabel             = parentLabel;
             ToggleAddSlotCommand      = new RelayCommand(_ => IsAddSlotOpen = !IsAddSlotOpen);
             PickFromRevitCommand      = new RelayCommand(_ => { IsAddSlotOpen = false; _onPickElementForDevice?.Invoke(this); });
@@ -915,8 +957,9 @@ namespace Pulse.UI.ViewModels
             }
 
             // Seed assignments without firing callbacks
-            _assignedConfig = initialAssignment ?? string.Empty;
-            _assignedWire   = initialWire ?? string.Empty;
+            _assignedConfig   = initialAssignment ?? string.Empty;
+            _assignedWire     = initialWire ?? string.Empty;
+            _vDropLimitPct    = initialVDropPct;
             _isWireRoutingVisible = initialWireRoutingVisible;
 
             // Populate unassigned pool (Device nodes only)

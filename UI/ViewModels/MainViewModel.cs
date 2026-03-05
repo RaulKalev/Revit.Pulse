@@ -215,6 +215,12 @@ namespace Pulse.UI.ViewModels
             if (_appController.HasCapability(ModuleCapabilities.Wiring))
                 Topology.WireAssigned += OnTopologyWireAssigned;
 
+            // SubCircuit V-drop limit percentage edited by user → rebuild metrics
+            Topology.VDropPctChanged += _ =>
+                Application.Current?.Dispatcher?.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.DataBind,
+                    (Action)(() => Metrics.RebuildMetrics()));
+
             // Per-loop wire routing toggle (draw/clear model lines)
             Topology.WireRoutingToggled += OnWireRoutingToggled;
 
