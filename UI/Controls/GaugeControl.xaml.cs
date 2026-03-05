@@ -115,9 +115,18 @@ namespace Pulse.UI.Controls
 
         private void UpdateTexts(double ratio)
         {
-            ValueText.Text   = FormatNumber(Value) + " / " + FormatNumber(Maximum) + " " + (Unit ?? string.Empty);
-            int pct          = Maximum > 0 ? (int)Math.Round(Value / Maximum * 100) : 0;
-            PercentText.Text = pct + "%";
+            if (Maximum > 0)
+            {
+                ValueText.Text   = FormatNumber(Value) + " / " + FormatNumber(Maximum) + " " + (Unit ?? string.Empty);
+                int pct          = (int)Math.Round(Value / Maximum * 100);
+                PercentText.Text = pct + "%";
+            }
+            else
+            {
+                // Maximum unknown — show raw value only, no denominator or percent
+                ValueText.Text   = FormatNumber(Value) + " " + (Unit ?? string.Empty);
+                PercentText.Text = string.Empty;
+            }
             LabelText.Text   = Label ?? string.Empty;
         }
 

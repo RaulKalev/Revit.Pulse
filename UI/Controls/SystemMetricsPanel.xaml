@@ -332,8 +332,8 @@
                                 <!-- Gauges: Normal load | Alarm load | V-Drop | Remaining V -->
                                 <Grid Height="110" Margin="0,0,0,4">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="{Binding ShowCurrentGauges, Converter={StaticResource BoolToGridLength}}"/>
-                                        <ColumnDefinition Width="{Binding ShowCurrentGauges, Converter={StaticResource BoolToGridLength}}"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="{Binding ShowVDropGauge, Converter={StaticResource BoolToGridLength}}"/>
                                         <ColumnDefinition Width="{Binding ShowRemainingVoltGauge, Converter={StaticResource BoolToGridLength}}"/>
                                     </Grid.ColumnDefinitions>
@@ -341,14 +341,12 @@
                                                            Value="{Binding MaNormal}"
                                                            Maximum="{Binding ScMaMax}"
                                                            Label="Normal Load"
-                                                           Unit="mA"
-                                                           Visibility="{Binding ShowCurrentGauges, Converter={StaticResource BoolToVis}}"/>
+                                                           Unit="mA"/>
                                     <controls:GaugeControl Grid.Column="1"
                                                            Value="{Binding MaUsed}"
                                                            Maximum="{Binding ScMaMax}"
                                                            Label="Alarm Load"
-                                                           Unit="mA"
-                                                           Visibility="{Binding ShowCurrentGauges, Converter={StaticResource BoolToVis}}"/>
+                                                           Unit="mA"/>
                                     <controls:GaugeControl Grid.Column="2"
                                                            Value="{Binding ScVDropVolts}"
                                                            Maximum="{Binding ScVDropMax}"
