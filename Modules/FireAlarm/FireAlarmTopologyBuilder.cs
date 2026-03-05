@@ -261,12 +261,39 @@ namespace Pulse.Modules.FireAlarm
                 string sourceId = parentId ?? device.LoopId;
                 data.Edges.Add(new Edge(sourceId, device.EntityId, "contains"));
 
-                // Mark this node as a sub-device so the UI can treat it like a SubCircuit member
+                // Mark this node as a sub-device so the UI can treat it like a SubCircuit member.
+                // Also inherit Panel / Panel type from the host device so that:
+                //   (a) the Inspector shows the correct panel for the sub-device, and
+                //   (b) validation rules (MissingPanel) don't flag it as unassigned.
                 if (parentId != null)
                 {
                     var subNode = data.Nodes.Find(n => n.Id == device.EntityId);
                     if (subNode != null)
+                    {
                         subNode.Properties["IsSubDevice"] = "true";
+
+                        // Propagate Panel name and type from the host device's node.
+                        var parentNode = data.Nodes.Find(n => n.Id == parentId);
+                        if (parentNode != null)
+                        {
+                            if (parentNode.Properties.TryGetValue("Panel", out string parentPanel)
+                                && !string.IsNullOrEmpty(parentPanel))
+                                subNode.Properties["Panel"] = parentPanel;
+
+                            if (parentNode.Properties.TryGetValue("Panel type", out string parentPanelType))
+                                subNode.Properties["Panel type"] = parentPanelType;
+                        }
+
+                        // Propagate PanelId onto the device data object so rule evaluation sees a valid panel.
+                        var parentDevice = data.Devices.Find(d => d.EntityId == parentId);
+                        if (parentDevice != null
+                            && !string.IsNullOrEmpty(parentDevice.PanelId)
+                            && !parentDevice.PanelId.Contains("(No Panel)"))
+                        {
+                            if (string.IsNullOrEmpty(device.PanelId) || device.PanelId.Contains("(No Panel)"))
+                                device.PanelId = parentDevice.PanelId;
+                        }
+                    }
                 }
             }
 
