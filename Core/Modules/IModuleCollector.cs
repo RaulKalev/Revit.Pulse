@@ -46,6 +46,14 @@ namespace Pulse.Core.Modules
         /// Used to populate the BOQ parameter picker's "Available in Revit" list.
         /// </summary>
         System.Collections.Generic.IReadOnlyList<string> GetAllParameterNames(string categoryName);
+
+        /// <summary>
+        /// Scans all "Pulse Wire – " model line subcategories drawn by the wire routing feature
+        /// and returns the total length in metres for each, keyed by the sanitized composite key
+        /// (the subcategory name with the "Pulse Wire – " prefix stripped).
+        /// Returns an empty dictionary if no such lines exist in the document.
+        /// </summary>
+        System.Collections.Generic.Dictionary<string, double> GetRoutedWireLengths();
     }
 
     /// <summary>

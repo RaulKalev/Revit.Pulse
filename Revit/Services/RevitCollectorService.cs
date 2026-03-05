@@ -82,12 +82,7 @@ namespace Pulse.Revit.Services
                     data.Parameters["_LocationY"] = pt.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     data.Parameters["_LocationZ"] = pt.Z.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 }
-                else if (element.Location is LocationCurve locCurve && locCurve.Curve != null)
-                {
-                    // For linear elements (conduit, model line, etc.) expose the curve length in feet.
-                    data.Parameters["_Length"] = locCurve.Curve.Length.ToString(
-                        System.Globalization.CultureInfo.InvariantCulture);
-                }
+
 
                 foreach (string paramName in parameterNames)
                 {
@@ -286,6 +281,45 @@ namespace Pulse.Revit.Services
                 default:
                     return param.AsValueString();
             }
+        }
+
+        /// <summary>
+        /// Scans all model lines in the document whose line-style subcategory name starts with
+        /// "Pulse Wire – " (drawn by Pulse's wire routing feature) and returns the total length
+        /// in metres for each, keyed by the sanitized composite key (subcategory name minus the
+        /// "Pulse Wire – " prefix).
+        /// </summary>
+        public Dictionary<string, double> GetRoutedWireLengths()
+        {
+            const string Prefix = "Pulse Wire \u2013 "; // en-dash, same as LineStylePrefix
+            const double FeetToMetres = 0.3048;
+            var result = new Dictionary<string, double>(StringComparer.Ordinal);
+
+            var collector = new FilteredElementCollector(_doc)
+                .OfClass(typeof(CurveElement))
+                .WhereElementIsNotElementType();
+
+            foreach (Element elem in collector)
+            {
+                if (!(elem is ModelLine ml)) continue;
+
+                var gs = ml.LineStyle as GraphicsStyle;
+                string catName = gs?.GraphicsStyleCategory?.Name;
+                if (catName == null || !catName.StartsWith(Prefix, StringComparison.Ordinal))
+                    continue;
+
+                string key = catName.Substring(Prefix.Length);
+
+                if (!(ml.Location is LocationCurve lc) || lc.Curve == null) continue;
+                double metres = lc.Curve.Length * FeetToMetres;
+
+                if (result.TryGetValue(key, out double existing))
+                    result[key] = existing + metres;
+                else
+                    result[key] = metres;
+            }
+
+            return result;
         }
     }
 }

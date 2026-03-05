@@ -33,6 +33,11 @@ namespace Pulse.Modules.FireAlarm
             // Pre-calculate cable lengths for all loops (keyed by loop EntityId).
             var cableLengths = CableLengthCalculator.CalculateAll(data.Panels);
 
+            // Pre-build panel lookup for routing-key reconstruction.
+            var panelById = new Dictionary<string, Panel>(StringComparer.Ordinal);
+            foreach (var p in data.Panels)
+                panelById[p.EntityId] = p;
+
             foreach (Loop loop in data.Loops)
             {
                 var node = new Node(loop.EntityId, loop.DisplayName, "Loop")
@@ -41,8 +46,17 @@ namespace Pulse.Modules.FireAlarm
                 };
                 node.Properties["DeviceCount"] = loop.Devices.Count.ToString();
 
-                // Attach cable length to the node so the UI can show it.
-                if (cableLengths.TryGetValue(loop.EntityId, out var cableResult)
+                // Prefer routed wire length (from "Pulse Wire – " model lines) over Manhattan.
+                string loopParentName = panelById.TryGetValue(loop.PanelId ?? string.Empty, out var loopPanel)
+                    ? (loopPanel.DisplayName ?? string.Empty) : string.Empty;
+                string loopWireKey = MakeWireRoutingKey(loopParentName, loop.DisplayName ?? string.Empty);
+                if (data.RoutedWireLengths.TryGetValue(loopWireKey, out double routedLoopMetres)
+                    && routedLoopMetres > 0)
+                {
+                    node.Properties["CableLength"] = routedLoopMetres.ToString(
+                        "F1", System.Globalization.CultureInfo.InvariantCulture);
+                }
+                else if (cableLengths.TryGetValue(loop.EntityId, out var cableResult)
                     && cableResult.RoutedDeviceCount > 0)
                 {
                     node.Properties["CableLength"] = cableResult.TotalLengthMetres.ToString(
@@ -408,11 +422,14 @@ namespace Pulse.Modules.FireAlarm
                 scNode.Properties["HostElementId"] = sc.HostElementId.ToString();
                 if (!string.IsNullOrEmpty(sc.WireTypeKey))
                     scNode.Properties["WireType"] = sc.WireTypeKey;
-                // Prefer summed route lengths from tagged 3D lines when available.
-                if (data.CableRouteLengths.TryGetValue(sc.HostElementId, out double routeMetres)
-                    && routeMetres > 0)
+                // Prefer routed wire length (from "Pulse Wire – " model lines) over Manhattan.
+                string hostName = deviceByElementId.TryGetValue(sc.HostElementId, out var hostDev)
+                    ? (hostDev.DisplayName ?? string.Empty) : string.Empty;
+                string scWireKey = MakeWireRoutingKey(hostName, sc.Name ?? string.Empty);
+                if (data.RoutedWireLengths.TryGetValue(scWireKey, out double routedScMetres)
+                    && routedScMetres > 0)
                 {
-                    scNode.Properties["CableLength"] = routeMetres.ToString(
+                    scNode.Properties["CableLength"] = routedScMetres.ToString(
                         "F1", System.Globalization.CultureInfo.InvariantCulture);
                 }
                 else if (hasCableRoute)
@@ -500,6 +517,23 @@ namespace Pulse.Modules.FireAlarm
                     data.Edges.Add(new Edge(scNode.Id, memberNode.Id, "member"));
                 }
             }
+        }
+
+        /// <summary>
+        /// Reconstructs the sanitized composite key used as the "Pulse Wire – " model line
+        /// subcategory suffix, matching the sanitization logic in DrawWireRoutingHandler.
+        /// </summary>
+        private static string MakeWireRoutingKey(string parentLabel, string childLabel)
+        {
+            string raw = (parentLabel ?? string.Empty) + "::" + (childLabel ?? string.Empty);
+            return raw
+                .Replace("::", " - ")
+                .Replace("\\", "_").Replace(":", "_")
+                .Replace("{", "_").Replace("}", "_")
+                .Replace("[", "_").Replace("]", "_")
+                .Replace(";", "_").Replace("<", "_")
+                .Replace(">", "_").Replace("?", "_")
+                .Replace("`", "_").Replace("~", "_");
         }
     }
 }

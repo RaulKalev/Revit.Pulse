@@ -43,14 +43,15 @@ namespace Pulse.Core.Modules
         /// <summary>All Revit levels in the project, ordered by elevation ascending.</summary>
         public List<LevelInfo> Levels { get; } = new List<LevelInfo>();
 
-        /// <summary>        /// <summary>
-        /// Routed cable lengths keyed by host Output Module element ID.
-        /// Populated by <see cref="FireAlarmCollector"/> when a cable-route category is configured.
-        /// Maps <c>hostElementId → totalLengthMetres</c>.  Each SubCircuit's host element ID is the
-        /// key; the value is the sum of all routed line segments tagged with that element ID.
-        /// Empty if no route category is configured or no tagged elements exist.
+        /// <summary>
+        /// Routed wire lengths keyed by the sanitized composite key used as the "Pulse Wire – "
+        /// model line subcategory suffix (e.g. "APC - NAC-01" for a SubCircuit, or
+        /// "Panel_01 - Loop_01" for a loop).
+        /// Populated by <see cref="FireAlarmCollector"/> from model lines drawn by the wire
+        /// routing feature.  Maps <c>safeKey → totalLengthMetres</c>.
+        /// Empty if no Pulse Wire model lines exist in the document.
         /// </summary>
-        public Dictionary<int, double> CableRouteLengths { get; } = new Dictionary<int, double>();
+        public Dictionary<string, double> RoutedWireLengths { get; } = new Dictionary<string, double>(System.StringComparer.Ordinal);
         /// All rule validation results. Populated after running IRulePack.
         /// </summary>
         public List<RuleResult> RuleResults { get; } = new List<RuleResult>();

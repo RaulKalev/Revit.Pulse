@@ -54,8 +54,6 @@ namespace Pulse.Modules.FireAlarm
                     new ParameterMapping(FireAlarmParameterKeys.CircuitElementId, "FA_Circuit_ElementId", isRequired: false),
                     new ParameterMapping(FireAlarmParameterKeys.Wire, "FA_Wire", isRequired: false),
                     new ParameterMapping(FireAlarmParameterKeys.NominalVoltage, "Nominal voltage", isRequired: false),
-                    new ParameterMapping(FireAlarmParameterKeys.CableRouteCategory, "", isRequired: false),
-                    new ParameterMapping(FireAlarmParameterKeys.CableRouteCircuitParam, "FA_Circuit_ElementId", isRequired: false),
                 }
             };
         }

@@ -29,8 +29,9 @@ namespace Pulse.Modules.FireAlarm
             // Second pass: resolve Panel.RevitElementId from a dedicated element category
             ResolvePanelElementIds(collectorContext, settings, data);
 
-            // Third pass: collect routed cable lengths from line elements (optional)
-            CollectCableRoutes(collectorContext, settings, data);
+            // Third pass: read lengths of "Pulse Wire – " model lines drawn by the wire routing feature.
+            foreach (var kvp in collectorContext.GetRoutedWireLengths())
+                data.RoutedWireLengths[kvp.Key] = kvp.Value;
 
             return data;
         }
@@ -130,54 +131,6 @@ namespace Pulse.Modules.FireAlarm
                                System.Globalization.CultureInfo.InvariantCulture, out double plz))
                         matched.LocationZ = plz;
                 }
-            }
-        }
-
-        /// <summary>
-        /// Collects routed cable line elements (e.g. detail lines, conduits) tagged with a
-        /// host Output Module element ID and sums their lengths per circuit.
-        /// Populates <see cref="ModuleData.CableRouteLengths"/> when a route category is configured.
-        /// </summary>
-        private static void CollectCableRoutes(
-            ICollectorContext collectorContext,
-            ModuleSettings settings,
-            ModuleData data)
-        {
-            // A blank route category means the feature is disabled — silently return.
-            string routeCategory = settings.GetRevitParameterName(FireAlarmParameterKeys.CableRouteCategory);
-            if (string.IsNullOrWhiteSpace(routeCategory)) return;
-
-            string circuitParam = settings.GetRevitParameterName(FireAlarmParameterKeys.CableRouteCircuitParam);
-            if (string.IsNullOrWhiteSpace(circuitParam)) return;
-
-            // Request only the host-ID parameter; _Length is injected automatically by the
-            // collector service for any element with a LocationCurve.
-            var paramList = new System.Collections.Generic.List<string> { circuitParam };
-            var elements = collectorContext.GetElements(routeCategory, paramList);
-
-            const double FeetToMetres = 0.3048;
-
-            foreach (var element in elements)
-            {
-                // Read the tagged host element ID
-                if (!element.Parameters.TryGetValue(circuitParam, out string hostIdStr)
-                    || string.IsNullOrEmpty(hostIdStr)) continue;
-                if (!int.TryParse(hostIdStr, out int hostId) || hostId <= 0) continue;
-
-                // Read the curve length injected by RevitCollectorService
-                if (!element.Parameters.TryGetValue("_Length", out string lenStr)
-                    || string.IsNullOrEmpty(lenStr)) continue;
-                if (!double.TryParse(lenStr,
-                        System.Globalization.NumberStyles.Any,
-                        System.Globalization.CultureInfo.InvariantCulture,
-                        out double lengthFeet) || lengthFeet <= 0) continue;
-
-                double lengthMetres = lengthFeet * FeetToMetres;
-
-                if (data.CableRouteLengths.TryGetValue(hostId, out double existing))
-                    data.CableRouteLengths[hostId] = existing + lengthMetres;
-                else
-                    data.CableRouteLengths[hostId] = lengthMetres;
             }
         }
 
