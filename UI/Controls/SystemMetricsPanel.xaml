@@ -426,13 +426,29 @@
                                                Foreground="{DynamicResource ForegroundBrush}"
                                                VerticalAlignment="Center"/>
                                 </Grid>
-                                <!-- Per-device rows -->
-                                <ItemsControl ItemsSource="{Binding ScMembers}" Margin="0,2,0,0">
+                                <!-- Per-device rows: name | normal draw | alarm draw -->
+                                <Grid Margin="0,4,0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Grid.Column="0" Text="" FontSize="8"/>
+                                    <TextBlock Grid.Column="1" Text="Normal"
+                                               FontSize="8" FontWeight="SemiBold" Opacity="0.55"
+                                               Foreground="{DynamicResource IconForegroundBrush}"
+                                               Margin="0,0,8,0"/>
+                                    <TextBlock Grid.Column="2" Text="Alarm"
+                                               FontSize="8" FontWeight="SemiBold" Opacity="0.7"
+                                               Foreground="#FFE57335"/>
+                                </Grid>
+                                <ItemsControl ItemsSource="{Binding ScMembers}" Margin="0,0,0,0">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <Grid Margin="0,2">
                                                 <Grid.ColumnDefinitions>
                                                     <ColumnDefinition Width="*"/>
+                                                    <ColumnDefinition Width="Auto"/>
                                                     <ColumnDefinition Width="Auto"/>
                                                 </Grid.ColumnDefinitions>
                                                 <TextBlock Grid.Column="0"
@@ -445,6 +461,12 @@
                                                            Text="{Binding CurrentDraw}"
                                                            FontSize="9" FontWeight="SemiBold"
                                                            Foreground="{DynamicResource IconForegroundBrush}"
+                                                           Margin="0,0,8,0"
+                                                           VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding AlarmDraw}"
+                                                           FontSize="9" FontWeight="SemiBold"
+                                                           Foreground="#FFE57335"
                                                            VerticalAlignment="Center"/>
                                             </Grid>
                                         </DataTemplate>
@@ -531,7 +553,9 @@
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
 
-                        <!-- Section separator -->
+                        <!-- Section separator + DISTRIBUTION (hidden for SubCircuit / NAC lines) -->
+                        <StackPanel Visibility="{Binding ShowSubCircuitMetrics, Converter={StaticResource InverseBoolToVis}}">
+
                         <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,0,8,0"/>
 
                         <!-- ═══════════════════════════════════════════════════ -->
@@ -583,8 +607,9 @@
                                    Visibility="{Binding DistributionGroups.Count, Converter={StaticResource CountToVis}, ConverterParameter=Invert}"
                                    HorizontalAlignment="Center"/>
 
-                        <!-- Section separator -->
                         <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,0,8,0"/>
+
+                        </StackPanel>
 
                         <!-- ═══════════════════════════════════════════════════ -->
                         <!-- CABLING & SPATIAL SECTION                          -->

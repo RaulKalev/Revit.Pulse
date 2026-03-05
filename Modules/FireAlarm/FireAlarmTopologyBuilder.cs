@@ -386,9 +386,23 @@ namespace Pulse.Modules.FireAlarm
                     if (deviceByElementId.TryGetValue(elemId, out var mDev))
                     {
                         if (mDev.CurrentDraw.HasValue)
+                        {
                             memberNode.Properties["CurrentDraw"] =
                                 mDev.CurrentDraw.Value.ToString("F1",
                                 System.Globalization.CultureInfo.InvariantCulture) + " mA";
+
+                            // Alarm draw: use device-specific property if available, else fall back to normal
+                            double alarmMa = mDev.CurrentDraw.Value;
+                            if (mDev.Properties.TryGetValue("_CurrentDrawAlarm", out string alarmStr)
+                                && double.TryParse(alarmStr,
+                                    System.Globalization.NumberStyles.Any,
+                                    System.Globalization.CultureInfo.InvariantCulture,
+                                    out double parsedAlarm))
+                                alarmMa = parsedAlarm;
+                            memberNode.Properties["CurrentDrawAlarm"] =
+                                alarmMa.ToString("F1",
+                                System.Globalization.CultureInfo.InvariantCulture) + " mA";
+                        }
                     }
 
                     data.Nodes.Add(memberNode);

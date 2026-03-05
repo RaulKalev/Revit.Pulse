@@ -22,11 +22,13 @@ namespace Pulse.UI.ViewModels
     {
         public string Name        { get; }
         public string CurrentDraw { get; }
+        public string AlarmDraw   { get; }
 
-        internal ScMemberRowViewModel(string name, string currentDraw)
+        internal ScMemberRowViewModel(string name, string currentDraw, string alarmDraw)
         {
             Name        = name;
             CurrentDraw = currentDraw;
+            AlarmDraw   = alarmDraw;
         }
     }
 
@@ -568,8 +570,9 @@ namespace Pulse.UI.ViewModels
                     if (mn.NodeType != "SubCircuitMember") continue;
                     if (!mn.Properties.TryGetValue("SubCircuitId", out string membSc)
                         || membSc != scRawId) continue;
-                    string draw = mn.Properties.TryGetValue("CurrentDraw", out string d) ? d : "—";
-                    ScMembers.Add(new ScMemberRowViewModel(mn.Label, draw));
+                    string draw      = mn.Properties.TryGetValue("CurrentDraw",      out string d)  ? d  : "—";
+                    string alarmDraw  = mn.Properties.TryGetValue("CurrentDrawAlarm", out string da) ? da : draw;
+                    ScMembers.Add(new ScMemberRowViewModel(mn.Label, draw, alarmDraw));
                 }
 
                 double maNormal = 0, maAlarm = 0;
