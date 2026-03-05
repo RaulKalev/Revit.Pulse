@@ -260,6 +260,14 @@ namespace Pulse.Modules.FireAlarm
 
                 string sourceId = parentId ?? device.LoopId;
                 data.Edges.Add(new Edge(sourceId, device.EntityId, "contains"));
+
+                // Mark this node as a sub-device so the UI can treat it like a SubCircuit member
+                if (parentId != null)
+                {
+                    var subNode = data.Nodes.Find(n => n.Id == device.EntityId);
+                    if (subNode != null)
+                        subNode.Properties["IsSubDevice"] = "true";
+                }
             }
 
             // ── SubCircuit projection ─────────────────────────────────────────────────

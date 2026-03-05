@@ -20,12 +20,20 @@ namespace Pulse.Modules.FireAlarm.Rules
             var results = new List<RuleResult>();
 
             // Group devices by loop, then check for duplicate addresses within each loop
+            var nacMemberIds = new System.Collections.Generic.HashSet<long>();
+            foreach (var sc in data.SubCircuits)
+                foreach (var id in sc.DeviceElementIds)
+                    nacMemberIds.Add(id);
+
             foreach (Loop loop in data.Loops)
             {
                 var addressMap = new Dictionary<string, List<AddressableDevice>>(System.StringComparer.OrdinalIgnoreCase);
 
                 foreach (var device in loop.Devices)
                 {
+                    if (device.RevitElementId.HasValue && nacMemberIds.Contains(device.RevitElementId.Value))
+                        continue;
+
                     if (string.IsNullOrWhiteSpace(device.Address))
                     {
                         continue; // Missing address is caught by MissingAddressRule

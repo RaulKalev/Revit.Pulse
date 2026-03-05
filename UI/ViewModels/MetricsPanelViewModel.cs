@@ -474,6 +474,8 @@ namespace Pulse.UI.ViewModels
 
             _selectedLoop  = node.NodeType == "Loop"
                 ? data.Loops.Find(l => l.EntityId == node.Id)
+                : node.NodeType == "Device"
+                ? data.Loops.Find(l => l.Devices.Any(d => d.EntityId == node.Id))
                 : null;
 
             if (_selectedLoop != null && _selectedPanel == null)
@@ -507,6 +509,8 @@ namespace Pulse.UI.ViewModels
                     : null;
                 var freshLoop  = _selectedLoop != null
                     ? data.Loops.Find(l => l.EntityId == _selectedLoop.EntityId)
+                    : _selectedNode.NodeType == "Device"
+                    ? data.Loops.Find(l => l.Devices.Any(d => d.EntityId == _selectedNode.Id))
                     : null;
                 _selectedPanel = freshPanel;
                 _selectedLoop  = freshLoop;
@@ -534,7 +538,9 @@ namespace Pulse.UI.ViewModels
             }
 
             HasSelection = _selectedPanel != null || _selectedLoop != null
-                        || _selectedNode?.NodeType == "SubCircuit";
+                        || _selectedNode?.NodeType == "SubCircuit"
+                        || _selectedNode?.NodeType == "SubCircuitMember"
+                        || IsSubDeviceNode(_selectedNode);
 
             // ── Header ──────────────────────────────────────────────────────
             BuildHeader();
@@ -576,6 +582,16 @@ namespace Pulse.UI.ViewModels
 
         private void BuildHeader()
         {
+            if (_selectedNode?.NodeType == "SubCircuit"
+             || _selectedNode?.NodeType == "SubCircuitMember"
+             || IsSubDeviceNode(_selectedNode))
+            {
+                ContextTitle    = _selectedNode.Label;
+                _selectedNode.Properties.TryGetValue("DeviceCount", out string dcStr);
+                int.TryParse(dcStr, out int devCount);
+                ContextSubtitle = $"NAC SubCircuit  ·  {devCount} device{(devCount == 1 ? "" : "s")}";
+                return;
+            }
             if (_selectedLoop != null)
             {
                 ContextTitle    = _selectedLoop.DisplayName;
@@ -612,8 +628,10 @@ namespace Pulse.UI.ViewModels
             ScRemainingVolts       = 0;
             ShowRemainingVoltGauge = false;
 
-            // ── SubCircuit path ───────────────────────────────────────────────
-            if (_selectedNode?.NodeType == "SubCircuit")
+            // ── SubCircuit / SubCircuitMember / sub-device path ──────────────
+            if (_selectedNode?.NodeType == "SubCircuit"
+             || _selectedNode?.NodeType == "SubCircuitMember"
+             || IsSubDeviceNode(_selectedNode))
             {
                 ShowGauges    = false;
                 AddressesUsed = AddressesMax = 0;
@@ -850,8 +868,10 @@ namespace Pulse.UI.ViewModels
 
         private void BuildHealth()
         {
-            // SubCircuit has no panel/loop context — show SubCircuit-specific checks only
-            if (_selectedNode?.NodeType == "SubCircuit")
+            // SubCircuit / SubCircuitMember / sub-device — show SubCircuit-specific checks only
+            if (_selectedNode?.NodeType == "SubCircuit"
+             || _selectedNode?.NodeType == "SubCircuitMember"
+             || IsSubDeviceNode(_selectedNode))
             {
                 HealthIssues.Clear();
                 var scIssues = SystemMetricsCalculator.ComputeSubCircuitVDropIssues(
@@ -928,6 +948,18 @@ namespace Pulse.UI.ViewModels
                 : (cabling.LoopInfos.Count == 1 ? cabling.LoopInfos[0].LengthDisplay : "—");
             ShowCablingSection      = LoopCablingInfos.Count > 0;
         }
+
+        // ── Helpers ───────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns true when the node is a Device sub-element (child of another Device,
+        /// e.g. a base/isolator with a dotted address like "001.1").
+        /// The topology builder marks these with Properties["IsSubDevice"] = "true".
+        /// </summary>
+        private static bool IsSubDeviceNode(Node node)
+            => node?.NodeType == "Device"
+            && node.Properties.TryGetValue("IsSubDevice", out string v)
+            && v == "true";
 
         // ── Clear ─────────────────────────────────────────────────────────────
 

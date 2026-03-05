@@ -17,8 +17,19 @@ namespace Pulse.Modules.FireAlarm.Rules
         {
             var results = new List<RuleResult>();
 
+            var nacMemberIds = new System.Collections.Generic.HashSet<long>();
+            foreach (var sc in data.SubCircuits)
+                foreach (var id in sc.DeviceElementIds)
+                    nacMemberIds.Add(id);
+
             foreach (var device in data.Devices)
             {
+                if (device.RevitElementId.HasValue && nacMemberIds.Contains(device.RevitElementId.Value))
+                    continue;
+
+                if (SubCircuitRuleHelpers.IsSounderType(device.DeviceType))
+                    continue;
+
                 if (string.IsNullOrWhiteSpace(device.Address))
                 {
                     results.Add(new RuleResult(
