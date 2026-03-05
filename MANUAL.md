@@ -2,7 +2,38 @@
 
 > **Version:** 1.0.0  
 > **Platform:** Autodesk Revit (Windows)  
-> **Ribbon location:** RK Tools → Fire Alarm
+> **Ribbon:** RK Tools → Fire Alarm
+
+---
+
+## Quick Start (5 minutes)
+
+Use this if you just want to get productive fast.
+
+1) **Open Pulse**  
+   Revit → **RK Tools → Fire Alarm**.
+
+2) **Map your parameters (first time only)**  
+   Pulse → **Settings (⚙)**  
+   Set which Revit parameters are used for **Panel**, **Loop**, and **Address**. Save.
+
+3) **Add / confirm your equipment library (first time only)**  
+   Pulse → **Configure Devices**  
+   Add your **panel model**, **loop module**, and **wire types** (names you want to select later). Save.
+
+4) **Refresh**  
+   Click **Refresh** any time you change the model or parameters.
+
+5) **Assign configs (normal workflow)**  
+   In the **Topology Tree**, select the correct **panel config** and **loop module config** from the dropdowns.  
+   Assign a **wire type** to loops if you want consistent diagram labeling.
+
+6) **Use the Diagram + Dashboard**  
+   - Diagram: confirm the layout looks right (levels, loop sides, wire count).  
+   - Dashboard: watch capacity + health issues (addresses, mA, warnings/errors).
+
+7) **Optional: run System Check**  
+   Click **Run System Check** to copy a system summary to clipboard and paste it into ChatGPT/Claude/etc.
 
 ---
 
