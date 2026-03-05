@@ -81,7 +81,11 @@ namespace Pulse.UI.ViewModels
         public bool ShowGauges
         {
             get => _showGauges;
-            set => SetField(ref _showGauges, value);
+            set
+            {
+                SetField(ref _showGauges, value);
+                OnPropertyChanged(nameof(IsCapacityEmpty));
+            }
         }
 
         // ── Label editing (SubCircuit only) ──────────────────────────────────
@@ -201,6 +205,34 @@ namespace Pulse.UI.ViewModels
             get => _maMax;
             set => SetField(ref _maMax, value);
         }
+
+        // ── SubCircuit-specific metrics ───────────────────────────────────
+
+        private bool _showSubCircuitMetrics;
+        /// <summary>True when a SubCircuit node is selected — shows the NAC mA summary block.</summary>
+        public bool ShowSubCircuitMetrics
+        {
+            get => _showSubCircuitMetrics;
+            set
+            {
+                SetField(ref _showSubCircuitMetrics, value);
+                OnPropertyChanged(nameof(IsCapacityEmpty));
+            }
+        }
+
+        private double _maNormal;
+        /// <summary>Aggregate normal-mode current draw for the selected SubCircuit (mA).</summary>
+        public double MaNormal
+        {
+            get => _maNormal;
+            set => SetField(ref _maNormal, value);
+        }
+
+        /// <summary>
+        /// True when neither the panel/loop gauges nor the SubCircuit metrics block has data.
+        /// Drives the "Select a panel or loop" empty-state label.
+        /// </summary>
+        public bool IsCapacityEmpty => !ShowGauges && !ShowSubCircuitMetrics;
 
         /// <summary>Key-value properties of the selected entity.</summary>
         public ObservableCollection<PropertyItem> Properties { get; } = new ObservableCollection<PropertyItem>();
@@ -344,13 +376,24 @@ namespace Pulse.UI.ViewModels
                 }
                 else if (node.NodeType == "SubCircuit")
                 {
-                    // Surface device count from the node's own properties
-                    if (node.Properties.TryGetValue("DeviceCount", out string dcStr)
-                        && int.TryParse(dcStr, out int dc))
-                        ChildDeviceCount = dc;
-                    else
-                        ChildDeviceCount = 0;
+                    node.Properties.TryGetValue("DeviceCount", out string dcStr);
+                    int.TryParse(dcStr, out int dc);
+                    ChildDeviceCount = dc;
+
+                    // mA loads from the aggregated graph-node properties
+                    double maNormal = 0, maAlarm = 0;
+                    if (node.Properties.TryGetValue("TotalMaNormal", out string mnStr))
+                        double.TryParse(mnStr, System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out maNormal);
+                    if (node.Properties.TryGetValue("TotalMaAlarm", out string maStr))
+                        double.TryParse(maStr, System.Globalization.NumberStyles.Any,
+                            System.Globalization.CultureInfo.InvariantCulture, out maAlarm);
+
+                    MaNormal = maNormal;
+                    MaUsed   = maAlarm;   // reuse MaUsed for alarm draw (most critical)
+
                     ShowGauges = false;
+                    ShowSubCircuitMetrics = true;
                     ShowLabelEdit = true;
                 }
                 else if (node.NodeType == "SubCircuitMember")
@@ -377,6 +420,7 @@ namespace Pulse.UI.ViewModels
             WarningCount  = 0;
             ChildDeviceCount = 0;
             ShowGauges    = false;
+            ShowSubCircuitMetrics = false;
             ShowCurrentDraw = false;
             CurrentDrawNormal = string.Empty;
             CurrentDrawAlarm = string.Empty;
@@ -391,6 +435,7 @@ namespace Pulse.UI.ViewModels
             AddressesMax  = 0;
             MaUsed        = 0;
             MaMax         = 0;
+            MaNormal      = 0;
             Properties.Clear();
             Warnings.Clear();
         }

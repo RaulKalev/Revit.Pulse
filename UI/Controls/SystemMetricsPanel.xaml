@@ -315,13 +315,98 @@
 
                             </StackPanel>
 
-                            <!-- Empty state (no Panel/Loop selected or no config assigned) -->
+                            <!-- Empty state (no Panel/Loop/SubCircuit selected or no config assigned) -->
                             <StackPanel HorizontalAlignment="Center" Margin="0,4,0,4"
-                                        Visibility="{Binding ShowGauges, Converter={StaticResource InverseBoolToVis}}">
-                                <TextBlock Text="Select a panel or loop to view capacity"
+                                        Visibility="{Binding IsCapacityEmpty, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="Select a panel, loop, or NAC circuit to view metrics"
                                            FontSize="10" HorizontalAlignment="Center"
                                            Foreground="{DynamicResource IconForegroundBrush}"
                                            Opacity="0.5"/>
+                            </StackPanel>
+
+                            <!-- ── NAC SubCircuit metrics (shown when a SubCircuit is selected) ── -->
+                            <StackPanel Margin="8,4,8,4"
+                                        Visibility="{Binding ShowSubCircuitMetrics, Converter={StaticResource BoolToVis}}">
+
+                                <!-- Current draw header -->
+                                <TextBlock Text="CURRENT DRAW" FontSize="8" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.7" Margin="0,0,0,4"/>
+
+                                <!-- Normal draw row -->
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Grid.Column="0" Kind="FlashOutline"
+                                                             Width="12" Height="12"
+                                                             VerticalAlignment="Center"
+                                                             Margin="0,0,5,0"
+                                                             Foreground="{DynamicResource IconForegroundBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="Normal load"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center">
+                                        <Run Text="{Binding MaNormal, StringFormat=F1, Mode=OneWay}"/>
+                                        <Run Text=" mA"/>
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- Alarm draw row (highlighted) -->
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Grid.Column="0" Kind="Flash"
+                                                             Width="12" Height="12"
+                                                             VerticalAlignment="Center"
+                                                             Margin="0,0,5,0"
+                                                             Foreground="#FFE57335"/>
+                                    <TextBlock Grid.Column="1" Text="Alarm load"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="#FFE57335"
+                                               VerticalAlignment="Center">
+                                        <Run Text="{Binding MaUsed, StringFormat=F1, Mode=OneWay}"/>
+                                        <Run Text=" mA"/>
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- Device count row -->
+                                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,4,0,4"/>
+                                <Grid Margin="0,2">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Grid.Column="0" Kind="Devices"
+                                                             Width="12" Height="12"
+                                                             VerticalAlignment="Center"
+                                                             Margin="0,0,5,0"
+                                                             Foreground="{DynamicResource IconForegroundBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="Member devices"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               Text="{Binding ChildDeviceCount}"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                </Grid>
+
                             </StackPanel>
 
                         </StackPanel>
