@@ -259,6 +259,21 @@ namespace Pulse.Revit.Services
                 case StorageType.Integer:
                     return param.AsInteger().ToString();
                 case StorageType.Double:
+                    // AsValueString() returns the project-display-unit value (e.g. "24 V", "0.4 mA",
+                    // "1.50 m") rather than the Revit-internal-unit raw double, which avoids incorrect
+                    // values for typed parameters such as ElectricalPotential, Length, Illuminance, etc.
+                    // We strip any trailing unit label so downstream code can parse a plain number.
+                    string vs = param.AsValueString();
+                    if (!string.IsNullOrWhiteSpace(vs))
+                    {
+                        // Extract the leading numeric token (supports optional sign, integer or decimal,
+                        // both '.' and ',' as decimal separator).
+                        var m = System.Text.RegularExpressions.Regex.Match(
+                            vs.Trim(), @"^[+-]?\d+([.,]\d+)?");
+                        if (m.Success)
+                            return m.Value.Replace(",", ".");
+                    }
+                    // Fallback: raw double in InvariantCulture (Number-type shared params, no units).
                     return param.AsDouble().ToString(System.Globalization.CultureInfo.InvariantCulture);
                 case StorageType.ElementId:
                     return param.AsElementId().Value.ToString();
