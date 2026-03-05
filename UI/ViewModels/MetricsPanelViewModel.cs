@@ -218,6 +218,45 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _isCapacitySectionExpanded, value);
         }
 
+        // ── SubCircuit-only capacity properties ───────────────────────────────
+
+        private bool _showSubCircuitMetrics;
+        public  bool ShowSubCircuitMetrics
+        {
+            get => _showSubCircuitMetrics;
+            private set => SetField(ref _showSubCircuitMetrics, value);
+        }
+
+        // True when neither panel/loop gauges nor SubCircuit metrics are visible
+        private bool _isCapacityEmpty = true;
+        public  bool IsCapacityEmpty
+        {
+            get => _isCapacityEmpty;
+            private set => SetField(ref _isCapacityEmpty, value);
+        }
+
+        private double _maNormal;
+        public  double MaNormal
+        {
+            get => _maNormal;
+            private set => SetField(ref _maNormal, value);
+        }
+
+        // Maximum mA for the SubCircuit's host loop (0 when no config assigned)
+        private double _scMaMax;
+        public  double ScMaMax
+        {
+            get => _scMaMax;
+            private set => SetField(ref _scMaMax, value);
+        }
+
+        private int _childDeviceCount;
+        public  int ChildDeviceCount
+        {
+            get => _childDeviceCount;
+            private set => SetField(ref _childDeviceCount, value);
+        }
+
         // ──────────────────────────────────────────────────────────────────────
         // HEALTH STATUS SECTION
         // ──────────────────────────────────────────────────────────────────────
@@ -413,7 +452,8 @@ namespace Pulse.UI.ViewModels
                 return;
             }
 
-            HasSelection = _selectedPanel != null || _selectedLoop != null;
+            HasSelection = _selectedPanel != null || _selectedLoop != null
+                        || _selectedNode?.NodeType == "SubCircuit";
 
             // ── Header ──────────────────────────────────────────────────────
             BuildHeader();
@@ -479,6 +519,64 @@ namespace Pulse.UI.ViewModels
 
         private void BuildCapacity()
         {
+            // Reset SubCircuit-specific fields on every rebuild
+            ShowSubCircuitMetrics = false;
+            MaNormal              = 0;
+            ScMaMax               = 0;
+            ChildDeviceCount      = 0;
+
+            // ── SubCircuit path ───────────────────────────────────────────────
+            if (_selectedNode?.NodeType == "SubCircuit")
+            {
+                ShowGauges    = false;
+                AddressesUsed = AddressesMax = 0;
+                MaUsed        = MaMax        = 0;
+                AddressSummary = MaSummary   = string.Empty;
+                RemainingAddressesSummary = RemainingMaSummary = string.Empty;
+                AddressCapacityStatus = MaCapacityStatus = CapacityStatus.Normal;
+
+                _selectedNode.Properties.TryGetValue("DeviceCount", out string dcStr);
+                int.TryParse(dcStr, out int devCount);
+                ChildDeviceCount = devCount;
+
+                double maNormal = 0, maAlarm = 0;
+                if (_selectedNode.Properties.TryGetValue("TotalMaNormal", out string normalStr))
+                    double.TryParse(normalStr,
+                        System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out maNormal);
+                if (_selectedNode.Properties.TryGetValue("TotalMaAlarm", out string alarmStr))
+                    double.TryParse(alarmStr,
+                        System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out maAlarm);
+
+                MaNormal = maNormal;
+                MaUsed   = maAlarm;
+
+                // Look up host loop's MaMax from the device config store
+                if (_lastData != null
+                    && _selectedNode.Properties.TryGetValue("HostElementId", out string hostIdStr)
+                    && long.TryParse(hostIdStr, out long hostElemId))
+                {
+                    var hostLoop = _lastData.Loops.FirstOrDefault(
+                        l => l.Devices.Any(d => d.RevitElementId == hostElemId));
+                    if (hostLoop != null
+                        && _lastAssignments.LoopAssignments.TryGetValue(
+                               hostLoop.DisplayName, out string modName))
+                    {
+                        var cfg = _lastDeviceStore.LoopModules
+                            .FirstOrDefault(m => m.Name == modName);
+                        if (cfg != null) ScMaMax = cfg.MaxMaPerLoop;
+                    }
+                }
+
+                ShowSubCircuitMetrics = true;
+                IsCapacityEmpty       = false;
+                return;
+            }
+
+            // ── Panel / Loop path ─────────────────────────────────────────────
             CapacityMetrics cap = null;
             if (_selectedLoop != null)
                 cap = SystemMetricsCalculator.ComputeForLoop(_selectedLoop, _lastAssignments, _lastDeviceStore);
@@ -487,12 +585,13 @@ namespace Pulse.UI.ViewModels
 
             if (cap == null)
             {
-                ShowGauges = false;
+                ShowGauges    = false;
                 AddressesUsed = AddressesMax = 0;
-                MaUsed = MaMax = 0;
-                AddressSummary = MaSummary = string.Empty;
+                MaUsed        = MaMax        = 0;
+                AddressSummary = MaSummary   = string.Empty;
                 RemainingAddressesSummary = RemainingMaSummary = string.Empty;
                 AddressCapacityStatus = MaCapacityStatus = CapacityStatus.Normal;
+                IsCapacityEmpty = true;
                 return;
             }
 
@@ -509,12 +608,21 @@ namespace Pulse.UI.ViewModels
             AddressCapacityStatus      = cap.AddressStatus;
             MaCapacityStatus           = cap.MaStatus;
             _lastCap                   = cap;
+            IsCapacityEmpty            = false;
         }
 
         // ── Health ────────────────────────────────────────────────────────────
 
         private void BuildHealth()
         {
+            // SubCircuit has no panel/loop context — skip system-wide scan to prevent freeze
+            if (_selectedNode?.NodeType == "SubCircuit")
+            {
+                HealthIssues.Clear();
+                TotalHealthIssueCount = 0;
+                return;
+            }
+
             var items = SystemMetricsCalculator.ComputeHealthIssues(
                 _lastData,
                 panel: _selectedPanel,
@@ -539,6 +647,13 @@ namespace Pulse.UI.ViewModels
 
         private void BuildDistribution()
         {
+            // SubCircuit has no panel/loop context — skip full-system distribution scan
+            if (_selectedNode?.NodeType == "SubCircuit")
+            {
+                DistributionGroups.Clear();
+                return;
+            }
+
             IEnumerable<AddressableDevice> devices;
             if (_selectedLoop != null)
                 devices = _selectedLoop.Devices;
@@ -584,9 +699,14 @@ namespace Pulse.UI.ViewModels
             ContextSubtitle = "Select a panel or loop";
             OverallStatus   = HealthStatus.Ok;
             OverallStatusLabel = "OK";
-            ShowGauges      = false;
-            AddressesUsed   = AddressesMax = 0;
-            MaUsed          = MaMax        = 0;
+            ShowGauges            = false;
+            ShowSubCircuitMetrics  = false;
+            MaNormal               = 0;
+            ScMaMax                = 0;
+            ChildDeviceCount       = 0;
+            IsCapacityEmpty        = true;
+            AddressesUsed          = AddressesMax = 0;
+            MaUsed                 = MaMax        = 0;
             AddressSummary  = MaSummary    = string.Empty;
             RemainingAddressesSummary = RemainingMaSummary = string.Empty;
             AddressCapacityStatus = MaCapacityStatus = CapacityStatus.Normal;

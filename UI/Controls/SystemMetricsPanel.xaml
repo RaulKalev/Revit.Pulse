@@ -328,6 +328,24 @@
                             <StackPanel Margin="8,4,8,4"
                                         Visibility="{Binding ShowSubCircuitMetrics, Converter={StaticResource BoolToVis}}">
 
+                                <!-- Gauges: Normal and Alarm load vs host-loop max -->
+                                <Grid Height="110" Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <controls:GaugeControl Grid.Column="0"
+                                                           Value="{Binding MaNormal}"
+                                                           Maximum="{Binding ScMaMax}"
+                                                           Label="Normal Load"
+                                                           Unit="mA"/>
+                                    <controls:GaugeControl Grid.Column="1"
+                                                           Value="{Binding MaUsed}"
+                                                           Maximum="{Binding ScMaMax}"
+                                                           Label="Alarm Load"
+                                                           Unit="mA"/>
+                                </Grid>
+
                                 <!-- Current draw header -->
                                 <TextBlock Text="CURRENT DRAW" FontSize="8" FontWeight="SemiBold"
                                            Foreground="{DynamicResource IconForegroundBrush}"
