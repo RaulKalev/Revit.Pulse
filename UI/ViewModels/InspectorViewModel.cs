@@ -443,7 +443,7 @@ namespace Pulse.UI.ViewModels
                         : node.Id;
                     if (AssignmentsStore.SubCircuits.TryGetValue(scRawId, out var scAssign))
                         vDropPct = scAssign.VDropLimitPct;
-                    VDropDisplay = $"{vDropPct:F1} %";
+                    VDropDisplay = vDropPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " %";
                 }
                 else if (node.NodeType == "SubCircuitMember")
                 {
@@ -573,7 +573,7 @@ namespace Pulse.UI.ViewModels
                     System.Globalization.CultureInfo.InvariantCulture, out double pct))
                 return;
             pct = pct < 1.0 ? 1.0 : pct > 50.0 ? 50.0 : pct;
-            VDropDisplay = $"{pct:F1} %";
+            VDropDisplay = pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " %";
             VDropLimitPctCommitted?.Invoke(EntityId, pct);
         }
 
