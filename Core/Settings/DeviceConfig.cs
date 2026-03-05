@@ -105,6 +105,15 @@ namespace Pulse.Core.Settings
         [JsonProperty("coreSizeMm2")]
         public double CoreSizeMm2 { get; set; } = 0.5;
 
+        /// <summary>
+        /// Measured resistance per metre for a single conductor (Ω/m) at 20 °C.
+        /// When non-zero this value is used directly instead of deriving resistance
+        /// from copper resistivity × cross-section area, giving datasheet accuracy.
+        /// Leave as 0 to use the calculated value.
+        /// </summary>
+        [JsonProperty("resistancePerMetreOhm")]
+        public double ResistancePerMetreOhm { get; set; } = 0.0;
+
         /// <summary>Cable colour designation (e.g. "Red/Black", "Grey").</summary>
         [JsonProperty("color")]
         public string Color { get; set; } = string.Empty;

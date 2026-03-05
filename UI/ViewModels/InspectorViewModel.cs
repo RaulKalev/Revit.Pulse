@@ -151,6 +151,72 @@ namespace Pulse.UI.ViewModels
         /// <summary>Raised when the user commits an edited V-Drop limit. Parameters: (scNodeId, newPct).</summary>
         public event Action<string, double> VDropLimitPctCommitted;
 
+        // ── Cable temperature (SubCircuit only) ───────────────────────────
+
+        private bool _showTempEdit;
+        public bool ShowTempEdit
+        {
+            get => _showTempEdit;
+            set => SetField(ref _showTempEdit, value);
+        }
+
+        private string _tempDisplay;
+        public string TempDisplay
+        {
+            get => _tempDisplay;
+            set => SetField(ref _tempDisplay, value);
+        }
+
+        private bool _isEditingTemp;
+        public bool IsEditingTemp
+        {
+            get => _isEditingTemp;
+            set => SetField(ref _isEditingTemp, value);
+        }
+
+        private string _editingTempText;
+        public string EditingTempText
+        {
+            get => _editingTempText;
+            set => SetField(ref _editingTempText, value);
+        }
+
+        /// <summary>Raised when the user commits an edited cable temperature. Parameters: (scNodeId, newTempDegC).</summary>
+        public event Action<string, double> CableTempCommitted;
+
+        // ── EOL resistor (SubCircuit only) ────────────────────────────────
+
+        private bool _showEolEdit;
+        public bool ShowEolEdit
+        {
+            get => _showEolEdit;
+            set => SetField(ref _showEolEdit, value);
+        }
+
+        private string _eolDisplay;
+        public string EolDisplay
+        {
+            get => _eolDisplay;
+            set => SetField(ref _eolDisplay, value);
+        }
+
+        private bool _isEditingEol;
+        public bool IsEditingEol
+        {
+            get => _isEditingEol;
+            set => SetField(ref _isEditingEol, value);
+        }
+
+        private string _editingEolText;
+        public string EditingEolText
+        {
+            get => _editingEolText;
+            set => SetField(ref _editingEolText, value);
+        }
+
+        /// <summary>Raised when the user commits an edited EOL resistor value. Parameters: (scNodeId, newOhms).</summary>
+        public event Action<string, double> EolResistorCommitted;
+
         // ── Current draw (Device only) ────────────────────────────────────
 
         private bool _showCurrentDraw;
@@ -444,6 +510,22 @@ namespace Pulse.UI.ViewModels
                     if (AssignmentsStore.SubCircuits.TryGetValue(scRawId, out var scAssign))
                         vDropPct = scAssign.VDropLimitPct;
                     VDropDisplay = vDropPct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " %";
+
+                    // Cable temperature
+                    ShowTempEdit = true;
+                    double tempDegC = 20.0;
+                    if (AssignmentsStore.SubCircuits.TryGetValue(scRawId, out var scAssignT))
+                        tempDegC = scAssignT.CableTemperatureDegC;
+                    TempDisplay = tempDegC.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " °C";
+
+                    // EOL resistor
+                    ShowEolEdit = true;
+                    double eolOhms = 0.0;
+                    if (AssignmentsStore.SubCircuits.TryGetValue(scRawId, out var scAssignE))
+                        eolOhms = scAssignE.EolResistorOhms;
+                    EolDisplay = eolOhms <= 0
+                        ? "—"
+                        : eolOhms.ToString("F0", System.Globalization.CultureInfo.InvariantCulture) + " Ω";
                 }
                 else if (node.NodeType == "SubCircuitMember")
                 {
@@ -486,6 +568,14 @@ namespace Pulse.UI.ViewModels
             VDropDisplay = string.Empty;
             IsEditingVDrop = false;
             EditingVDropText = string.Empty;
+            ShowTempEdit = false;
+            TempDisplay = string.Empty;
+            IsEditingTemp = false;
+            EditingTempText = string.Empty;
+            ShowEolEdit = false;
+            EolDisplay = string.Empty;
+            IsEditingEol = false;
+            EditingEolText = string.Empty;
             AddressesUsed = 0;
             AddressesMax  = 0;
             MaUsed        = 0;
@@ -537,6 +627,8 @@ namespace Pulse.UI.ViewModels
             IsEditingCurrentDrawAlarm = false;
             IsEditingLabel = false;
             IsEditingVDrop = false;
+            IsEditingTemp  = false;
+            IsEditingEol   = false;
         }
 
         public void BeginEditLabel()
@@ -575,6 +667,56 @@ namespace Pulse.UI.ViewModels
             pct = pct < 1.0 ? 1.0 : pct > 50.0 ? 50.0 : pct;
             VDropDisplay = pct.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " %";
             VDropLimitPctCommitted?.Invoke(EntityId, pct);
+        }
+
+        public void BeginEditTemp()
+        {
+            IsEditingCurrentDrawNormal = false;
+            IsEditingCurrentDrawAlarm  = false;
+            IsEditingLabel             = false;
+            IsEditingVDrop             = false;
+            IsEditingEol               = false;
+            EditingTempText = TempDisplay?.Replace("°C", "").Trim() ?? "20";
+            IsEditingTemp = true;
+        }
+
+        public void CommitTemp()
+        {
+            if (!IsEditingTemp) return;
+            IsEditingTemp = false;
+            if (!double.TryParse(EditingTempText ?? "20",
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out double tempC))
+                return;
+            tempC = tempC < -40.0 ? -40.0 : tempC > 120.0 ? 120.0 : tempC;
+            TempDisplay = tempC.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " °C";
+            CableTempCommitted?.Invoke(EntityId, tempC);
+        }
+
+        public void BeginEditEol()
+        {
+            IsEditingCurrentDrawNormal = false;
+            IsEditingCurrentDrawAlarm  = false;
+            IsEditingLabel             = false;
+            IsEditingVDrop             = false;
+            IsEditingTemp              = false;
+            EditingEolText = EolDisplay == "—" ? "0" : EolDisplay?.Replace("Ω", "").Trim() ?? "0";
+            IsEditingEol = true;
+        }
+
+        public void CommitEol()
+        {
+            if (!IsEditingEol) return;
+            IsEditingEol = false;
+            if (!double.TryParse(EditingEolText ?? "0",
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture, out double ohms))
+                return;
+            if (ohms < 0) ohms = 0;
+            EolDisplay = ohms <= 0
+                ? "—"
+                : ohms.ToString("F0", System.Globalization.CultureInfo.InvariantCulture) + " Ω";
+            EolResistorCommitted?.Invoke(EntityId, ohms);
         }
 
         // ── Gauge helpers ─────────────────────────────────────────────────

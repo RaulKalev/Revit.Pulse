@@ -266,6 +266,87 @@ namespace Pulse.Core.Modules.Metrics
             return metrics;
         }
 
+        // ── SubCircuit V-Drop Health ──────────────────────────────────────────
+
+        private const double CopperRho20 = 0.0175; // Ω·mm²/m at 20 °C
+
+        /// <summary>
+        /// Returns a <see cref="HealthIssueItem"/> for each SubCircuit whose computed
+        /// end-of-circuit voltage would fall below the configured minimum device voltage
+        /// (default 16 V — typical UL/EN minimum for NAC appliances).
+        /// Requires assignment + wire-config data so is called from the ViewModel layer,
+        /// not the rule-pack pipeline.
+        /// </summary>
+        public static List<HealthIssueItem> ComputeSubCircuitVDropIssues(
+            ModuleData data,
+            TopologyAssignmentsStore assignments,
+            DeviceConfigStore deviceStore)
+        {
+            var result = new List<HealthIssueItem>();
+            if (data == null || assignments == null || deviceStore == null) return result;
+
+            foreach (var sc in data.SubCircuits)
+            {
+                // Must have a wire type assigned
+                if (string.IsNullOrEmpty(sc.WireTypeKey)) continue;
+
+                var wire = deviceStore.Wires.FirstOrDefault(w =>
+                    string.Equals(w.Name, sc.WireTypeKey, StringComparison.OrdinalIgnoreCase));
+                if (wire == null) continue;
+                if (wire.CoreSizeMm2 <= 0 && wire.ResistancePerMetreOhm <= 0) continue;
+
+                double rPerMetreAt20 = wire.ResistancePerMetreOhm > 0
+                    ? wire.ResistancePerMetreOhm
+                    : CopperRho20 / wire.CoreSizeMm2;
+                if (rPerMetreAt20 <= 0) continue;
+
+                // Temperature derating
+                double rPerMetre = rPerMetreAt20 * (1.0 + 0.00393 * (sc.CableTemperatureDegC - 20.0));
+
+                // Find the corresponding topology node for cable length + mA + nominal voltage
+                string nodeId = "subcircuit::" + sc.Id;
+                var node = data.Nodes.FirstOrDefault(n => n.Id == nodeId);
+                if (node == null) continue;
+
+                if (!node.Properties.TryGetValue("CableLength", out string clStr)) continue;
+                if (!double.TryParse(clStr,
+                        System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out double cableLengthMetres) || cableLengthMetres <= 0) continue;
+
+                if (!node.Properties.TryGetValue("TotalMaAlarm", out string maStr)) continue;
+                if (!double.TryParse(maStr,
+                        System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out double maAlarm) || maAlarm <= 0) continue;
+
+                if (!node.Properties.TryGetValue("NominalVoltage", out string nomVStr)) continue;
+                if (!double.TryParse(nomVStr,
+                        System.Globalization.NumberStyles.Any,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out double nomVolts) || nomVolts <= 0) continue;
+
+                // Worst-case V-drop (all load at far end)
+                double vDrop = (maAlarm / 1000.0) * 2.0 * rPerMetre * cableLengthMetres;
+                double endVoltage = nomVolts - vDrop;
+
+                if (endVoltage < sc.MinDeviceVoltageV)
+                {
+                    result.Add(new HealthIssueItem
+                    {
+                        RuleName    = "SubCircuitLowVoltage",
+                        Description = $"NAC \"{sc.Name ?? sc.Id}\" end-of-line voltage " +
+                                      $"{endVoltage:F1} V is below minimum {sc.MinDeviceVoltageV:F1} V " +
+                                      $"(V-drop {vDrop:F1} V on {nomVolts:F0} V supply)",
+                        Count       = 1,
+                        Status      = HealthStatus.Warning,
+                    });
+                }
+            }
+
+            return result;
+        }
+
         // ── Overall Status ────────────────────────────────────────────────────
 
         /// <summary>

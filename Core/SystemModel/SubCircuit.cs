@@ -43,6 +43,27 @@ namespace Pulse.Core.SystemModel
         /// </summary>
         public double VDropLimitPct { get; set; } = 16.7;
 
+        /// <summary>
+        /// Assumed cable conductor temperature in °C for resistance derating.
+        /// Copper resistivity rises 0.393 %/°C above 20 °C (BS 7671 Table 4C1 coefficient).
+        /// Default 20 °C (standard reference temperature).
+        /// </summary>
+        public double CableTemperatureDegC { get; set; } = 20.0;
+
+        /// <summary>
+        /// End-of-line resistor value in ohms used for supervisory current calculation.
+        /// When non-zero the supervisory current V_nom / R_eol is added to normal-mode load.
+        /// Default 0 (no EOL resistor / unknown).
+        /// </summary>
+        public double EolResistorOhms { get; set; } = 0.0;
+
+        /// <summary>
+        /// Minimum acceptable end-of-circuit device voltage in volts.
+        /// The V-drop check warns when <c>NominalVoltage - VDrop &lt; MinDeviceVoltageV</c>.
+        /// Default 16 V — typical minimum for UL 864 / EN 54-4 NAC appliances.
+        /// </summary>
+        public double MinDeviceVoltageV { get; set; } = 16.0;
+
         public SubCircuit() { }
 
         public SubCircuit(string id, int hostElementId, string name)

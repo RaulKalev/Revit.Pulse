@@ -185,6 +185,8 @@ namespace Pulse.UI.ViewModels
             Inspector.CurrentDrawValueCommitted += OnCurrentDrawValueCommitted;
             Inspector.SubCircuitLabelCommitted  += OnSubCircuitLabelCommitted;
             Inspector.VDropLimitPctCommitted    += OnInspectorVDropPctCommitted;
+            Inspector.CableTempCommitted        += OnInspectorCableTempCommitted;
+            Inspector.EolResistorCommitted      += OnInspectorEolResistorCommitted;
             Topology.SubDeviceAssignRequested      += OnSubDeviceAssignRequested;
             Topology.PickElementForDeviceRequested += OnPickElementForDeviceRequested;
             Topology.SubDeviceRemoveRequested      += OnSubDeviceRemoveRequested;
@@ -769,6 +771,40 @@ namespace Pulse.UI.ViewModels
                 : scNodeId;
             if (_topologyAssignments.SubCircuits.TryGetValue(scId, out var scDef))
                 scDef.VDropLimitPct = newPct;
+            _assignmentsService.RequestSave();
+            Application.Current?.Dispatcher?.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.DataBind,
+                (Action)(() => Metrics.RebuildMetrics()));
+        }
+
+        /// <summary>
+        /// Called when the user commits a cable temperature edit in the inspector.
+        /// </summary>
+        private void OnInspectorCableTempCommitted(string scNodeId, double newTempC)
+        {
+            if (string.IsNullOrWhiteSpace(scNodeId)) return;
+            string scId = scNodeId.StartsWith("subcircuit::", StringComparison.Ordinal)
+                ? scNodeId.Substring("subcircuit::".Length)
+                : scNodeId;
+            if (_topologyAssignments.SubCircuits.TryGetValue(scId, out var scDef))
+                scDef.CableTemperatureDegC = newTempC;
+            _assignmentsService.RequestSave();
+            Application.Current?.Dispatcher?.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.DataBind,
+                (Action)(() => Metrics.RebuildMetrics()));
+        }
+
+        /// <summary>
+        /// Called when the user commits an EOL resistor value edit in the inspector.
+        /// </summary>
+        private void OnInspectorEolResistorCommitted(string scNodeId, double newOhms)
+        {
+            if (string.IsNullOrWhiteSpace(scNodeId)) return;
+            string scId = scNodeId.StartsWith("subcircuit::", StringComparison.Ordinal)
+                ? scNodeId.Substring("subcircuit::".Length)
+                : scNodeId;
+            if (_topologyAssignments.SubCircuits.TryGetValue(scId, out var scDef))
+                scDef.EolResistorOhms = newOhms;
             _assignmentsService.RequestSave();
             Application.Current?.Dispatcher?.BeginInvoke(
                 System.Windows.Threading.DispatcherPriority.DataBind,

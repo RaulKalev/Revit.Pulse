@@ -333,6 +333,12 @@ namespace Pulse.Modules.FireAlarm
                 bool hasCableRoute = false;
                 double prevX = 0, prevY = 0, prevZ = 0;
 
+                // Per-device cumulative distances from the host (feet), stored as
+                // "elemId:distFeet" CSV so MetricsPanelViewModel can do distributed V-drop.
+                // Also store alarm mA per device for the same purpose.
+                var deviceDistPairs  = new System.Text.StringBuilder();
+                var deviceMaPairs    = new System.Text.StringBuilder();
+
                 if (deviceByElementId.TryGetValue(sc.HostElementId, out var hostDevLen)
                     && hostDevLen.LocationX.HasValue
                     && hostDevLen.LocationY.HasValue
@@ -341,6 +347,7 @@ namespace Pulse.Modules.FireAlarm
                     prevX = hostDevLen.LocationX.Value;
                     prevY = hostDevLen.LocationY.Value;
                     prevZ = hostDevLen.LocationZ.Value;
+                    double runningFeet = 0;
 
                     foreach (int elemId in sc.DeviceElementIds)
                     {
@@ -349,13 +356,41 @@ namespace Pulse.Modules.FireAlarm
                             && lenDev.LocationY.HasValue
                             && lenDev.LocationZ.HasValue)
                         {
-                            cableLengthFeet += Math.Abs(lenDev.LocationX.Value - prevX)
-                                             + Math.Abs(lenDev.LocationY.Value - prevY)
-                                             + Math.Abs(lenDev.LocationZ.Value - prevZ);
+                            double segFeet = Math.Abs(lenDev.LocationX.Value - prevX)
+                                           + Math.Abs(lenDev.LocationY.Value - prevY)
+                                           + Math.Abs(lenDev.LocationZ.Value - prevZ);
+                            cableLengthFeet += segFeet;
+                            runningFeet     += segFeet;
                             prevX = lenDev.LocationX.Value;
                             prevY = lenDev.LocationY.Value;
                             prevZ = lenDev.LocationZ.Value;
                             hasCableRoute = true;
+
+                            // Cumulative distance entry
+                            if (deviceDistPairs.Length > 0) deviceDistPairs.Append(',');
+                            deviceDistPairs.Append(elemId);
+                            deviceDistPairs.Append(':');
+                            deviceDistPairs.Append(runningFeet.ToString(
+                                "F4", System.Globalization.CultureInfo.InvariantCulture));
+
+                            // Alarm mA entry
+                            double alarmMaEntry = 0;
+                            if (deviceByElementId.TryGetValue(elemId, out var maDev))
+                            {
+                                double normalMaEntry = maDev.CurrentDraw ?? 0;
+                                alarmMaEntry = normalMaEntry;
+                                if (maDev.Properties.TryGetValue("_CurrentDrawAlarm", out string aStr)
+                                    && double.TryParse(aStr,
+                                        System.Globalization.NumberStyles.Any,
+                                        System.Globalization.CultureInfo.InvariantCulture,
+                                        out double parsedA))
+                                    alarmMaEntry = parsedA;
+                            }
+                            if (deviceMaPairs.Length > 0) deviceMaPairs.Append(',');
+                            deviceMaPairs.Append(elemId);
+                            deviceMaPairs.Append(':');
+                            deviceMaPairs.Append(alarmMaEntry.ToString(
+                                "F4", System.Globalization.CultureInfo.InvariantCulture));
                         }
                     }
                 }
@@ -383,6 +418,12 @@ namespace Pulse.Modules.FireAlarm
                     scNode.Properties["TotalMaAlarm"] = totalMaAlarm.ToString(
                         "F1", System.Globalization.CultureInfo.InvariantCulture);
                 }
+
+                // Distributed V-drop data: cumulative distances + per-device alarm mA
+                if (deviceDistPairs.Length > 0)
+                    scNode.Properties["DeviceCumulativeDistFeet"] = deviceDistPairs.ToString();
+                if (deviceMaPairs.Length > 0)
+                    scNode.Properties["DeviceAlarmMa"] = deviceMaPairs.ToString();
 
                 // Nominal voltage from host device (if mapped parameter is populated)
                 if (deviceByElementId.TryGetValue(sc.HostElementId, out var hostDevNomV)

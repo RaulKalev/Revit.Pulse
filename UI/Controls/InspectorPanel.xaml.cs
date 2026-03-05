@@ -109,5 +109,51 @@ namespace Pulse.UI.Controls
         {
             if ((bool)e.NewValue && sender is TextBox tb) { tb.Focus(); tb.SelectAll(); }
         }
+
+        // ── Cable temperature (SubCircuit) ─────────────────────────────────
+
+        private void TempDisplay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2) { Vm?.BeginEditTemp(); e.Handled = true; }
+        }
+
+        private void TempTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)       { Vm?.CommitTemp();   e.Handled = true; }
+            else if (e.Key == Key.Escape) { Vm?.CancelEdit();   e.Handled = true; }
+        }
+
+        private void TempTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            Vm?.CommitTemp();
+        }
+
+        private void TempTextBox_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if ((bool)e.NewValue && sender is TextBox tb) { tb.Focus(); tb.SelectAll(); }
+        }
+
+        // ── EOL resistor (SubCircuit) ─────────────────────────────────────
+
+        private void EolDisplay_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (e.ClickCount == 2) { Vm?.BeginEditEol(); e.Handled = true; }
+        }
+
+        private void EolTextBox_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.Enter)       { Vm?.CommitEol();    e.Handled = true; }
+            else if (e.Key == Key.Escape) { Vm?.CancelEdit();   e.Handled = true; }
+        }
+
+        private void EolTextBox_LostFocus(object sender, RoutedEventArgs e)
+        {
+            Vm?.CommitEol();
+        }
+
+        private void EolTextBox_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if ((bool)e.NewValue && sender is TextBox tb) { tb.Focus(); tb.SelectAll(); }
+        }
     }
 }

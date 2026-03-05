@@ -182,6 +182,66 @@
                                          LostFocus="VDropTextBox_LostFocus"
                                          IsVisibleChanged="VDropTextBox_IsVisibleChanged"/>
                             </Grid>
+                            <!-- Cable temperature (SubCircuit only, double-click to edit) -->
+                            <Grid Margin="0,2"
+                                  Visibility="{Binding ShowTempEdit, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" MinWidth="80" MaxWidth="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Cable temp" FontSize="11"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Grid.Column="1"
+                                           x:Name="TempDisplay"
+                                           Text="{Binding TempDisplay}" FontSize="11"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           Cursor="IBeam" ToolTip="Double-click to edit"
+                                           Visibility="{Binding IsEditingTemp, Converter={StaticResource InverseBoolToVis}}"
+                                           MouseLeftButtonDown="TempDisplay_MouseLeftButtonDown"/>
+                                <TextBox Grid.Column="1"
+                                         x:Name="TempTextBox"
+                                         Text="{Binding EditingTempText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Visibility="{Binding IsEditingTemp, Converter={StaticResource BoolToVis}}"
+                                         FontSize="11" Background="Transparent"
+                                         BorderThickness="0,0,0,1"
+                                         BorderBrush="{DynamicResource BorderBrush}"
+                                         Foreground="{DynamicResource ForegroundBrush}"
+                                         CaretBrush="{DynamicResource ForegroundBrush}"
+                                         KeyDown="TempTextBox_KeyDown"
+                                         LostFocus="TempTextBox_LostFocus"
+                                         IsVisibleChanged="TempTextBox_IsVisibleChanged"/>
+                            </Grid>
+                            <!-- EOL resistor (SubCircuit only, double-click to edit) -->
+                            <Grid Margin="0,2"
+                                  Visibility="{Binding ShowEolEdit, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" MinWidth="80" MaxWidth="110"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="EOL resistor" FontSize="11"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                <TextBlock Grid.Column="1"
+                                           x:Name="EolDisplay"
+                                           Text="{Binding EolDisplay}" FontSize="11"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           Cursor="IBeam" ToolTip="Double-click to edit"
+                                           Visibility="{Binding IsEditingEol, Converter={StaticResource InverseBoolToVis}}"
+                                           MouseLeftButtonDown="EolDisplay_MouseLeftButtonDown"/>
+                                <TextBox Grid.Column="1"
+                                         x:Name="EolTextBox"
+                                         Text="{Binding EditingEolText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                         Visibility="{Binding IsEditingEol, Converter={StaticResource BoolToVis}}"
+                                         FontSize="11" Background="Transparent"
+                                         BorderThickness="0,0,0,1"
+                                         BorderBrush="{DynamicResource BorderBrush}"
+                                         Foreground="{DynamicResource ForegroundBrush}"
+                                         CaretBrush="{DynamicResource ForegroundBrush}"
+                                         KeyDown="EolTextBox_KeyDown"
+                                         LostFocus="EolTextBox_LostFocus"
+                                         IsVisibleChanged="EolTextBox_IsVisibleChanged"/>
+                            </Grid>
                         </StackPanel>
                     </Expander>
 

@@ -174,6 +174,13 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _coreSizeMm2, value);
         }
 
+        private double _resistancePerMetreOhm;
+        public double ResistancePerMetreOhm
+        {
+            get => _resistancePerMetreOhm;
+            set => SetField(ref _resistancePerMetreOhm, value);
+        }
+
         private string _color;
         public string Color
         {
@@ -202,6 +209,7 @@ namespace Pulse.UI.ViewModels
             _name = model.Name;
             _coreCount = model.CoreCount;
             _coreSizeMm2 = model.CoreSizeMm2;
+            _resistancePerMetreOhm = model.ResistancePerMetreOhm;
             _color = model.Color;
             _hasShielding = model.HasShielding;
             _fireResistance = model.FireResistance;
@@ -213,6 +221,7 @@ namespace Pulse.UI.ViewModels
             Name = Name ?? string.Empty,
             CoreCount = CoreCount,
             CoreSizeMm2 = CoreSizeMm2,
+            ResistancePerMetreOhm = ResistancePerMetreOhm,
             Color = Color ?? string.Empty,
             HasShielding = HasShielding,
             FireResistance = FireResistance ?? string.Empty

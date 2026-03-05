@@ -693,39 +693,116 @@ namespace Pulse.UI.ViewModels
                     var wire = _lastDeviceStore.Wires.FirstOrDefault(w =>
                         string.Equals(w.Name, vdWireType,
                             System.StringComparison.OrdinalIgnoreCase));
-                    if (wire != null && wire.CoreSizeMm2 > 0)
+                    if (wire != null && (wire.CoreSizeMm2 > 0 || wire.ResistancePerMetreOhm > 0))
                     {
-                        // V = I × R   ;   R = 2 × ρ / A × L  (both conductors, copper ρ=0.0175 Ω·mm²/m)
-                        double rTotal = 2.0 * 0.0175 / wire.CoreSizeMm2 * cableLengthMetres;
-                        ScVDropVolts   = (maAlarm / 1000.0) * rTotal;  // maAlarm is mA → A
+                        // ── Per-conductor resistance at reference temperature ───────────
+                        // Prefer datasheet ResistancePerMetreOhm; fall back to 2ρ/A formula.
+                        const double CopperRho20 = 0.0175; // Ω·mm²/m at 20 °C
+                        double rPerMetreAt20 = wire.ResistancePerMetreOhm > 0
+                            ? wire.ResistancePerMetreOhm
+                            : (wire.CoreSizeMm2 > 0 ? CopperRho20 / wire.CoreSizeMm2 : 0);
 
-                        // Use PSU nominal voltage when available for contextual scale + remaining voltage
-                        double nomVolts = 0;
-                        if (_selectedNode.Properties.TryGetValue("NominalVoltage", out string nomVoltStr)
-                            && double.TryParse(nomVoltStr,
-                                System.Globalization.NumberStyles.Any,
-                                System.Globalization.CultureInfo.InvariantCulture,
-                                out double parsedNomVolts))
-                            nomVolts = parsedNomVolts;
-
-                        // Read user-configured V-drop limit percentage (falls back to 16.7 if not set)
-                        double vDropLimitPct = 16.7;
-                        if (_lastAssignments.SubCircuits.TryGetValue(scRawId, out var scAssignPct))
-                            vDropLimitPct = scAssignPct.VDropLimitPct;
-
-                        if (nomVolts > 0)
+                        if (rPerMetreAt20 > 0)
                         {
-                            ScNominalVoltage       = nomVolts;
-                            ScVDropMax             = nomVolts * (vDropLimitPct / 100.0);
-                            ScRemainingVolts       = Math.Max(0, nomVolts - ScVDropVolts);
-                            ShowRemainingVoltGauge = true;
+                            // ── Temperature derating (BS 7671 / IEC 60228 coefficient) ──
+                            // α = 0.00393 /°C for annealed copper
+                            double tempDegC = 20.0;
+                            if (_lastAssignments.SubCircuits.TryGetValue(scRawId, out var scTemp))
+                                tempDegC = scTemp.CableTemperatureDegC;
+                            double tempFactor = 1.0 + 0.00393 * (tempDegC - 20.0);
+                            double rPerMetre = rPerMetreAt20 * tempFactor;
+
+                            // ── Distributed-load V-drop ───────────────────────────────
+                            // Walk device segments sorted by cumulative distance.
+                            // Each segment carries only the current drawn by devices beyond it.
+                            // V_drop = Σ [ I_beyond_i × 2 × R/m × segment_length ]
+                            // This is accurate when device-distance data is available.
+                            // Falls back to worst-case (all current at far end) if not.
+                            double vDrop = 0;
+
+                            bool usedDistributed = false;
+                            if (_selectedNode.Properties.TryGetValue("DeviceCumulativeDistFeet", out string distCsv)
+                                && _selectedNode.Properties.TryGetValue("DeviceAlarmMa", out string maCsv)
+                                && !string.IsNullOrEmpty(distCsv) && !string.IsNullOrEmpty(maCsv))
+                            {
+                                // Parse "elemId:value" CSV pairs — list (sortable) for distances, dict for mA lookup
+                                var distEntries = ParseCsvPairsList(distCsv);
+                                var maEntries   = ParseCsvPairsDict(maCsv);
+
+                                if (distEntries.Count > 0 && distEntries.Count == maEntries.Count)
+                                {
+                                    // Sort ascending by distance
+                                    distEntries.Sort((a, b) => a.Value.CompareTo(b.Value));
+
+                                    // Total alarm current for all devices (mA → A)
+                                    double totalAlarmA = maEntries.Values.Sum() / 1000.0;
+
+                                    double prevDistMetres = 0;
+                                    double currentBeyondA = totalAlarmA;
+
+                                    foreach (var entry in distEntries)
+                                    {
+                                        double segMetres = entry.Value * 0.3048 - prevDistMetres;
+                                        if (segMetres < 0) segMetres = 0;
+
+                                        // Segment resistance = 2 conductors
+                                        vDrop += currentBeyondA * 2.0 * rPerMetre * segMetres;
+
+                                        // Subtract this device's current for segments beyond it
+                                        if (maEntries.TryGetValue(entry.Key, out double devMa))
+                                            currentBeyondA -= devMa / 1000.0;
+                                        if (currentBeyondA < 0) currentBeyondA = 0;
+
+                                        prevDistMetres = entry.Value * 0.3048;
+                                    }
+                                    usedDistributed = true;
+                                }
+                            }
+
+                            if (!usedDistributed)
+                            {
+                                // Worst-case: all current drawn at far end
+                                double rTotal = 2.0 * rPerMetre * cableLengthMetres;
+                                vDrop = (maAlarm / 1000.0) * rTotal;
+                            }
+
+                            ScVDropVolts = vDrop;
+
+                            // ── Supervisory current (EOL resistor) ────────────────────
+                            // Adds V_nom/R_eol to the normal-mode mA gauge
+                            double nomVolts = 0;
+                            if (_selectedNode.Properties.TryGetValue("NominalVoltage", out string nomVoltStr)
+                                && double.TryParse(nomVoltStr,
+                                    System.Globalization.NumberStyles.Any,
+                                    System.Globalization.CultureInfo.InvariantCulture,
+                                    out double parsedNomVolts))
+                                nomVolts = parsedNomVolts;
+
+                            if (_lastAssignments.SubCircuits.TryGetValue(scRawId, out var scEol)
+                                && scEol.EolResistorOhms > 0 && nomVolts > 0)
+                            {
+                                double supervisoryMa = (nomVolts / scEol.EolResistorOhms) * 1000.0;
+                                MaNormal = MaNormal + supervisoryMa;
+                            }
+
+                            // ── Scale gauges by nominal voltage ───────────────────────
+                            double vDropLimitPct = 16.7;
+                            if (_lastAssignments.SubCircuits.TryGetValue(scRawId, out var scAssignPct))
+                                vDropLimitPct = scAssignPct.VDropLimitPct;
+
+                            if (nomVolts > 0)
+                            {
+                                ScNominalVoltage       = nomVolts;
+                                ScVDropMax             = nomVolts * (vDropLimitPct / 100.0);
+                                ScRemainingVolts       = Math.Max(0, nomVolts - ScVDropVolts);
+                                ShowRemainingVoltGauge = true;
+                            }
+                            else
+                            {
+                                ScVDropMax = 24.0 * (vDropLimitPct / 100.0);
+                            }
+                            ShowVDropGauge = true;
                         }
-                        else
-                        {
-                            // No nominal voltage configured — apply the user's pct against the 24 V default
-                            ScVDropMax = 24.0 * (vDropLimitPct / 100.0);
-                        }
-                        ShowVDropGauge = true;
                     }
                 }
 
@@ -773,11 +850,15 @@ namespace Pulse.UI.ViewModels
 
         private void BuildHealth()
         {
-            // SubCircuit has no panel/loop context — skip system-wide scan to prevent freeze
+            // SubCircuit has no panel/loop context — show SubCircuit-specific checks only
             if (_selectedNode?.NodeType == "SubCircuit")
             {
                 HealthIssues.Clear();
-                TotalHealthIssueCount = 0;
+                var scIssues = SystemMetricsCalculator.ComputeSubCircuitVDropIssues(
+                    _lastData, _lastAssignments, _lastDeviceStore);
+                foreach (var item in scIssues)
+                    HealthIssues.Add(new HealthIssueRowViewModel(item, HighlightElementsRequested));
+                TotalHealthIssueCount = scIssues.Count;
                 return;
             }
 
@@ -958,6 +1039,49 @@ namespace Pulse.UI.ViewModels
         // ──────────────────────────────────────────────────────────────────────
         // AI Prompt Popup (code-only dialog — keeps XAML count low)
         // ──────────────────────────────────────────────────────────────────────
+
+        // ── CSV helpers for distributed V-drop ─────────────────────────────────
+
+        /// <summary>
+        /// Parses "elemId:value,elemId:value,..." into a sortable list of kvp pairs.
+        /// </summary>
+        private static List<System.Collections.Generic.KeyValuePair<int, double>> ParseCsvPairsList(string csv)
+        {
+            var result = new List<System.Collections.Generic.KeyValuePair<int, double>>();
+            if (string.IsNullOrEmpty(csv)) return result;
+            foreach (var part in csv.Split(','))
+            {
+                int colon = part.IndexOf(':');
+                if (colon < 0) continue;
+                if (int.TryParse(part.Substring(0, colon), out int key)
+                    && double.TryParse(part.Substring(colon + 1),
+                           System.Globalization.NumberStyles.Any,
+                           System.Globalization.CultureInfo.InvariantCulture, out double val))
+                    result.Add(new System.Collections.Generic.KeyValuePair<int, double>(key, val));
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Parses "elemId:value,elemId:value,..." into a dictionary keyed by element id.
+        /// Duplicate ids keep the last value.
+        /// </summary>
+        private static Dictionary<int, double> ParseCsvPairsDict(string csv)
+        {
+            var result = new Dictionary<int, double>();
+            if (string.IsNullOrEmpty(csv)) return result;
+            foreach (var part in csv.Split(','))
+            {
+                int colon = part.IndexOf(':');
+                if (colon < 0) continue;
+                if (int.TryParse(part.Substring(0, colon), out int key)
+                    && double.TryParse(part.Substring(colon + 1),
+                           System.Globalization.NumberStyles.Any,
+                           System.Globalization.CultureInfo.InvariantCulture, out double val))
+                    result[key] = val;
+            }
+            return result;
+        }
 
         private static void ShowAiPromptPopup(Action<bool> onClosed)
         {

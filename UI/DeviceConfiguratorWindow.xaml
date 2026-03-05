@@ -828,6 +828,18 @@
                                     </StackPanel>
                                 </Grid>
 
+                                <!-- Resistance per metre -->
+                                <TextBlock Text="RESISTANCE PER METRE (Ω/m)" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,4"/>
+                                <TextBlock Text="Single-conductor resistance at 20 °C from the cable datasheet. Leave as 0 to calculate from core size."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedWire.ResistancePerMetreOhm, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
                                 <!-- Color -->
                                 <TextBlock Text="COLOR" Style="{StaticResource FieldLabelStyle}"
                                            Margin="0,0,0,4"/>
