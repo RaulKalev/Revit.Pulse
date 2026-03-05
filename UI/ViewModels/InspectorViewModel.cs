@@ -260,6 +260,12 @@ namespace Pulse.UI.ViewModels
             EntityId = node.Id;
             RevitElementId = node.RevitElementId;
 
+            // Reset metric sections — each type branch opts back in selectively
+            ShowGauges            = false;
+            ShowSubCircuitMetrics = false;
+            MaNormal              = 0;
+            MaUsed                = 0;
+
             // Load properties
             Properties.Clear();
             ShowCurrentDraw = false;
@@ -400,11 +406,13 @@ namespace Pulse.UI.ViewModels
                 {
                     ChildDeviceCount = 0;
                     ShowGauges = false;
+                    ShowSubCircuitMetrics = false;
                 }
                 else
                 {
                     ChildDeviceCount = 0;
                     ShowGauges = false;
+                    ShowSubCircuitMetrics = false;
                 }
             }
         }
