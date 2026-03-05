@@ -329,12 +329,13 @@
                             <StackPanel Margin="8,4,8,4"
                                         Visibility="{Binding ShowSubCircuitMetrics, Converter={StaticResource BoolToVis}}">
 
-                                <!-- Gauges: Normal load | Alarm load | V-Drop (V-Drop col hides when no wire assigned) -->
+                                <!-- Gauges: Normal load | Alarm load | V-Drop | Remaining V -->
                                 <Grid Height="110" Margin="0,0,0,4">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="*"/>
                                         <ColumnDefinition Width="{Binding ShowVDropGauge, Converter={StaticResource BoolToGridLength}}"/>
+                                        <ColumnDefinition Width="{Binding ShowRemainingVoltGauge, Converter={StaticResource BoolToGridLength}}"/>
                                     </Grid.ColumnDefinitions>
                                     <controls:GaugeControl Grid.Column="0"
                                                            Value="{Binding MaNormal}"
@@ -352,6 +353,12 @@
                                                            Label="V-Drop"
                                                            Unit="V"
                                                            Visibility="{Binding ShowVDropGauge, Converter={StaticResource BoolToVis}}"/>
+                                    <controls:GaugeControl Grid.Column="3"
+                                                           Value="{Binding ScRemainingVolts}"
+                                                           Maximum="{Binding ScNominalVoltage}"
+                                                           Label="Remaining V"
+                                                           Unit="V"
+                                                           Visibility="{Binding ShowRemainingVoltGauge, Converter={StaticResource BoolToVis}}"/>
                                 </Grid>
 
                                 <!-- Current draw header -->
@@ -433,6 +440,34 @@
                                         <Run Text="{Binding ScVDropVolts, StringFormat=F2, Mode=OneWay}"/>
                                         <Run Text=" V  (max "/>
                                         <Run Text="{Binding ScVDropMax, StringFormat=F1, Mode=OneWay}"/>
+                                        <Run Text=" V)"/>
+                                    </TextBlock>
+                                </Grid>
+
+                                <!-- Remaining voltage row (shown when PSU nominal voltage is configured) -->
+                                <Grid Margin="0,2"
+                                      Visibility="{Binding ShowRemainingVoltGauge, Converter={StaticResource BoolToVis}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <materialDesign:PackIcon Grid.Column="0" Kind="BatteryHigh"
+                                                             Width="12" Height="12"
+                                                             VerticalAlignment="Center"
+                                                             Margin="0,0,5,0"
+                                                             Foreground="{DynamicResource IconForegroundBrush}"/>
+                                    <TextBlock Grid.Column="1" Text="Remaining voltage"
+                                               FontSize="10"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                    <TextBlock Grid.Column="2"
+                                               FontSize="10" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center">
+                                        <Run Text="{Binding ScRemainingVolts, StringFormat=F2, Mode=OneWay}"/>
+                                        <Run Text=" V  (of "/>
+                                        <Run Text="{Binding ScNominalVoltage, StringFormat=F1, Mode=OneWay}"/>
                                         <Run Text=" V)"/>
                                     </TextBlock>
                                 </Grid>

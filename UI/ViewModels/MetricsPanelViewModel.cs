@@ -306,6 +306,29 @@ namespace Pulse.UI.ViewModels
             private set => SetField(ref _showVDropGauge, value);
         }
 
+        // Nominal supply voltage (from PSU Revit parameter, 0 = unknown)
+        private double _scNominalVoltage;
+        public  double ScNominalVoltage
+        {
+            get => _scNominalVoltage;
+            private set => SetField(ref _scNominalVoltage, value);
+        }
+
+        // Remaining voltage at the far end of the NAC run (NominalVoltage − VDrop)
+        private double _scRemainingVolts;
+        public  double ScRemainingVolts
+        {
+            get => _scRemainingVolts;
+            private set => SetField(ref _scRemainingVolts, value);
+        }
+
+        private bool _showRemainingVoltGauge;
+        public  bool ShowRemainingVoltGauge
+        {
+            get => _showRemainingVoltGauge;
+            private set => SetField(ref _showRemainingVoltGauge, value);
+        }
+
         public ObservableCollection<ScMemberRowViewModel> ScMembers { get; }
             = new ObservableCollection<ScMemberRowViewModel>();
 
@@ -582,9 +605,12 @@ namespace Pulse.UI.ViewModels
             MaNormal              = 0;
             ScMaMax               = 0;
             ChildDeviceCount      = 0;
-            ShowVDropGauge        = false;
-            ScVDropVolts          = 0;
-            ScVDropMax            = 4.0;
+            ShowVDropGauge         = false;
+            ScVDropVolts           = 0;
+            ScVDropMax             = 4.0;
+            ScNominalVoltage       = 0;
+            ScRemainingVolts       = 0;
+            ShowRemainingVoltGauge = false;
 
             // ── SubCircuit path ───────────────────────────────────────────────
             if (_selectedNode?.NodeType == "SubCircuit")
@@ -672,7 +698,27 @@ namespace Pulse.UI.ViewModels
                         // V = I × R   ;   R = 2 × ρ / A × L  (both conductors, copper ρ=0.0175 Ω·mm²/m)
                         double rTotal = 2.0 * 0.0175 / wire.CoreSizeMm2 * cableLengthMetres;
                         ScVDropVolts   = (maAlarm / 1000.0) * rTotal;  // maAlarm is mA → A
-                        ScVDropMax     = 4.0;
+
+                        // Use PSU nominal voltage when available for contextual scale + remaining voltage
+                        double nomVolts = 0;
+                        if (_selectedNode.Properties.TryGetValue("NominalVoltage", out string nomVoltStr)
+                            && double.TryParse(nomVoltStr,
+                                System.Globalization.NumberStyles.Any,
+                                System.Globalization.CultureInfo.InvariantCulture,
+                                out double parsedNomVolts))
+                            nomVolts = parsedNomVolts;
+
+                        if (nomVolts > 0)
+                        {
+                            ScNominalVoltage       = nomVolts;
+                            ScVDropMax             = nomVolts * 0.167;   // ~16.7% of supply (typical NAC limit)
+                            ScRemainingVolts       = Math.Max(0, nomVolts - ScVDropVolts);
+                            ShowRemainingVoltGauge = true;
+                        }
+                        else
+                        {
+                            ScVDropMax = 4.0;
+                        }
                         ShowVDropGauge = true;
                     }
                 }

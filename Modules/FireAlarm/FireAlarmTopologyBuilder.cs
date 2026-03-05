@@ -384,6 +384,14 @@ namespace Pulse.Modules.FireAlarm
                         "F1", System.Globalization.CultureInfo.InvariantCulture);
                 }
 
+                // Nominal voltage from host device (if mapped parameter is populated)
+                if (deviceByElementId.TryGetValue(sc.HostElementId, out var hostDevNomV)
+                    && hostDevNomV.Properties.TryGetValue("_NominalVoltage", out string scNomVoltStr)
+                    && !string.IsNullOrEmpty(scNomVoltStr))
+                {
+                    scNode.Properties["NominalVoltage"] = scNomVoltStr;
+                }
+
                 data.Nodes.Add(scNode);
 
                 // ── Edge: host device → SubCircuit ────────────────────────────────────

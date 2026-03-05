@@ -148,6 +148,7 @@ namespace Pulse.Modules.FireAlarm
             string panelConfigParam      = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelConfig);
             string loopModuleConfigParam = settings.GetRevitParameterName(FireAlarmParameterKeys.LoopModuleConfig);
             string wireParam             = settings.GetRevitParameterName(FireAlarmParameterKeys.Wire);
+            string nominalVoltageParam   = settings.GetRevitParameterName(FireAlarmParameterKeys.NominalVoltage);
             // Hidden-from-display params (values captured internally but not shown in properties panel)
             string panelElementCategoryParam = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelElementCategory);
             string panelElementNameParam     = settings.GetRevitParameterName(FireAlarmParameterKeys.PanelElementNameParam);
@@ -257,6 +258,9 @@ namespace Pulse.Modules.FireAlarm
                     if (!string.IsNullOrEmpty(wireParam) &&
                         string.Equals(kvp.Key, wireParam, StringComparison.OrdinalIgnoreCase))
                         continue;
+                    if (!string.IsNullOrEmpty(nominalVoltageParam) &&
+                        string.Equals(kvp.Key, nominalVoltageParam, StringComparison.OrdinalIgnoreCase))
+                        continue;
                     if (!string.IsNullOrEmpty(deviceIdParam) &&
                         string.Equals(kvp.Key, deviceIdParam, StringComparison.OrdinalIgnoreCase))
                         continue;
@@ -290,6 +294,9 @@ namespace Pulse.Modules.FireAlarm
                 string wireValue = GetParam(element, wireParam);
                 if (!string.IsNullOrEmpty(wireValue))
                     device.SetProperty("_Wire", wireValue);
+                string nominalVoltageValue = GetParam(element, nominalVoltageParam);
+                if (!string.IsNullOrEmpty(nominalVoltageValue))
+                    device.SetProperty("_NominalVoltage", nominalVoltageValue);
 
                 // Capture the element's level name so the diagram can group devices into the correct level band.
                 if (element.Parameters.TryGetValue("_LevelName", out string levelNameVal)

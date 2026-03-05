@@ -58,5 +58,8 @@ namespace Pulse.Modules.FireAlarm
 
         /// <summary>Logical key for the wire/cable type assigned to a loop, written to device elements.</summary>
         public const string Wire = "Wire";
+
+        /// <summary>Logical key for the nominal supply voltage of a PSU/output module (e.g. 24 V).</summary>
+        public const string NominalVoltage = "NominalVoltage";
     }
 }
