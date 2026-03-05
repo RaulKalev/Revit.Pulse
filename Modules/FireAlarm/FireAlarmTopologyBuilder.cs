@@ -297,6 +297,13 @@ namespace Pulse.Modules.FireAlarm
                 }
             }
 
+            // ── Prune loops that became empty after sub-device reparenting ──────────────
+            // When every device in a loop is a sub-element (IsSubDevice=true), the loop
+            // node has no children in the graph and the parent panel may also be empty.
+            // Remove those nodes/edges and the corresponding data objects so the UI doesn't
+            // show phantom "(No Panel)" entries with nothing inside.
+            PruneEmptySubDeviceLoops(data);
+
             // ── SubCircuit projection ─────────────────────────────────────────────────
             // SubCircuits are virtual grouping nodes attached to host Output Module devices.
             // They do NOT re-parent loop devices — they add a summary child under the host.
@@ -569,6 +576,73 @@ namespace Pulse.Modules.FireAlarm
                 .Replace(";", "_").Replace("<", "_")
                 .Replace(">", "_").Replace("?", "_")
                 .Replace("`", "_").Replace("~", "_");
+        }
+
+        /// <summary>
+        /// Removes loop nodes (and their parent panel nodes) that contain only sub-devices.
+        /// Such loops have no children in the graph because all their devices were reparented
+        /// to host device nodes.  Without this cleanup, the UI shows empty loop rows under
+        /// a phantom "(No Panel)" panel entry.
+        /// </summary>
+        private static void PruneEmptySubDeviceLoops(ModuleData data)
+        {
+            // Build set of device node IDs that are direct children of a loop node
+            // (i.e. they have an incoming "contains" edge whose source is a Loop node).
+            var loopNodeIds = new HashSet<string>(
+                data.Nodes.Where(n => n.NodeType == "Loop").Select(n => n.Id),
+                StringComparer.OrdinalIgnoreCase);
+
+            var devicesDirectlyUnderLoop = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var edge in data.Edges)
+            {
+                if (loopNodeIds.Contains(edge.SourceId))
+                    devicesDirectlyUnderLoop.Add(edge.TargetId);
+            }
+
+            // Find loops whose every device is a sub-device (reparented to a host).
+            var loopsToRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var loop in data.Loops)
+            {
+                if (loop.Devices.Count == 0) continue; // not our concern
+                bool allSubDevices = loop.Devices.All(d =>
+                {
+                    var node = data.Nodes.Find(n => n.Id == d.EntityId);
+                    return node != null && node.Properties.TryGetValue("IsSubDevice", out string v) && v == "true";
+                });
+                if (allSubDevices)
+                    loopsToRemove.Add(loop.EntityId);
+            }
+
+            if (loopsToRemove.Count == 0) return;
+
+            // Collect the panel IDs that own only-empty loops (candidate for pruning).
+            var panelIdsOfRemovedLoops = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var loop in data.Loops)
+                if (loopsToRemove.Contains(loop.EntityId) && !string.IsNullOrEmpty(loop.PanelId))
+                    panelIdsOfRemovedLoops.Add(loop.PanelId);
+
+            // Remove loop nodes and panel→loop edges from the graph.
+            data.Nodes.RemoveAll(n => loopsToRemove.Contains(n.Id));
+            data.Edges.RemoveAll(e => loopsToRemove.Contains(e.TargetId) || loopsToRemove.Contains(e.SourceId));
+
+            // Remove the loop data objects so rule/metrics code doesn't iterate them.
+            data.Loops.RemoveAll(l => loopsToRemove.Contains(l.EntityId));
+
+            // Prune any panel that now has no loops (typically the virtual "(No Panel)" panel).
+            var panelsToRemove = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var panelId in panelIdsOfRemovedLoops)
+            {
+                bool stillHasLoops = data.Loops.Any(l => string.Equals(l.PanelId, panelId, StringComparison.OrdinalIgnoreCase));
+                if (!stillHasLoops)
+                    panelsToRemove.Add(panelId);
+            }
+
+            if (panelsToRemove.Count > 0)
+            {
+                data.Nodes.RemoveAll(n => panelsToRemove.Contains(n.Id));
+                data.Edges.RemoveAll(e => panelsToRemove.Contains(e.SourceId) || panelsToRemove.Contains(e.TargetId));
+                data.Panels.RemoveAll(p => panelsToRemove.Contains(p.EntityId));
+            }
         }
     }
 }
