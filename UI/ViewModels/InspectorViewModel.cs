@@ -405,6 +405,9 @@ namespace Pulse.UI.ViewModels
                     { Properties.Add(new PropertyItem { Key = "Load (alarm)", Value = kvp.Value + " mA" }); continue; }
                     if (kvp.Key == "WireType")
                     { Properties.Add(new PropertyItem { Key = "Wire type", Value = kvp.Value }); continue; }
+                    // Internal CSV blobs used for distributed V-drop — not user-facing
+                    if (kvp.Key == "DeviceCumulativeDistFeet" || kvp.Key == "DeviceAlarmMa")
+                        continue;
                 }                // ── SubCircuitMember property labels ──────────────────────────────────
                 else if (node.NodeType == "SubCircuitMember")
                 {

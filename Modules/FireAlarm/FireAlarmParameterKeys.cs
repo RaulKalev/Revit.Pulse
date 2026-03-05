@@ -61,5 +61,19 @@ namespace Pulse.Modules.FireAlarm
 
         /// <summary>Logical key for the nominal supply voltage of a PSU/output module (e.g. 24 V).</summary>
         public const string NominalVoltage = "NominalVoltage";
+
+        /// <summary>
+        /// Logical key whose mapped value is the Revit category name containing the routed cable
+        /// line elements (e.g. "Detail Lines", "Model Lines", "Conduit Runs").  Leave blank to
+        /// disable route-based cable length and fall back to Manhattan-distance estimation.
+        /// </summary>
+        public const string CableRouteCategory = "CableRouteCategory";
+
+        /// <summary>
+        /// Logical key for the parameter on each routed line element that stores the integer
+        /// Revit ElementId of the NAC Output Module that owns the cable segment.
+        /// Defaults to <c>FA_Circuit_ElementId</c>.
+        /// </summary>
+        public const string CableRouteCircuitParam = "CableRouteCircuitParam";
     }
 }

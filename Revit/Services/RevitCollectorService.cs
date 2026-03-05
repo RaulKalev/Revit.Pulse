@@ -82,6 +82,12 @@ namespace Pulse.Revit.Services
                     data.Parameters["_LocationY"] = pt.Y.ToString(System.Globalization.CultureInfo.InvariantCulture);
                     data.Parameters["_LocationZ"] = pt.Z.ToString(System.Globalization.CultureInfo.InvariantCulture);
                 }
+                else if (element.Location is LocationCurve locCurve && locCurve.Curve != null)
+                {
+                    // For linear elements (conduit, model line, etc.) expose the curve length in feet.
+                    data.Parameters["_Length"] = locCurve.Curve.Length.ToString(
+                        System.Globalization.CultureInfo.InvariantCulture);
+                }
 
                 foreach (string paramName in parameterNames)
                 {

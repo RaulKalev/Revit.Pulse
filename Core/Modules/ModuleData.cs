@@ -43,7 +43,14 @@ namespace Pulse.Core.Modules
         /// <summary>All Revit levels in the project, ordered by elevation ascending.</summary>
         public List<LevelInfo> Levels { get; } = new List<LevelInfo>();
 
-        /// <summary>
+        /// <summary>        /// <summary>
+        /// Routed cable lengths keyed by host Output Module element ID.
+        /// Populated by <see cref="FireAlarmCollector"/> when a cable-route category is configured.
+        /// Maps <c>hostElementId → totalLengthMetres</c>.  Each SubCircuit's host element ID is the
+        /// key; the value is the sum of all routed line segments tagged with that element ID.
+        /// Empty if no route category is configured or no tagged elements exist.
+        /// </summary>
+        public Dictionary<int, double> CableRouteLengths { get; } = new Dictionary<int, double>();
         /// All rule validation results. Populated after running IRulePack.
         /// </summary>
         public List<RuleResult> RuleResults { get; } = new List<RuleResult>();

@@ -408,7 +408,14 @@ namespace Pulse.Modules.FireAlarm
                 scNode.Properties["HostElementId"] = sc.HostElementId.ToString();
                 if (!string.IsNullOrEmpty(sc.WireTypeKey))
                     scNode.Properties["WireType"] = sc.WireTypeKey;
-                if (hasCableRoute)
+                // Prefer summed route lengths from tagged 3D lines when available.
+                if (data.CableRouteLengths.TryGetValue(sc.HostElementId, out double routeMetres)
+                    && routeMetres > 0)
+                {
+                    scNode.Properties["CableLength"] = routeMetres.ToString(
+                        "F1", System.Globalization.CultureInfo.InvariantCulture);
+                }
+                else if (hasCableRoute)
                     scNode.Properties["CableLength"] = (cableLengthFeet * 0.3048).ToString(
                         "F1", System.Globalization.CultureInfo.InvariantCulture);
                 if (hasMaData)
