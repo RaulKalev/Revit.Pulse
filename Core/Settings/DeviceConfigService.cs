@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
 
@@ -55,6 +56,41 @@ namespace Pulse.Core.Settings
             var json = JsonConvert.SerializeObject(store, Formatting.Indented);
             File.WriteAllText(StorePath, json);
             ConfigSaved?.Invoke();
+        }
+
+        /// <summary>
+        /// Load the module-specific hardware config for <paramref name="moduleId"/> from the store.
+        /// Returns a default-constructed <typeparamref name="T"/> if no blob exists yet.
+        /// </summary>
+        public static T LoadModuleConfig<T>(string moduleId) where T : IModuleDeviceConfig, new()
+        {
+            if (string.IsNullOrEmpty(moduleId)) throw new ArgumentNullException(nameof(moduleId));
+            var store = Load();
+            if (store.ModuleConfigBlobs != null &&
+                store.ModuleConfigBlobs.TryGetValue(moduleId, out var json) &&
+                !string.IsNullOrEmpty(json))
+            {
+                var result = JsonConvert.DeserializeObject<T>(json);
+                return result != null ? result : new T();
+            }
+            return new T();
+        }
+
+        /// <summary>
+        /// Persist the module-specific hardware config for <paramref name="moduleId"/> to disk.
+        /// Only the module's blob is updated; all other store data is preserved.
+        /// </summary>
+        public static void SaveModuleConfig(string moduleId, IModuleDeviceConfig config)
+        {
+            if (string.IsNullOrEmpty(moduleId)) throw new ArgumentNullException(nameof(moduleId));
+            if (config == null) throw new ArgumentNullException(nameof(config));
+
+            var store = Load();
+            if (store.ModuleConfigBlobs == null)
+                store.ModuleConfigBlobs = new Dictionary<string, string>();
+
+            store.ModuleConfigBlobs[moduleId] = JsonConvert.SerializeObject(config, Formatting.Indented);
+            Save(store);
         }
     }
 }

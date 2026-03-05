@@ -40,4 +40,20 @@ namespace Pulse.Core.Modules
         // Future methods:
         // IReadOnlyDictionary<string, string> GetDefaultSymbolMappings();
     }
+
+    /// <summary>
+    /// Optional service interface for modules that provide a hardware device configuration.
+    /// A module implementing this interface supplies panel/circuit/wire hardware specs
+    /// that are stored as a typed config blob in
+    /// <see cref="Pulse.Core.Settings.DeviceConfigStore.ModuleConfigBlobs"/> and
+    /// loaded/saved via <see cref="Pulse.Core.Settings.DeviceConfigService"/>.
+    /// </summary>
+    public interface IProvidesDeviceConfig
+    {
+        /// <summary>
+        /// Returns the default hardware device configuration for this module.
+        /// Used as the seed value when no saved config exists for the module.
+        /// </summary>
+        IModuleDeviceConfig GetDefaultDeviceConfig();
+    }
 }

@@ -12,7 +12,8 @@ namespace Pulse.Modules.FireAlarm
     public class FireAlarmModuleDefinition : IModuleDefinition,
         IProvidesDiagramFeatures,
         IProvidesWiringFeatures,
-        IProvidesSymbolMapping
+        IProvidesSymbolMapping,
+        IProvidesDeviceConfig
     {
         public string ModuleId => "FireAlarm";
         public string DisplayName => "Fire Alarm";
@@ -64,5 +65,8 @@ namespace Pulse.Modules.FireAlarm
 
         // ── IProvidesWiringFeatures ──────────────────────────────────────────
         public string WireParameterKey => FireAlarmParameterKeys.Wire;
+
+        // ── IProvidesDeviceConfig ────────────────────────────────────────────
+        public IModuleDeviceConfig GetDefaultDeviceConfig() => new FireAlarmDeviceConfig();
     }
 }

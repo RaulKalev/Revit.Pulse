@@ -6,6 +6,18 @@ using Pulse.Core.Settings;
 namespace Pulse.Core.Settings
 {
     /// <summary>
+    /// Marker interface for a module's hardware device configuration.
+    /// Each module that provides configurable hardware types (panels, circuits, wires, etc.)
+    /// implements this interface and registers via <see cref="Pulse.Core.Modules.IProvidesDeviceConfig"/>.
+    /// The config is persisted in <see cref="DeviceConfigStore.ModuleConfigBlobs"/> under the module ID.
+    /// </summary>
+    public interface IModuleDeviceConfig
+    {
+        /// <summary>The module ID this config belongs to (e.g. "FireAlarm").</summary>
+        string ModuleId { get; }
+    }
+
+    /// <summary>
     /// Configuration record for a Fire Alarm Control Panel (FACP).
     /// </summary>
     public class ControlPanelConfig
@@ -193,5 +205,14 @@ namespace Pulse.Core.Settings
         /// <summary>User-defined paper sizes available in the diagram canvas paper-size selector.</summary>
         [JsonProperty("paperSizes")]
         public List<PaperSizeConfig> PaperSizes { get; set; } = new List<PaperSizeConfig>();
+
+        /// <summary>
+        /// Opaque per-module hardware config blobs, keyed by module ID.
+        /// Each module serialises its own typed config (e.g. <c>FireAlarmDeviceConfig</c>)
+        /// into this dictionary so the shared store remains module-agnostic.
+        /// New modules write here instead of adding top-level fields.
+        /// </summary>
+        [JsonProperty("moduleConfigBlobs")]
+        public Dictionary<string, string> ModuleConfigBlobs { get; set; } = new Dictionary<string, string>();
     }
 }
