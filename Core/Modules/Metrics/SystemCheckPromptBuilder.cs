@@ -69,6 +69,22 @@ namespace Pulse.Modules.FireAlarm.Metrics
 
                         sb.AppendLine($"  Addresses: {addrUsed} / {addrMax} ({(addrMax > 0 ? Math.Round((double)addrUsed / addrMax * 100) : 0)}%)");
                         sb.AppendLine($"  mA load:   {Math.Round(maUsed)} / {Math.Round(maMax)} mA ({(maMax > 0 ? Math.Round(maUsed / maMax * 100) : 0)}%)");
+
+                        // Battery / PSU
+                        var batMetrics = SystemMetricsCalculator.ComputePanelBatteryMetrics(panel, fa, cfg);
+                        if (batMetrics != null)
+                        {
+                            sb.AppendLine($"  Battery ({batMetrics.StandardSummary}):");
+                            sb.AppendLine($"    Standby load:    {batMetrics.StandbyCurrentSummary}");
+                            sb.AppendLine($"    Alarm load:      {batMetrics.AlarmCurrentSummary}");
+                            sb.AppendLine($"    Batteries needed: {batMetrics.CapacitySummary}");
+                            if (cfg.PsuOutputCurrentA > 0)
+                                sb.AppendLine($"    PSU output:      {batMetrics.PsuSummary} — {batMetrics.PsuStatus}");
+                        }
+                        else if (cfg.BatteryUnitAh <= 0)
+                        {
+                            sb.AppendLine($"  Battery: unit size not configured in \"{panelConfigName}\"");
+                        }
                     }
                 }
 
@@ -101,6 +117,15 @@ namespace Pulse.Modules.FireAlarm.Metrics
                     sb.AppendLine($"  - [{issue.Status.ToString().ToUpperInvariant()}] {issue.Description}: {issue.Count} occurrence(s)");
                 }
             }
+
+            // Battery / PSU health issues
+            var batteryIssues = SystemMetricsCalculator.ComputeBatteryHealthIssues(data, assignments, deviceStore);
+            foreach (var issue in batteryIssues.Where(i => i.Status != Core.Modules.Metrics.HealthStatus.Ok))
+            {
+                hasIssues = true;
+                sb.AppendLine($"  - [{issue.Status.ToString().ToUpperInvariant()}] {issue.Description}");
+            }
+
             if (!hasIssues) sb.AppendLine("  - No issues detected.");
 
             sb.AppendLine();
@@ -110,6 +135,8 @@ namespace Pulse.Modules.FireAlarm.Metrics
             sb.AppendLine("3. Loop balance / device distribution");
             sb.AppendLine("4. Cable length concerns");
             sb.AppendLine("5. Any optimisation recommendations");
+            sb.AppendLine("6. Battery standby / alarm duration compliance (EN 54-4 / NFPA 72)");
+            sb.AppendLine("7. PSU output current sufficiency under full alarm load");
 
             return sb.ToString();
         }

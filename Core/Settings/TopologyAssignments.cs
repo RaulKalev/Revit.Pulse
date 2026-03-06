@@ -53,6 +53,10 @@ namespace Pulse.Core.Settings
         public Dictionary<string, bool> LoopWireRoutingVisible { get; set; }
             = new Dictionary<string, bool>(System.StringComparer.OrdinalIgnoreCase);
 
+        /// <summary>SubCircuit GUID string → assigned PsuConfig name (NAC PSU battery check).</summary>
+        public Dictionary<string, string> SubCircuitPsuAssignments { get; set; }
+            = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
+
         // ── Generic per-module blob store ────────────────────────────────────────────
 
         /// <summary>

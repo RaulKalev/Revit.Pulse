@@ -96,6 +96,12 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         public event Action<TopologyNodeViewModel> WireAssigned;
 
+        /// <summary>
+        /// Fired when the user picks a PSU in a SubCircuit PSU combobox.
+        /// MainViewModel saves assignments and rebuilds metrics.
+        /// </summary>
+        public event Action<TopologyNodeViewModel> PsuAssigned;
+
         /// <summary>Fired whenever the user edits the V-Drop limit % on a SubCircuit node.
         /// MainViewModel subscribes and calls Metrics.RebuildMetrics() via BeginInvoke.</summary>
         public event Action<TopologyNodeViewModel> VDropPctChanged;
@@ -230,6 +236,8 @@ namespace Pulse.UI.ViewModels
             var panelOptions = _deviceStore.ControlPanels.Select(p => p.Name).ToList();
             var loopOptions  = _deviceStore.LoopModules.Select(m => m.Name).ToList();
             var wireOptions  = _deviceStore.Wires.Select(w => w.Name).ToList();
+            var faDevCfg     = DeviceConfigService.LoadModuleConfig<FireAlarmDeviceConfig>(_deviceStore, "FireAlarm");
+            var psuOptions   = faDevCfg?.PsuUnits.Select(p => p.Name).ToList() ?? new List<string>();
 
             Action<TopologyNodeViewModel> onAssignConfig = vm =>
             {
@@ -271,6 +279,41 @@ namespace Pulse.UI.ViewModels
                 AssignmentsSaveRequested?.Invoke();
 
                 WireAssigned?.Invoke(vm);
+            };
+
+            Action<TopologyNodeViewModel> onAssignPsu = vm =>
+            {
+                if (vm.NodeType == "SubCircuit")
+                {
+                    // Direct SubCircuit assignment (not currently used but retained for safety)
+                    string scId = vm.GraphNode.Id.StartsWith("subcircuit::")
+                        ? vm.GraphNode.Id.Substring("subcircuit::".Length)
+                        : vm.GraphNode.Id;
+                    if (string.IsNullOrEmpty(vm.AssignedPsu))
+                        _assignmentsStore.SubCircuitPsuAssignments.Remove(scId);
+                    else
+                        _assignmentsStore.SubCircuitPsuAssignments[scId] = vm.AssignedPsu;
+                }
+                else if (vm.NodeType == "Device" && vm.GraphNode.RevitElementId.HasValue)
+                {
+                    // Host device: propagate PSU assignment to all hosted SubCircuits.
+                    // NOTE: SubCircuits are NOT in vm.Children — they're siblings in the graph.
+                    // Use the host-element index on the service to find hosted SubCircuits.
+                    var hosted = SubCircuitService?.GetSubCircuitsByHost((int)vm.GraphNode.RevitElementId.Value);
+                    if (hosted != null)
+                    {
+                        foreach (var sc in hosted)
+                        {
+                            if (string.IsNullOrEmpty(vm.AssignedPsu))
+                                _assignmentsStore.SubCircuitPsuAssignments.Remove(sc.Id);
+                            else
+                                _assignmentsStore.SubCircuitPsuAssignments[sc.Id] = vm.AssignedPsu;
+                        }
+                    }
+                }
+                AssignmentsSaveRequested?.Invoke();
+
+                PsuAssigned?.Invoke(vm);
             };
 
             Action<TopologyNodeViewModel> onVDropPctChanged = vm =>
@@ -346,7 +389,9 @@ namespace Pulse.UI.ViewModels
                                           onDeleteSubCircuit: onDeleteSubCircuit,
                                           onPickMultipleForSubCircuit: onPickMultipleForSubCircuit,
                                           onRemoveFromSubCircuit: onRemoveFromSubCircuit,
-                                          onVDropPctChanged: onVDropPctChanged);
+                                          onVDropPctChanged: onVDropPctChanged,
+                                          onAssignPsu: onAssignPsu,
+                                          psuOptions: psuOptions);
                     RootNodes.Add(vm);
                 }
             }
@@ -377,13 +422,17 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = null,
             Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null,
             Action<TopologyNodeViewModel> onVDropPctChanged = null,
-            bool isSubDevice = false)
+            bool isSubDevice = false,
+            Action<TopologyNodeViewModel> onAssignPsu = null,
+            IReadOnlyList<string> psuOptions = null)
         {
             // Determine available config options and current assignment for this node type
             IReadOnlyList<string> availableConfigs = null;
             string initialAssignment = null;
             IReadOnlyList<string> availableWires = null;
             string initialWire = null;
+            IReadOnlyList<string> availablePsus = null;
+            string initialPsu = null;
             double initialVDropPct = 16.7;
 
             if (node.NodeType == "Panel")
@@ -415,6 +464,19 @@ namespace Pulse.UI.ViewModels
                     initialVDropPct = scDef.VDropLimitPct;
                 }
             }
+            else if (isSubDevice && node.NodeType == "Device" && node.RevitElementId.HasValue)
+            {
+                // NOTE: In the topology graph, SubCircuit edges run from the *parent* device
+                // to the SubCircuit node (not from the sub-device), so children[node.Id]
+                // won't contain SubCircuits. Use the host-element index on the service instead.
+                var hosted = SubCircuitService?.GetSubCircuitsByHost((int)node.RevitElementId.Value);
+                if (hosted != null && hosted.Count > 0)
+                {
+                    availablePsus = psuOptions;
+                    // Seed the combobox from the first hosted SubCircuit's PSU assignment
+                    _assignmentsStore.SubCircuitPsuAssignments.TryGetValue(hosted[0].Id, out initialPsu);
+                }
+            }
 
             // Seed wire routing visibility from stored state (Loop and SubCircuit nodes)
             bool initialWireRoutingVisible = false;
@@ -439,7 +501,10 @@ namespace Pulse.UI.ViewModels
                 onPickMultipleForSubCircuit: node.NodeType == "SubCircuit" ? onPickMultipleForSubCircuit : null,
                 onRemoveFromSubCircuit:   node.NodeType == "SubCircuitMember" ? onRemoveFromSubCircuit : null,
                 onVDropPctChanged:        node.NodeType == "SubCircuit" ? onVDropPctChanged : null,
-                initialVDropPct:          initialVDropPct);
+                initialVDropPct:          initialVDropPct,
+                onAssignPsu:              availablePsus != null ? onAssignPsu : null,
+                availablePsus:            availablePsus,
+                initialPsu:               initialPsu);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -506,7 +571,9 @@ namespace Pulse.UI.ViewModels
                                                onPickMultipleForSubCircuit: onPickMultipleForSubCircuit,
                                                onRemoveFromSubCircuit: onRemoveFromSubCircuit,
                                                onVDropPctChanged: onVDropPctChanged,
-                                               isSubDevice: node.NodeType == "Device");
+                                               isSubDevice: node.NodeType == "Device",
+                                               onAssignPsu: onAssignPsu,
+                                               psuOptions: psuOptions);
                     vm.Children.Add(childVm);
                 }
             }
@@ -608,6 +675,11 @@ namespace Pulse.UI.ViewModels
         /// </summary>
         private static int GetNumericSortKey(Node node)
         {
+            // SubCircuits always sort after all Device children so they appear below
+            // their host device (or host sub-device) in the rendered list.
+            if (node.NodeType == "SubCircuit")
+                return int.MaxValue;
+
             if (node.NodeType == "Device")
             {
                 if (node.Properties.TryGetValue("Address", out string addr) && !string.IsNullOrWhiteSpace(addr))
@@ -714,6 +786,9 @@ namespace Pulse.UI.ViewModels
         /// <summary>Wire type names available (Loop nodes only).</summary>
         public ObservableCollection<string> AvailableWires { get; } = new ObservableCollection<string>();
 
+        /// <summary>PSU names available for assignment (SubCircuit nodes only).</summary>
+        public ObservableCollection<string> AvailablePsus { get; } = new ObservableCollection<string>();
+
         /// <summary>RevitElementIds of all leaf Device descendants — used for Revit parameter writes.</summary>
         public List<long> DescendantDeviceElementIds { get; } = new List<long>();
 
@@ -722,6 +797,7 @@ namespace Pulse.UI.ViewModels
 
         private readonly Action<TopologyNodeViewModel> _onAssignConfig;
         private readonly Action<TopologyNodeViewModel> _onAssignWire;
+        private readonly Action<TopologyNodeViewModel> _onAssignPsu;
         private readonly Action<TopologyNodeViewModel> _onPickElementForDevice;
         private readonly Action<TopologyNodeViewModel> _onToggleWireRouting;
         private readonly Action<TopologyNodeViewModel> _onVDropPctChanged;
@@ -770,6 +846,18 @@ namespace Pulse.UI.ViewModels
             {
                 if (SetField(ref _assignedWire, value))
                     _onAssignWire?.Invoke(this);
+            }
+        }
+
+        private string _assignedPsu;
+        /// <summary>The currently assigned PSU name (SubCircuit nodes only). Setting this triggers save + metrics rebuild.</summary>
+        public string AssignedPsu
+        {
+            get => _assignedPsu;
+            set
+            {
+                if (SetField(ref _assignedPsu, value))
+                    _onAssignPsu?.Invoke(this);
             }
         }
 
@@ -919,13 +1007,17 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onRemoveFromSubCircuit = null,
             bool isSubDevice = false,
             Action<TopologyNodeViewModel> onVDropPctChanged = null,
-            double initialVDropPct = 16.7)
+            double initialVDropPct = 16.7,
+            Action<TopologyNodeViewModel> onAssignPsu = null,
+            IReadOnlyList<string> availablePsus = null,
+            string initialPsu = null)
         {
             GraphNode   = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             IsSubDevice = isSubDevice;
             SelectCommand = new RelayCommand(_ => onSelect?.Invoke(this));
             _onAssignConfig         = onAssignConfig;
             _onAssignWire           = onAssignWire;
+            _onAssignPsu            = onAssignPsu;
             _onSubDeviceAssign      = onSubDeviceAssign;
             _onPickElementForDevice = onPickElementForDevice;
             _onToggleWireRouting    = onToggleWireRouting;
@@ -972,9 +1064,18 @@ namespace Pulse.UI.ViewModels
                     AvailableWires.Add(w);
             }
 
+            // Populate PSU combobox options: blank entry first (SubCircuit nodes only)
+            if (availablePsus != null && availablePsus.Count > 0)
+            {
+                AvailablePsus.Add(string.Empty);
+                foreach (var p in availablePsus)
+                    AvailablePsus.Add(p);
+            }
+
             // Seed assignments without firing callbacks
             _assignedConfig   = initialAssignment ?? string.Empty;
             _assignedWire     = initialWire ?? string.Empty;
+            _assignedPsu      = initialPsu ?? string.Empty;
             _vDropLimitPct    = initialVDropPct;
             _isWireRoutingVisible = initialWireRoutingVisible;
 

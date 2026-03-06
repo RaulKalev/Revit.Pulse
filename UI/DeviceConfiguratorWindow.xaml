@@ -171,7 +171,7 @@
                 <!-- ── Body ─────────────────────────────────────────────── -->
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="215" MinWidth="160" />  <!-- Sidebar: list -->
+                        <ColumnDefinition Width="250" MinWidth="185" />  <!-- Sidebar: list -->
                         <ColumnDefinition Width="1" />                   <!-- Divider -->
                         <ColumnDefinition Width="*" />                   <!-- Form -->
                     </Grid.ColumnDefinitions>
@@ -254,6 +254,23 @@
                                     </Style>
                                 </Button.Style>
                                 <TextBlock Text="Paper" FontSize="11" FontWeight="SemiBold" />
+                            </Button>
+
+                            <!-- PSU Units tab -->
+                            <Button Command="{Binding SelectPsuUnitsTabCommand}" Padding="10,8">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource TabButtonStyle}">
+                                        <Setter Property="Padding" Value="10,8"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsPsuUnitsTabActive}" Value="True">
+                                                <Setter Property="Foreground"  Value="{DynamicResource ForegroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="#FF0078D7" />
+                                                <Setter Property="BorderThickness" Value="0,0,0,2" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <TextBlock Text="PSU" FontSize="11" FontWeight="SemiBold" />
                             </Button>
                         </StackPanel>
 
@@ -380,6 +397,36 @@
                             </ListBox.ItemTemplate>
                         </ListBox>
 
+                        <!-- Item list — PSU Units -->
+                        <ListBox Grid.Row="2"
+                                 ItemsSource="{Binding PsuUnits}"
+                                 SelectedItem="{Binding SelectedPsuUnit, Mode=TwoWay}"
+                                 ItemContainerStyle="{StaticResource DarkListBoxItemStyle}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 Padding="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 Visibility="{Binding IsPsuUnitsTabActive, Converter={StaticResource BoolToVis}}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Name}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource ForegroundBrush}" />
+                                        <TextBlock FontSize="10"
+                                                   Foreground="{DynamicResource IconForegroundBrush}"
+                                                   Opacity="0.7"
+                                                   Margin="0,1,0,0">
+                                            <Run Text="{Binding BatteryUnitAh, Mode=OneWay}" />
+                                            <Run Text=" Ah · " />
+                                            <Run Text="{Binding PsuOutputCurrentA, Mode=OneWay}" />
+                                            <Run Text=" A" />
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
                         <!-- Add / Remove buttons -->
                         <Border Grid.Row="3"
                                 BorderBrush="{DynamicResource BorderBrush}"
@@ -467,6 +514,27 @@
                                         Command="{Binding RemovePaperSizeCommand}"
                                         ToolTip="Remove selected paper size"
                                         Visibility="{Binding IsPaperSizesTabActive, Converter={StaticResource BoolToVis}}">
+                                    <materialDesign:PackIcon Kind="Delete" Width="13" Height="13" VerticalAlignment="Center"/>
+                                </Button>
+
+                                <!-- Add PSU Unit -->
+                                <Button Style="{StaticResource PulseActionButtonStyle}"
+                                        Command="{Binding AddPsuUnitCommand}"
+                                        ToolTip="Add new PSU / ancillary power unit"
+                                        Visibility="{Binding IsPsuUnitsTabActive, Converter={StaticResource BoolToVis}}"
+                                        Margin="0,0,4,0">
+                                    <StackPanel Orientation="Horizontal">
+                                        <materialDesign:PackIcon Kind="Plus" Width="13" Height="13"
+                                                                 VerticalAlignment="Center" Margin="0,0,4,0"/>
+                                        <TextBlock Text="Add PSU" FontSize="11" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Remove PSU Unit -->
+                                <Button Style="{StaticResource NegativeActionButtonStyle}"
+                                        Command="{Binding RemovePsuUnitCommand}"
+                                        ToolTip="Remove selected PSU"
+                                        Visibility="{Binding IsPsuUnitsTabActive, Converter={StaticResource BoolToVis}}">
                                     <materialDesign:PackIcon Kind="Delete" Width="13" Height="13" VerticalAlignment="Center"/>
                                 </Button>
                             </StackPanel>
@@ -609,6 +677,77 @@
                                            TextWrapping="Wrap"
                                            Margin="0,0,0,5"/>
                                 <TextBox Text="{Binding SelectedPanel.MaxAddresses, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Battery section heading -->
+                                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,4,0,14"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <materialDesign:PackIcon Kind="Battery" Width="14" Height="14"
+                                                             Foreground="#FF0078D7" VerticalAlignment="Center"
+                                                             Margin="0,0,6,0"/>
+                                    <TextBlock Text="BATTERY / PSU" Style="{StaticResource FieldLabelStyle}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <!-- Battery unit size -->
+                                <TextBlock Text="BATTERY UNIT SIZE (Ah)" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Capacity of one individual battery unit (e.g. 7.2 Ah). Set to 0 if not configured."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPanel.BatteryUnitAh, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- PSU output current -->
+                                <TextBlock Text="PSU OUTPUT CURRENT (A)" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Panel PSU maximum output current in amps (used to check alarm-mode overload)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPanel.PsuOutputCurrentA, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Standby / Alarm duration (side by side) -->
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="STANDBY HOURS" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="Required standby duration (EN 54-4: 24 h)."
+                                                   FontSize="10" Foreground="{DynamicResource IconForegroundBrush}"
+                                                   TextWrapping="Wrap" Margin="0,0,0,5"/>
+                                        <TextBox Text="{Binding SelectedPanel.RequiredStandbyHours, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="ALARM MINUTES" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="Required alarm duration (EN 54-4: 30 min)."
+                                                   FontSize="10" Foreground="{DynamicResource IconForegroundBrush}"
+                                                   TextWrapping="Wrap" Margin="0,0,0,5"/>
+                                        <TextBox Text="{Binding SelectedPanel.RequiredAlarmMinutes, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Safety factor -->
+                                <TextBlock Text="SAFETY FACTOR" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Multiplier applied to the required capacity (e.g. 1.25 adds a 25 % margin per EN 54-4)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPanel.BatterySafetyFactor, UpdateSourceTrigger=PropertyChanged}"
                                          Style="{StaticResource DarkTextBoxStyle}"
                                          Margin="0,0,0,8"/>
 
@@ -1062,6 +1201,156 @@
                                                  Style="{StaticResource DarkTextBoxStyle}"/>
                                     </StackPanel>
                                 </Grid>
+
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- ══════════════════════════════════ -->
+                        <!--  PSU UNITS FORM                    -->
+                        <!-- ══════════════════════════════════ -->
+                        <StackPanel Visibility="{Binding IsPsuUnitsTabActive, Converter={StaticResource BoolToVis}}">
+
+                            <!-- Empty state -->
+                            <StackPanel HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Margin="0,60,0,0">
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedPsuUnit}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+                                <materialDesign:PackIcon Kind="Battery" Width="40" Height="40"
+                                                         HorizontalAlignment="Center"
+                                                         Foreground="{DynamicResource IconForegroundBrush}"
+                                                         Opacity="0.35"/>
+                                <TextBlock Text="No PSU selected"
+                                           FontSize="13"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.6"
+                                           Margin="0,10,0,4"/>
+                                <TextBlock Text="Add a PSU unit or select one from the list"
+                                           FontSize="10"
+                                           HorizontalAlignment="Center"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           Opacity="0.4"/>
+                            </StackPanel>
+
+                            <!-- Edit form -->
+                            <StackPanel>
+                                <StackPanel.Style>
+                                    <Style TargetType="StackPanel">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding SelectedPsuUnit}" Value="{x:Null}">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </StackPanel.Style>
+
+                                <!-- Section heading -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                    <materialDesign:PackIcon Kind="Battery" Width="18" Height="18"
+                                                             Foreground="#FF0078D7" VerticalAlignment="Center"
+                                                             Margin="0,0,8,0"/>
+                                    <TextBlock Text="PSU / Power Unit Configuration"
+                                               FontSize="14" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource ForegroundBrush}"
+                                               VerticalAlignment="Center"/>
+                                </StackPanel>
+
+                                <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="0,0,0,16"/>
+
+                                <!-- Name -->
+                                <TextBlock Text="PSU NAME" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Descriptive name used when assigning this PSU to NAC sub-circuits (e.g. &quot;Floor 1 NAC PSU&quot;)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPsuUnit.Name, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Voltage -->
+                                <TextBlock Text="VOLTAGE (V)" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Nominal output voltage of this PSU (e.g. 24 V for EN 54-4)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPsuUnit.VoltageV, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Battery unit size -->
+                                <TextBlock Text="BATTERY UNIT SIZE (Ah)" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Capacity of one individual battery unit (e.g. 7.2 Ah). Set to 0 if no battery."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPsuUnit.BatteryUnitAh, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- PSU output current -->
+                                <TextBlock Text="PSU OUTPUT CURRENT (A)" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Maximum output current the PSU can supply in alarm mode."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPsuUnit.PsuOutputCurrentA, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,14"/>
+
+                                <!-- Standby / Alarm duration (side by side) -->
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="10"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="STANDBY HOURS" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="Required standby duration (EN 54-4: 24 h)."
+                                                   FontSize="10" Foreground="{DynamicResource IconForegroundBrush}"
+                                                   TextWrapping="Wrap" Margin="0,0,0,5"/>
+                                        <TextBox Text="{Binding SelectedPsuUnit.RequiredStandbyHours, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Text="ALARM MINUTES" Style="{StaticResource FieldLabelStyle}" Margin="0,0,0,3"/>
+                                        <TextBlock Text="Required alarm duration (EN 54-4: 30 min)."
+                                                   FontSize="10" Foreground="{DynamicResource IconForegroundBrush}"
+                                                   TextWrapping="Wrap" Margin="0,0,0,5"/>
+                                        <TextBox Text="{Binding SelectedPsuUnit.RequiredAlarmMinutes, UpdateSourceTrigger=PropertyChanged}"
+                                                 Style="{StaticResource DarkTextBoxStyle}"/>
+                                    </StackPanel>
+                                </Grid>
+
+                                <!-- Safety factor -->
+                                <TextBlock Text="SAFETY FACTOR" Style="{StaticResource FieldLabelStyle}"
+                                           Margin="0,0,0,3"/>
+                                <TextBlock Text="Multiplier applied to the required capacity (e.g. 1.25 adds a 25 % margin per EN 54-4)."
+                                           FontSize="10"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,0,5"/>
+                                <TextBox Text="{Binding SelectedPsuUnit.BatterySafetyFactor, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource DarkTextBoxStyle}"
+                                         Margin="0,0,0,8"/>
 
                             </StackPanel>
                         </StackPanel>

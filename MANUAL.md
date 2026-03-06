@@ -48,6 +48,7 @@ Use this if you just want to get productive fast.
 | **Wire type** | A named cable entry (e.g. FP200 2×1.5 mm²) stored in the Device Configurator. Used for diagram labelling and voltage-drop calculations. |
 | **SubCircuit (NAC)** | Notification Appliance Circuit — a one-way output circuit driven by a PSU or output module that powers sounders, strobes, and horns. Modelled separately from the addressable loop. |
 | **PSU** | Power Supply Unit — a device in the tree that can host one or more NAC SubCircuit outputs. |
+| **PSU Config** | A named hardware specification for a NAC PSU stored in the Device Configurator (§4.5). Assigning a PSU Config to SubCircuits enables the Battery/PSU section on the host element, including EN 54-4 battery sizing and load checks. |
 | **V-drop** | Voltage drop across a cable run. Pulse calculates this for SubCircuits to confirm the end-of-line voltage stays above the device minimum. |
 | **EOL resistor** | End-of-Line resistor — placed at the far end of a NAC circuit to allow the panel to supervise the wiring. Its value affects V-drop calculations. |
 | **Topology Tree** | The left-hand panel in Pulse showing the Panel → Loop → Device hierarchy of all collected fire alarm elements. |
@@ -74,6 +75,7 @@ Use this if you just want to get productive fast.
    - 4.2 [Loop Modules](#42-loop-modules)
    - 4.3 [Wire Types](#43-wire-types)
    - 4.4 [Paper Sizes](#44-paper-sizes)
+   - 4.5 [PSU Configs](#45-psu-configs)
 5. [Main Window Layout](#5-main-window-layout)
 6. [Topology Tree](#6-topology-tree)
    - 6.1 [Hierarchy](#61-hierarchy)
@@ -99,6 +101,7 @@ Use this if you just want to get productive fast.
     - 12.1 [Normal Load & Alarm Load](#121-normal-load--alarm-load)
     - 12.2 [V-Drop Calculation](#122-v-drop-calculation)
     - 12.3 [Remaining Voltage](#123-remaining-voltage)
+    - 12.4 [PSU Host Element — Battery / PSU Section](#124-psu-host-element--battery--psu-section)
 13. [3D Wire Routing Visualisation](#13-3d-wire-routing-visualisation)
 14. [Custom Symbol Mapping](#14-custom-symbol-mapping)
 15. [Custom Symbol Designer](#15-custom-symbol-designer)
@@ -262,7 +265,25 @@ Define named paper sizes used for diagram printing and export.
 | **Name** | e.g. `"A1"`, `"A3 Landscape"` |
 | **Width / Height (mm)** | Paper dimensions in millimetres |
 | **Margins (mm)** | Left, top, right, bottom margins from the paper edge to the drawing area |
+---
 
+### 4.5 PSU Configs
+
+Each entry represents a **NAC Power Supply Unit** (or output module) model. PSU configs power the Battery/PSU section of the dashboard when assigned to SubCircuits on a host element.
+
+| Field | Description |
+|-------|-------------|
+| **Name** | Identifier shown in the PSU assignment dropdown on SubCircuit cards (e.g. `"Hochiki HPS-4"`) |
+| **Voltage (V)** | Nominal output voltage of the PSU, typically `24` V for an EN 54-4 system. Pulse uses this to calculate per-battery-unit voltage (`V / 2`) and V-drop gauges. |
+| **Output Current (A)** | Maximum rated output current in Amperes. Used as the gauge ceiling for the alarm load gauge and for PSU overload health checks. |
+| **Battery Unit (Ah)** | Capacity of one individual battery unit. Set to `0` to skip battery sizing for this PSU. |
+| **Required Standby (h)** | Standby duration the battery must support (EN 54-4 default: 24 h). |
+| **Required Alarm (min)** | Alarm duration the battery must support (EN 54-4 default: 30 min). |
+| **Safety Factor** | Multiplier applied to the raw calculated capacity (EN 54-4 default: 1.25). |
+
+Add, edit, or delete PSU configs with the **+**, pencil, and trash buttons. **Save** commits to `device-config.json`.
+
+> **Assigning a PSU config to SubCircuits:** on the SubCircuit card in the Topology Tree, use the **PSU** dropdown to select the appropriate config. All SubCircuits hosted by the same output module should share one PSU config; they are all used together when calculating combined battery requirements.
 ---
 
 ## 5. Main Window Layout
@@ -433,6 +454,8 @@ The System Intelligence Dashboard is the right-side lower panel, providing a liv
 ### 9.1 Capacity Section
 
 Only visible when a panel or loop with an **assigned configuration** is selected.
+
+When a **PSU host element** (an output module that owns NAC SubCircuits) is selected, the section switches to **CIRCUIT METRICS** mode instead, showing combined Normal Load and Alarm Load gauges across all hosted SubCircuits. See [Section 12.4](#124-psu-host-element--battery--psu-section) for the Battery/PSU section that also appears.
 
 | Gauge | What it shows |
 |-------|-------------|
@@ -631,6 +654,69 @@ $$V_{\text{remaining}} = V_{\text{nom}} - V_{\text{drop}}$$
 The gauge maximum equals the nominal supply voltage. Pulse warns you when this value falls below the device minimum voltage (default 16 V — the typical EN 54-4 / UL 864 NAC appliance minimum).
 
 > **`NominalVoltage` must be mapped** — this value is read from the PSU element via the `NominalVoltage` parameter mapping set in Settings. If your PSU element does not have this parameter, voltage gauges will not appear.
+
+---
+
+### 12.4 PSU Host Element — Battery / PSU Section
+
+When you select the **PSU or output-module element** (the host device that owns one or more SubCircuit outputs) and it has a **PSU Config** assigned, the System Intelligence Dashboard shows a **BATTERY / PSU** section.
+
+#### Header and load gauges
+
+The header reads `"NAC Host · N circuits · M devices"`. Two gauges show the combined load aggregated across all hosted SubCircuits:
+
+| Gauge | What it shows |
+|-------|---------------|
+| **Normal Load** | Total standby current of all devices on all hosted SubCircuits |
+| **Alarm Load** | Total alarm current of all devices on all hosted SubCircuits |
+
+The gauge ceiling (`ScMaMax`) is resolved in this priority order:
+1. `OutputCurrentMaxMa` Revit parameter on the host element (if mapped and non-zero).
+2. `OutputCurrentA × 1000` from the assigned PSU Config.
+3. `max(Normal, Alarm) × 1.25` (80 % heuristic fallback).
+
+#### Battery / PSU rows
+
+| Row | Example | Notes |
+|-----|---------|-------|
+| **Capacity** | `2× 12V/12.0Ah = 24.0 Ah  (req. 15.47 Ah)` | Recommended battery count, per-unit voltage and capacity, total installed Ah, required Ah (from formula) |
+| **Standby load** | `510 mA standby` | Combined standby current |
+| **Alarm load** | `270 mA alarm` | Combined alarm current |
+| **PSU output** | `270 / 2000 mA (14 %)` | Alarm current vs. rated PSU output current |
+| **Formula** | Four-line equation trace (see below) | Shown as a small note at the bottom |
+
+#### EN 54-4 battery sizing formula
+
+The required battery capacity is calculated as:
+
+$$C_{\text{req}} = \left( \frac{I_s}{1000} \times t_s + \frac{I_a}{1000} \times \frac{t_a}{60} \right) \times f$$
+
+where:
+- $I_s$ = total standby (normal) current in mA
+- $t_s$ = required standby duration in hours (from PSU Config, default 24 h)
+- $I_a$ = total alarm current in mA
+- $t_a$ = required alarm duration in minutes (from PSU Config, default 30 min)
+- $f$ = safety factor (from PSU Config, default 1.25 per EN 54-4)
+
+The dashboard renders the full four-step equation trace:
+```
+C = (Is/1000 × ts + Ia/1000 × ta/60) × f
+  = (510/1000 × 24 + 270/1000 × 30/60) × 1.25
+  = (12.240 + 0.135) × 1.25
+  = 15.47 Ah
+```
+
+#### Battery recommendation algorithm
+
+Pulse selects the smallest standard VRLA/AGM battery unit size that meets the requirement when paired with an **even** number of units (EN 54-4 requires a minimum of 2 batteries):
+
+1. Iterate counts: 2, 4, 6, …, 40.
+2. For each count, test standard sizes in ascending order: 1.2, 2.1, 2.3, 3.2, 4.5, 7.0, 7.2, 12, 17, 18, 24, 26, 33, 38, 40, 45, 55, 65, 80, 100 Ah.
+3. The first pair where `count × size ≥ C_req` is selected.
+
+The per-unit voltage is `VoltageV / 2` — for a 24 V system each battery unit operates at 12 V (two batteries in series forming the 24 V bus).
+
+> **Requires a PSU Config to be assigned.** If no PSU Config is assigned to the hosted SubCircuits, the Battery/PSU section is hidden. Assign one via the PSU dropdown on any SubCircuit card in the Topology Tree.
 
 ---
 

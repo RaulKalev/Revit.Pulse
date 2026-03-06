@@ -77,6 +77,27 @@ namespace Pulse.Core.Settings
         }
 
         /// <summary>
+        /// Load the module-specific hardware config for <paramref name="moduleId"/> from an
+        /// already-loaded <paramref name="store"/>, without touching disk.
+        /// Returns a default-constructed <typeparamref name="T"/> if no blob exists yet.
+        /// </summary>
+        public static T LoadModuleConfig<T>(DeviceConfigStore store, string moduleId)
+            where T : IModuleDeviceConfig, new()
+        {
+            if (store == null)  throw new ArgumentNullException(nameof(store));
+            if (string.IsNullOrEmpty(moduleId)) throw new ArgumentNullException(nameof(moduleId));
+
+            if (store.ModuleConfigBlobs != null &&
+                store.ModuleConfigBlobs.TryGetValue(moduleId, out var json) &&
+                !string.IsNullOrEmpty(json))
+            {
+                var result = JsonConvert.DeserializeObject<T>(json);
+                return result != null ? result : new T();
+            }
+            return new T();
+        }
+
+        /// <summary>
         /// Persist the module-specific hardware config for <paramref name="moduleId"/> to disk.
         /// Only the module's blob is updated; all other store data is preserved.
         /// </summary>

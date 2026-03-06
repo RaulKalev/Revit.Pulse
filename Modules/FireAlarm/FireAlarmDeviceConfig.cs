@@ -30,5 +30,9 @@ namespace Pulse.Modules.FireAlarm
 
         [JsonProperty("wires")]
         public List<WireConfig> Wires { get; set; } = new List<WireConfig>();
+
+        /// <summary>User-defined ancillary NAC/sounder PSU definitions.</summary>
+        [JsonProperty("psuUnits")]
+        public List<PsuConfig> PsuUnits { get; set; } = new List<PsuConfig>();
     }
 }

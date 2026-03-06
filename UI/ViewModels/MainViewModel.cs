@@ -229,6 +229,12 @@ namespace Pulse.UI.ViewModels
             if (_appController.HasCapability(ModuleCapabilities.Wiring))
                 Topology.WireAssigned += OnTopologyWireAssigned;
 
+            // PSU assignment on SubCircuit nodes — save + rebuild metrics
+            Topology.PsuAssigned += _ =>
+                Application.Current?.Dispatcher?.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.DataBind,
+                    (Action)(() => Metrics.RebuildMetrics()));
+
             // SubCircuit V-drop limit percentage edited by user → rebuild metrics
             Topology.VDropPctChanged += _ =>
                 Application.Current?.Dispatcher?.BeginInvoke(

@@ -415,7 +415,7 @@ namespace Pulse.UI.ViewModels
                     // Internal CSV blobs used for distributed V-drop — not user-facing
                     if (kvp.Key == "DeviceCumulativeDistFeet" || kvp.Key == "DeviceAlarmMa")
                         continue;
-                }                // ── SubCircuitMember property labels ──────────────────────────────────
+                }
                 else if (node.NodeType == "SubCircuitMember")
                 {
                     if (kvp.Key == "SubCircuitId")
@@ -471,6 +471,73 @@ namespace Pulse.UI.ViewModels
                             Properties.Insert(panelIdx + 1, item);
                         else
                             Properties.Add(item);
+                    }
+                }
+            }
+
+            // For SubCircuit nodes, show the assigned PSU from the assignments store.
+            if (node.NodeType == "SubCircuit")
+            {
+                string scRawId = node.Id.StartsWith("subcircuit::")
+                    ? node.Id.Substring("subcircuit::".Length)
+                    : node.Id;
+                AssignmentsStore.SubCircuitPsuAssignments.TryGetValue(scRawId, out string psuName);
+                Properties.Add(new PropertyItem
+                {
+                    Key   = "PSU",
+                    Value = string.IsNullOrEmpty(psuName) ? "—" : psuName
+                });
+            }
+
+            // For Device nodes that host SubCircuits, show PSU + combined NAC load.
+            if (node.NodeType == "Device" && node.RevitElementId.HasValue && data != null)
+            {
+                var hostedScs = SubCircuitService?.GetSubCircuitsByHost((int)node.RevitElementId.Value);
+                if (hostedScs != null && hostedScs.Count > 0)
+                {
+                    // PSU — read from first hosted SubCircuit's assignment (all share the same PSU)
+                    AssignmentsStore.SubCircuitPsuAssignments.TryGetValue(hostedScs[0].Id, out string psuName);
+                    Properties.Add(new PropertyItem
+                    {
+                        Key   = "PSU",
+                        Value = string.IsNullOrEmpty(psuName) ? "—" : psuName
+                    });
+
+                    // Sum TotalMaNormal and TotalMaAlarm across all hosted SubCircuit graph nodes
+                    double totalNormal = 0, totalAlarm = 0;
+                    bool hasMaData = false;
+                    foreach (var sc in hostedScs)
+                    {
+                        var scGraphNode = data.Nodes.FirstOrDefault(n => n.Id == "subcircuit::" + sc.Id);
+                        if (scGraphNode == null) continue;
+                        if (scGraphNode.Properties.TryGetValue("TotalMaNormal", out string mnStr)
+                            && double.TryParse(mnStr, System.Globalization.NumberStyles.Any,
+                                System.Globalization.CultureInfo.InvariantCulture, out double mn))
+                        {
+                            totalNormal += mn;
+                            hasMaData = true;
+                        }
+                        if (scGraphNode.Properties.TryGetValue("TotalMaAlarm", out string maStr)
+                            && double.TryParse(maStr, System.Globalization.NumberStyles.Any,
+                                System.Globalization.CultureInfo.InvariantCulture, out double ma))
+                        {
+                            totalAlarm += ma;
+                            hasMaData = true;
+                        }
+                    }
+
+                    if (hasMaData)
+                    {
+                        Properties.Add(new PropertyItem
+                        {
+                            Key   = "NAC load (normal)",
+                            Value = totalNormal.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " mA"
+                        });
+                        Properties.Add(new PropertyItem
+                        {
+                            Key   = "NAC load (alarm)",
+                            Value = totalAlarm.ToString("F1", System.Globalization.CultureInfo.InvariantCulture) + " mA"
+                        });
                     }
                 }
             }

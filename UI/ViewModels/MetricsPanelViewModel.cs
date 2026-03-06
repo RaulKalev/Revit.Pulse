@@ -422,8 +422,78 @@ namespace Pulse.UI.ViewModels
         }
 
         // ──────────────────────────────────────────────────────────────────────
-        // QUICK ACTIONS / TOAST
+        // BATTERY / PSU SECTION
         // ──────────────────────────────────────────────────────────────────────
+
+        private bool _showBatterySection;
+        public  bool ShowBatterySection
+        {
+            get => _showBatterySection;
+            private set => SetField(ref _showBatterySection, value);
+        }
+
+        private bool _isBatterySectionExpanded = true;
+        public  bool IsBatterySectionExpanded
+        {
+            get => _isBatterySectionExpanded;
+            set => SetField(ref _isBatterySectionExpanded, value);
+        }
+
+        private string _batteryCapacitySummary = string.Empty;
+        public  string BatteryCapacitySummary
+        {
+            get => _batteryCapacitySummary;
+            private set => SetField(ref _batteryCapacitySummary, value);
+        }
+
+        private string _batteryStandbyCurrentSummary = string.Empty;
+        public  string BatteryStandbyCurrentSummary
+        {
+            get => _batteryStandbyCurrentSummary;
+            private set => SetField(ref _batteryStandbyCurrentSummary, value);
+        }
+
+        private string _batteryAlarmCurrentSummary = string.Empty;
+        public  string BatteryAlarmCurrentSummary
+        {
+            get => _batteryAlarmCurrentSummary;
+            private set => SetField(ref _batteryAlarmCurrentSummary, value);
+        }
+
+        private string _batteryPsuSummary = string.Empty;
+        public  string BatteryPsuSummary
+        {
+            get => _batteryPsuSummary;
+            private set => SetField(ref _batteryPsuSummary, value);
+        }
+
+        private string _batteryStandardSummary = string.Empty;
+        public  string BatteryStandardSummary
+        {
+            get => _batteryStandardSummary;
+            private set => SetField(ref _batteryStandardSummary, value);
+        }
+
+        private string _batteryRecommendedSummary = string.Empty;
+        public  string BatteryRecommendedSummary
+        {
+            get => _batteryRecommendedSummary;
+            private set => SetField(ref _batteryRecommendedSummary, value);
+        }
+
+        private CapacityStatus _batteryCapacityStatus = CapacityStatus.Normal;
+        public  CapacityStatus BatteryCapacityStatus
+        {
+            get => _batteryCapacityStatus;
+            private set => SetField(ref _batteryCapacityStatus, value);
+        }
+
+        private CapacityStatus _batteryPsuStatus = CapacityStatus.Normal;
+        public  CapacityStatus BatteryPsuStatus
+        {
+            get => _batteryPsuStatus;
+            private set => SetField(ref _batteryPsuStatus, value);
+        }
 
         private string _toastText = string.Empty;
         public  string ToastText
@@ -578,6 +648,9 @@ namespace Pulse.UI.ViewModels
             // ── Cabling ─────────────────────────────────────────────────────
             BuildCabling();
 
+            // ── Battery / PSU ────────────────────────────────────────────────
+            BuildBattery();
+
             // ── Overall status (after all sections) ─────────────────────────
             var issues = HealthIssues.Select(r => new HealthIssueItem
             {
@@ -607,10 +680,35 @@ namespace Pulse.UI.ViewModels
              || _selectedNode?.NodeType == "SubCircuitMember"
              || IsSubDeviceNode(_selectedNode))
             {
-                ContextTitle    = _selectedNode.Label;
-                _selectedNode.Properties.TryGetValue("DeviceCount", out string dcStr);
-                int.TryParse(dcStr, out int devCount);
-                ContextSubtitle = $"NAC SubCircuit  ·  {devCount} device{(devCount == 1 ? "" : "s")}";
+                ContextTitle = _selectedNode.Label;
+
+                if (IsSubDeviceNode(_selectedNode) && _selectedNode.RevitElementId.HasValue)
+                {
+                    // Aggregate device count from all hosted SubCircuits
+                    int totalDevices = 0;
+                    var hosted = SubCircuitService?.GetSubCircuitsByHost((int)_selectedNode.RevitElementId.Value);
+                    if (hosted != null)
+                    {
+                        foreach (var sc in hosted)
+                        {
+                            var scNode = _lastData.Nodes.FirstOrDefault(n => n.Id == "subcircuit::" + sc.Id);
+                            if (scNode != null
+                                && scNode.Properties.TryGetValue("DeviceCount", out string dcs)
+                                && int.TryParse(dcs, out int dc))
+                                totalDevices += dc;
+                        }
+                    }
+                    int scCount = hosted?.Count ?? 0;
+                    ContextSubtitle = scCount > 1
+                        ? $"NAC Host  ·  {scCount} circuits  ·  {totalDevices} device{(totalDevices == 1 ? "" : "s")}"
+                        : $"NAC SubCircuit  ·  {totalDevices} device{(totalDevices == 1 ? "" : "s")}";
+                }
+                else
+                {
+                    _selectedNode.Properties.TryGetValue("DeviceCount", out string dcStr);
+                    int.TryParse(dcStr, out int devCount);
+                    ContextSubtitle = $"NAC SubCircuit  ·  {devCount} device{(devCount == 1 ? "" : "s")}";
+                }
                 return;
             }
             if (_selectedLoop != null)
@@ -663,6 +761,75 @@ namespace Pulse.UI.ViewModels
                 RemainingAddressesSummary = RemainingMaSummary = string.Empty;
                 AddressCapacityStatus = MaCapacityStatus = CapacityStatus.Normal;
 
+                // ── Host device path: aggregate across all hosted SubCircuits ──────────
+                if (IsSubDeviceNode(_selectedNode) && _selectedNode.RevitElementId.HasValue)
+                {
+                    var hosted = SubCircuitService?.GetSubCircuitsByHost((int)_selectedNode.RevitElementId.Value);
+                    if (hosted != null && hosted.Count > 0)
+                    {
+                        int totalDevices = 0;
+                        double maNorm = 0, maAlrm = 0, hostMaMax = 0;
+                        ScMembers.Clear();
+                        foreach (var sc in hosted)
+                        {
+                            var scNode = _lastData.Nodes.FirstOrDefault(n => n.Id == "subcircuit::" + sc.Id);
+                            if (scNode == null) continue;
+                            if (scNode.Properties.TryGetValue("DeviceCount", out string dcs)
+                                && int.TryParse(dcs, out int dc)) totalDevices += dc;
+                            if (scNode.Properties.TryGetValue("TotalMaNormal", out string mns)
+                                && double.TryParse(mns, System.Globalization.NumberStyles.Any,
+                                    System.Globalization.CultureInfo.InvariantCulture, out double mn))
+                                maNorm += mn;
+                            if (scNode.Properties.TryGetValue("TotalMaAlarm", out string mas)
+                                && double.TryParse(mas, System.Globalization.NumberStyles.Any,
+                                    System.Globalization.CultureInfo.InvariantCulture, out double ma))
+                                maAlrm += ma;
+                            if (scNode.Properties.TryGetValue("OutputCurrentMaxMa", out string omx)
+                                && double.TryParse(omx, System.Globalization.NumberStyles.Any,
+                                    System.Globalization.CultureInfo.InvariantCulture, out double om))
+                                hostMaMax = Math.Max(hostMaMax, om);
+                            foreach (var mn2 in _lastData.Nodes)
+                            {
+                                if (mn2.NodeType != "SubCircuitMember") continue;
+                                if (!mn2.Properties.TryGetValue("SubCircuitId", out string membSc)
+                                    || membSc != sc.Id) continue;
+                                string draw2     = mn2.Properties.TryGetValue("CurrentDraw",      out string d2) ? d2 : "—";
+                                string alarmDrw2 = mn2.Properties.TryGetValue("CurrentDrawAlarm", out string a2) ? a2 : draw2;
+                                ScMembers.Add(new ScMemberRowViewModel(mn2.Label, draw2, alarmDrw2));
+                            }
+                        }
+                        // Resolve ScMaMax from the assigned PSU config (OutputCurrentA → mA).
+                        // Fall back to OutputCurrentMaxMa from graph node, then 125% heuristic.
+                        if (hostMaMax <= 0)
+                        {
+                            _lastAssignments.SubCircuitPsuAssignments.TryGetValue(hosted[0].Id, out string psuName);
+                            if (!string.IsNullOrEmpty(psuName))
+                            {
+                                var faDevCfg = DeviceConfigService.LoadModuleConfig<FireAlarmDeviceConfig>(_lastDeviceStore, "FireAlarm");
+                                var psuCfg   = faDevCfg?.PsuUnits.FirstOrDefault(p =>
+                                    string.Equals(p.Name, psuName, System.StringComparison.OrdinalIgnoreCase));
+                                if (psuCfg != null && psuCfg.OutputCurrentA > 0)
+                                    hostMaMax = psuCfg.OutputCurrentA * 1000.0;
+                            }
+                        }
+
+                        ChildDeviceCount = totalDevices;
+                        MaNormal = maNorm;
+                        MaUsed   = maAlrm;
+                        ScMaMax  = hostMaMax > 0 ? hostMaMax
+                                 : Math.Max(maNorm, maAlrm) > 0 ? Math.Max(maNorm, maAlrm) * 1.25 : 0;
+                        ShowCurrentGauges     = ScMaMax > 0;
+                        ShowSubCircuitMetrics = true;
+                        IsCapacityEmpty       = false;
+                    }
+                    else
+                    {
+                        IsCapacityEmpty = true;
+                    }
+                    return;
+                }
+
+                // ── SubCircuit / SubCircuitMember path ───────────────────────────────────
                 _selectedNode.Properties.TryGetValue("DeviceCount", out string dcStr);
                 int.TryParse(dcStr, out int devCount);
                 ChildDeviceCount = devCount;
@@ -921,6 +1088,16 @@ namespace Pulse.UI.ViewModels
             foreach (var item in SystemMetricsCalculator.ComputeCapacityHealthIssues(_lastCap))
                 HealthIssues.Add(new HealthIssueRowViewModel(item, HighlightElementsRequested));
 
+            // Append battery / PSU health issues (panel context only)
+            if (_selectedPanel != null)
+            {
+                foreach (var item in SystemMetricsCalculator.ComputeBatteryHealthIssues(
+                    _lastData, _lastAssignments, _lastDeviceStore))
+                {
+                    HealthIssues.Add(new HealthIssueRowViewModel(item, HighlightElementsRequested));
+                }
+            }
+
             TotalHealthIssueCount = HealthIssues.Sum(r => r.Count > 0 ? r.Count : (r.Status != HealthStatus.Ok ? 1 : 0));
         }
 
@@ -971,7 +1148,81 @@ namespace Pulse.UI.ViewModels
             ShowCablingSection      = LoopCablingInfos.Count > 0;
         }
 
-        // ── Helpers ───────────────────────────────────────────────────────────
+        // ── Battery / PSU ─────────────────────────────────────────────────────
+
+        private void BuildBattery()
+        {
+            // ── Host device (Output Module / NAC PSU) path ────────────────────
+            if (IsSubDeviceNode(_selectedNode) && _selectedNode.RevitElementId.HasValue)
+            {
+                var hosted = SubCircuitService?.GetSubCircuitsByHost((int)_selectedNode.RevitElementId.Value);
+                if (hosted == null || hosted.Count == 0) { ShowBatterySection = false; return; }
+
+                // Resolve assigned PSU config from first hosted SubCircuit
+                _lastAssignments.SubCircuitPsuAssignments.TryGetValue(hosted[0].Id, out string psuName);
+                if (string.IsNullOrEmpty(psuName)) { ShowBatterySection = false; return; }
+
+                var faDevCfg = DeviceConfigService.LoadModuleConfig<FireAlarmDeviceConfig>(_lastDeviceStore, "FireAlarm");
+                var psuCfg   = faDevCfg?.PsuUnits.FirstOrDefault(p =>
+                    string.Equals(p.Name, psuName, System.StringComparison.OrdinalIgnoreCase));
+                if (psuCfg == null) { ShowBatterySection = false; return; }
+
+                var psuFa      = _lastData?.GetPayload<FireAlarmPayload>();
+                var psuMetrics = SystemMetricsCalculator.ComputePsuBatteryMetrics(hosted, psuFa, psuCfg);
+                if (psuMetrics == null) { ShowBatterySection = false; return; }
+
+                BatteryCapacitySummary       = psuMetrics.RecommendedCapacitySummary;
+                BatteryStandbyCurrentSummary = psuMetrics.StandbyCurrentSummary;
+                BatteryAlarmCurrentSummary   = psuMetrics.AlarmCurrentSummary;
+                BatteryPsuSummary            = psuMetrics.PsuSummary;
+                BatteryStandardSummary       = psuMetrics.FormulaBreakdown;
+                BatteryRecommendedSummary    = string.Empty;
+                BatteryCapacityStatus        = psuMetrics.CapacityStatus;
+                BatteryPsuStatus             = psuMetrics.PsuStatus;
+                ShowBatterySection           = true;
+                return;
+            }
+
+            // Battery section is only meaningful for panel-level context
+            if (_selectedPanel == null)
+            {
+                ShowBatterySection = false;
+                return;
+            }
+
+            if (!_lastAssignments.PanelAssignments.TryGetValue(_selectedPanel.DisplayName, out string cfgName)
+                || string.IsNullOrEmpty(cfgName))
+            {
+                ShowBatterySection = false;
+                return;
+            }
+
+            var cfg = _lastDeviceStore.ControlPanels.FirstOrDefault(
+                p => string.Equals(p.Name, cfgName, System.StringComparison.OrdinalIgnoreCase));
+            if (cfg == null || cfg.BatteryUnitAh <= 0)
+            {
+                ShowBatterySection = false;
+                return;
+            }
+
+            var fa = _lastData?.GetPayload<FireAlarmPayload>();
+            var metrics = SystemMetricsCalculator.ComputePanelBatteryMetrics(_selectedPanel, fa, cfg);
+            if (metrics == null)
+            {
+                ShowBatterySection = false;
+                return;
+            }
+
+            BatteryCapacitySummary      = metrics.CapacitySummary;
+            BatteryStandbyCurrentSummary= metrics.StandbyCurrentSummary;
+            BatteryAlarmCurrentSummary  = metrics.AlarmCurrentSummary;
+            BatteryPsuSummary           = metrics.PsuSummary;
+            BatteryStandardSummary      = metrics.StandardSummary;
+            BatteryRecommendedSummary   = metrics.RecommendedBatterySummary;
+            BatteryCapacityStatus       = metrics.CapacityStatus;
+            BatteryPsuStatus            = metrics.PsuStatus;
+            ShowBatterySection          = true;
+        }
 
         /// <summary>
         /// Returns true when the node is a Device sub-element (child of another Device,
@@ -1014,6 +1265,15 @@ namespace Pulse.UI.ViewModels
             TotalCableLengthDisplay = "—";
             LongestLoopDisplay      = "—";
             ShowCablingSection      = false;
+            ShowBatterySection          = false;
+            BatteryCapacitySummary      = string.Empty;
+            BatteryStandbyCurrentSummary= string.Empty;
+            BatteryAlarmCurrentSummary  = string.Empty;
+            BatteryPsuSummary           = string.Empty;
+            BatteryStandardSummary      = string.Empty;
+            BatteryRecommendedSummary   = string.Empty;
+            BatteryCapacityStatus       = CapacityStatus.Normal;
+            BatteryPsuStatus            = CapacityStatus.Normal;
             _lastCap                = null;
         }
 

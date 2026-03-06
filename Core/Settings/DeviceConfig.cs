@@ -60,6 +60,101 @@ namespace Pulse.Core.Settings
         /// </summary>
         [JsonProperty("maxAddresses")]
         public int MaxAddresses { get; set; } = 0;
+
+        // ── Battery / PSU fields (EN 54-4 / NFPA 72) ──────────────────────────
+
+        /// <summary>
+        /// Capacity of one individual battery unit in Amp-hours (Ah).
+        /// Set to 0 (default) to skip the battery check for this panel.
+        /// </summary>
+        [JsonProperty("batteryUnitAh")]
+        public double BatteryUnitAh { get; set; } = 0.0;
+
+        // Backward compat: JSON saved before rename still uses "batteryCapacityAh".
+        [JsonProperty("batteryCapacityAh")]
+        private double LegacyBatteryCapacityAh { set { if (BatteryUnitAh <= 0) BatteryUnitAh = value; } }
+
+        /// <summary>
+        /// PSU rated output current in Amperes.
+        /// Set to 0 (default) to skip the PSU output-current sufficiency check.
+        /// </summary>
+        [JsonProperty("psuOutputCurrentA")]
+        public double PsuOutputCurrentA { get; set; } = 0.0;
+
+        /// <summary>
+        /// Required standby duration in hours (EN 54-4 Type C = 24 h, NFPA 72 = 24 h).
+        /// </summary>
+        [JsonProperty("requiredStandbyHours")]
+        public double RequiredStandbyHours { get; set; } = 24.0;
+
+        /// <summary>
+        /// Required full-alarm duration in minutes (EN 54-4 = 30 min, NFPA 72 = 5 min).
+        /// </summary>
+        [JsonProperty("requiredAlarmMinutes")]
+        public double RequiredAlarmMinutes { get; set; } = 30.0;
+
+        /// <summary>
+        /// Safety factor applied to the calculated required capacity (e.g. 1.25 = 25 % headroom).
+        /// Common design-practice margin; set to 1.0 to disable.
+        /// </summary>
+        [JsonProperty("batterySafetyFactor")]
+        public double BatterySafetyFactor { get; set; } = 1.25;
+    }
+
+    /// <summary>
+    /// Configuration record for an ancillary NAC/sounder Power Supply Unit (PSU).
+    /// Used to check battery standby duration and output-current sufficiency for
+    /// SubCircuits assigned to this PSU.
+    /// </summary>
+    public class PsuConfig
+    {
+        [JsonProperty("id")]
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+
+        [JsonProperty("name")]
+        public string Name { get; set; } = "New PSU";
+
+        /// <summary>
+        /// Nominal output voltage of this PSU in Volts (e.g. 24 V for EN 54-4).
+        /// </summary>
+        [JsonProperty("voltageV")]
+        public double VoltageV { get; set; } = 24.0;
+
+        /// <summary>
+        /// Capacity of one individual battery unit in Amp-hours (Ah).
+        /// Set to 0 (default) to skip the battery check for this PSU.
+        /// </summary>
+        [JsonProperty("batteryUnitAh")]
+        public double BatteryUnitAh { get; set; } = 0.0;
+
+        // Backward compat: JSON saved before rename still uses "batteryCapacityAh".
+        [JsonProperty("batteryCapacityAh")]
+        private double LegacyBatteryCapacityAhPsu { set { if (BatteryUnitAh <= 0) BatteryUnitAh = value; } }
+
+        /// <summary>
+        /// PSU rated output current in Amperes.
+        /// Set to 0 (default) to skip the output-current sufficiency check.
+        /// </summary>
+        [JsonProperty("outputCurrentA")]
+        public double OutputCurrentA { get; set; } = 0.0;
+
+        /// <summary>
+        /// Required standby duration in hours (EN 54-4 Type C = 24 h, NFPA 72 = 24 h).
+        /// </summary>
+        [JsonProperty("requiredStandbyHours")]
+        public double RequiredStandbyHours { get; set; } = 24.0;
+
+        /// <summary>
+        /// Required full-alarm duration in minutes (EN 54-4 = 30 min, NFPA 72 = 5 min).
+        /// </summary>
+        [JsonProperty("requiredAlarmMinutes")]
+        public double RequiredAlarmMinutes { get; set; } = 30.0;
+
+        /// <summary>
+        /// Safety factor applied to the calculated required capacity (e.g. 1.25 = 25 % headroom).
+        /// </summary>
+        [JsonProperty("batterySafetyFactor")]
+        public double BatterySafetyFactor { get; set; } = 1.25;
     }
 
     /// <summary>

@@ -35,7 +35,7 @@ Framework-agnostic contracts and models:
 | `Core.SystemModel` | `ISystemEntity`, `Panel`, `Loop`, `Zone`, `AddressableDevice` |
 | `Core.Rules` | `IRule`, `RuleResult`, `Severity` — validation engine |
 | `Core.Modules` | `IModuleDefinition`, `PulseAppController`, `ModuleCatalog`, `ModuleCapabilities`, `TopologyAssignmentsService`, `SymbolMappingOrchestrator`; `ModuleData` — pipeline container with typed `Payload` slot |
-| `Core.Modules.Metrics` | `SystemMetricsCalculator`, `CapacityMetrics`, `HealthIssueItem`, `DistributionGroup`, `CablingMetrics` — System Intelligence metrics engine |
+| `Core.Modules.Metrics` | `SystemMetricsCalculator`, `CapacityMetrics`, `HealthIssueItem`, `DistributionGroup`, `CablingMetrics`, `BatteryMetrics` — System Intelligence metrics engine; `BatteryMetrics` carries EN 54-4 battery sizing results including `RecommendedCapacitySummary` (standard-size even-count recommendation with voltage) and `FormulaBreakdown` (four-step equation trace) |
 | `Core.Settings` | `ModuleSettings`, `ParameterMapping`, `TopologyAssignmentsStore`, `DeviceConfigStore` (+ `ModuleConfigBlobs` opaque per-module hardware blobs), `IModuleDeviceConfig`, `CustomSymbolDefinition`, `LevelVisibilitySettings`, `DiagramCanvasSettings`, `UiStateService`; `ControlPanelConfig.MaxAddresses` for per-panel address cap override |
 | `Core.Logging` | `ILogger` abstraction |
 
@@ -73,7 +73,7 @@ WPF user interface using Material Design:
 | `TopologyViewModel` | Topology tree + internal `CanvasGraphModel` projection |
 | `DiagramViewModel` | Diagram canvas state: levels, panels, loops, flip/wire/rank assignments |
 | `InspectorViewModel` | Selected entity details and capacity data |
-| `MetricsPanelViewModel` | System Intelligence Dashboard VM — capacity gauges, health issues (including capacity overload rows), device distribution, cabling info, AI prompt export; SubCircuit (NAC) circuit metrics with Normal Load, Alarm Load, V-Drop, and Remaining Voltage gauges |
+| `MetricsPanelViewModel` | System Intelligence Dashboard VM — capacity gauges, health issues (including capacity overload rows), device distribution, cabling info, AI prompt export; SubCircuit (NAC) circuit metrics with Normal Load, Alarm Load, V-Drop, and Remaining Voltage gauges; PSU host-element path: combined NAC load from all hosted SubCircuits, gauge ceiling from PSU config `OutputCurrentA`, and full Battery/PSU section with EN 54-4 battery sizing, standard-size even-count recommendation, per-unit voltage, and formula breakdown |
 | `AiPromptInfoWindow` | Themed borderless popup shown after the AI system-check prompt is copied to clipboard |
 | `MetricsConverters` | `CapacityStatusToBrushConverter`, `HealthStatusToBrushConverter`, `CountToVisibilityConverter` |
 | `SettingsViewModel` | Parameter mapping editor |
@@ -93,7 +93,7 @@ First implemented module:
 | Component | Purpose |
 |-----------|---------|
 | `FireAlarmModuleDefinition` | Registers the module and provides factory methods; implements `IProvidesDeviceConfig` |
-| `FireAlarmDeviceConfig` | `IModuleDeviceConfig` wrapper — holds `ControlPanels`, `LoopModules`, and `Wires` libraries; stored as a blob in `DeviceConfigStore.ModuleConfigBlobs["FireAlarm"]` |
+| `FireAlarmDeviceConfig` | `IModuleDeviceConfig` wrapper — holds `ControlPanels`, `LoopModules`, `Wires`, and `PsuUnits` libraries; stored as a blob in `DeviceConfigStore.ModuleConfigBlobs["FireAlarm"]` |
 | `FireAlarmCollector` | Collects fire alarm devices from configured Revit categories |
 | `FireAlarmTopologyBuilder` | Builds Panel → Loop → Device graph; attaches cable length (routed or Manhattan) to loop and SubCircuit nodes |
 | `CableLengthCalculator` | Calculates per-loop cable length using Manhattan (right-angle) routing in Revit internal units, returns metres |
@@ -175,6 +175,11 @@ When a SubCircuit node is selected, the **CIRCUIT METRICS** section of the Syste
 | V-Drop | Calculated voltage drop along the circuit vs. configurable limit |
 | Remaining V | Nominal supply voltage minus calculated V-Drop |
 
+When a **PSU/Output-Module host element** is selected (the device that owns one or more SubCircuit outputs), the Dashboard switches to a host-level view:
+- **Header** shows the circuit count and total device count across all hosted SubCircuits (e.g. `"NAC Host · 2 circuits · 6 devices"`).
+- **Normal Load / Alarm Load** gauges aggregate mA from all hosted SubCircuits. The gauge ceiling (`ScMaMax`) comes from, in priority order: (1) the `OutputCurrentMaxMa` Revit parameter on the host element, (2) `OutputCurrentA` from the assigned PSU config, (3) `max(Normal, Alarm) × 1.25`.
+- The **Inspector** shows individual `"NAC load (normal)"` and `"NAC load (alarm)"` summaries for the host.
+
 **Current draw sourcing:**
 - **Normal Load** and **Alarm Load** read per-device mA values from the `CurrentDraw` parameter (a single column split into standby/alarm by convention).
 - **PSU output capacity** (`ScMaMax`) is sourced from the `_OutputCurrentMaxMa` raw device parameter on the PSU host element (set as `OutputCurrentMaxMa` in the topology node). When that parameter is not mapped, the gauge ceiling falls back to `max(Normal, Alarm) × 1.25` so the arc fills to ~80 % at peak load.
@@ -186,6 +191,32 @@ When a SubCircuit node is selected, the **CIRCUIT METRICS** section of the Syste
 - The gauge maximum is `NominalVoltage × (VDropLimitPct / 100)` — scaled to the PSU supply voltage
 - `NominalVoltage` is read from the PSU element via the `NominalVoltage` parameter mapping
 - `VDropLimitPct` defaults to 16.7 % (≈ 4 V on a 24 V NAC) and is editable per SubCircuit in the inspector
+
+---
+
+### PSU Host Element — Battery / PSU Section
+
+When a PSU host element is selected and a **PSU Config** is assigned to its SubCircuits, the **BATTERY / PSU** section of the dashboard appears with:
+
+| Row | Content |
+|-----|---------|
+| Capacity | `N× VV/X.X Ah = Y.Y Ah  (req. Z.ZZ Ah)` — recommended battery count, per-unit voltage and capacity, total installed Ah, and required Ah |
+| Standby load | Total standby current across all hosted SubCircuit devices |
+| Alarm load | Total alarm current across all hosted SubCircuit devices |
+| PSU output | Alarm current vs. PSU rated output with utilisation % |
+| Formula | Four-step EN 54-4 equation trace (see below) |
+
+**Formula breakdown displayed in the dashboard:**
+```
+C = (Is/1000 × ts + Ia/1000 × ta/60) × f
+  = (510/1000 × 24 + 270/1000 × 30/60) × 1.25
+  = (12.240 + 0.135) × 1.25
+  = 15.47 Ah
+```
+
+**Battery recommendation algorithm:** iterates even counts (2, 4, 6 … 40) × standard VRLA/AGM sizes (1.2 → 100 Ah). The first `(count, size)` pair where `count × size ≥ reqAh` wins, guaranteeing an even battery count (minimum 2 per EN 54-4). Per-unit voltage is derived as `VoltageV / 2` (e.g. 24 V system → 12 V per unit).
+
+**Standard battery sizes (Ah):** 1.2, 2.1, 2.3, 3.2, 4.5, 7.0, 7.2, 12, 17, 18, 24, 26, 33, 38, 40, 45, 55, 65, 80, 100.
 
 ---
 

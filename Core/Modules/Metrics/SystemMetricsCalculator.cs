@@ -348,6 +348,247 @@ namespace Pulse.Core.Modules.Metrics
             return result;
         }
 
+        // ── Battery / PSU ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Computes battery sizing metrics for the given FACP panel.
+        /// Returns null when no config is assigned OR when BatteryUnitAh is zero.
+        /// </summary>
+        public static BatteryMetrics ComputePanelBatteryMetrics(
+            Panel panel,
+            FireAlarmPayload fa,
+            Core.Settings.ControlPanelConfig cfg)
+        {
+            if (panel == null || fa == null || cfg == null) return null;
+            if (cfg.BatteryUnitAh <= 0) return null;
+
+            var devices = panel.Loops.SelectMany(l => l.Devices).ToList();
+
+            double standbyMa = devices.Sum(d => d.CurrentDraw ?? 0.0);
+            double alarmMa   = devices.Sum(d => ParseAlarmCurrent(d));
+
+            return new BatteryMetrics
+            {
+                StandbyCurrentMa    = standbyMa,
+                AlarmCurrentMa      = alarmMa,
+                BatteryUnitAh       = cfg.BatteryUnitAh,
+                OutputCurrentA      = cfg.PsuOutputCurrentA,
+                RequiredStandbyHours= cfg.RequiredStandbyHours,
+                RequiredAlarmMinutes= cfg.RequiredAlarmMinutes,
+                SafetyFactor        = cfg.BatterySafetyFactor > 0 ? cfg.BatterySafetyFactor : 1.0,
+                IsConfigured        = true,
+            };
+        }
+
+        /// <summary>
+        /// Computes battery sizing metrics for a group of SubCircuits assigned to the same NAC PSU config.
+        /// Returns null when BatteryUnitAh is zero.
+        /// </summary>
+        public static BatteryMetrics ComputePsuBatteryMetrics(
+            System.Collections.Generic.IEnumerable<SubCircuit> subCircuits,
+            FireAlarmPayload fa,
+            Core.Settings.PsuConfig cfg)
+        {
+            if (subCircuits == null || fa == null || cfg == null) return null;
+            if (cfg.BatteryUnitAh <= 0) return null;
+
+            // Build device lookup by Revit element ID
+            var deviceById = new System.Collections.Generic.Dictionary<long, AddressableDevice>();
+            foreach (var d in fa.Devices)
+                if (d.RevitElementId.HasValue)
+                    deviceById[d.RevitElementId.Value] = d;
+
+            double standbyMa = 0.0;
+            double alarmMa   = 0.0;
+
+            foreach (var sc in subCircuits)
+            {
+                foreach (var id in sc.DeviceElementIds)
+                {
+                    if (!deviceById.TryGetValue(id, out var device)) continue;
+                    standbyMa += device.CurrentDraw ?? 0.0;
+                    alarmMa   += ParseAlarmCurrent(device);
+                }
+            }
+
+            return new BatteryMetrics
+            {
+                StandbyCurrentMa    = standbyMa,
+                AlarmCurrentMa      = alarmMa,
+                BatteryUnitAh       = cfg.BatteryUnitAh,
+                BatteryVoltageV     = cfg.VoltageV,
+                OutputCurrentA      = cfg.OutputCurrentA,
+                RequiredStandbyHours= cfg.RequiredStandbyHours,
+                RequiredAlarmMinutes= cfg.RequiredAlarmMinutes,
+                SafetyFactor        = cfg.BatterySafetyFactor > 0 ? cfg.BatterySafetyFactor : 1.0,
+                IsConfigured        = true,
+            };
+        }
+
+        /// <summary>
+        /// Returns <see cref="HealthIssueItem"/> entries for battery and PSU issues
+        /// across all panels and NAC PSUs with configs assigned.
+        /// Follows the same pattern as <see cref="ComputeSubCircuitVDropIssues"/> —
+        /// intended to be merged into the health section by the ViewModel.
+        /// </summary>
+        public static List<HealthIssueItem> ComputeBatteryHealthIssues(
+            ModuleData data,
+            TopologyAssignmentsStore assignments,
+            DeviceConfigStore deviceStore)
+        {
+            var result = new List<HealthIssueItem>();
+            if (data == null || assignments == null || deviceStore == null) return result;
+
+            var fa = data.GetPayload<FireAlarmPayload>();
+            if (fa == null) return result;
+
+            // ── Per-panel (FACP) battery check ────────────────────────────────
+            foreach (var panel in fa.Panels)
+            {
+                string panelLabel = panel.DisplayName;
+
+                if (!assignments.PanelAssignments.TryGetValue(panelLabel, out string cfgName)
+                    || string.IsNullOrEmpty(cfgName))
+                {
+                    result.Add(new HealthIssueItem
+                    {
+                        RuleName    = "BatteryPanelUnconfigured",
+                        Description = $"Panel \"{panelLabel}\" — no device config assigned; battery check skipped",
+                        Count       = 0,
+                        Status      = HealthStatus.Ok,
+                    });
+                    continue;
+                }
+
+                var cfg = deviceStore.ControlPanels.FirstOrDefault(
+                    p => string.Equals(p.Name, cfgName, StringComparison.OrdinalIgnoreCase));
+                if (cfg == null) continue;
+
+                if (cfg.BatteryUnitAh <= 0)
+                {
+                    result.Add(new HealthIssueItem
+                    {
+                        RuleName    = "BatteryPanelUnconfigured",
+                        Description = $"Panel \"{panelLabel}\" — battery unit size not set in config \"{cfgName}\"",
+                        Count       = 0,
+                        Status      = HealthStatus.Ok,
+                    });
+                    continue;
+                }
+
+                var metrics = ComputePanelBatteryMetrics(panel, fa, cfg);
+                if (metrics == null) continue;
+
+                result.Add(new HealthIssueItem
+                {
+                    RuleName    = "BatteryPanelNeeded",
+                    Description = $"Panel \"{panelLabel}\" — {metrics.BatteriesNeeded}\u00d7 {metrics.BatteryUnitAh:F1} Ah batteries needed "
+                                + $"(req. {metrics.RequiredCapacityAh:F2} Ah · {metrics.StandardSummary})",
+                    Count       = 0,
+                    Status      = HealthStatus.Ok,
+                });
+
+                if (metrics.IsPsuOverloaded)
+                {
+                    result.Add(new HealthIssueItem
+                    {
+                        RuleName    = "BatteryPanelPsuOverload",
+                        Description = $"Panel \"{panelLabel}\" PSU overloaded in alarm — "
+                                    + $"{Math.Round(metrics.AlarmCurrentMa)} mA load exceeds "
+                                    + $"{Math.Round(metrics.OutputCurrentA * 1000)} mA output",
+                        Count       = 1,
+                        Status      = HealthStatus.Error,
+                    });
+                }
+            }
+
+            // ── Per-PSU (NAC) battery check ───────────────────────────────────
+            var faDevConfig = Core.Settings.DeviceConfigService.LoadModuleConfig<Pulse.Modules.FireAlarm.FireAlarmDeviceConfig>(deviceStore, "FireAlarm");
+            if (faDevConfig == null) return result;
+
+            // Group SubCircuits by their assigned PsuConfig name
+            var scsByPsuName = new System.Collections.Generic.Dictionary<string,
+                System.Collections.Generic.List<SubCircuit>>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var sc in fa.SubCircuits)
+            {
+                if (!assignments.SubCircuitPsuAssignments.TryGetValue(sc.Id, out string psuName)
+                    || string.IsNullOrEmpty(psuName))
+                    continue;
+
+                if (!scsByPsuName.TryGetValue(psuName, out var list))
+                    scsByPsuName[psuName] = list = new System.Collections.Generic.List<SubCircuit>();
+                list.Add(sc);
+            }
+
+            foreach (var kvp in scsByPsuName)
+            {
+                string psuName = kvp.Key;
+                var psuCfg = faDevConfig.PsuUnits.FirstOrDefault(
+                    p => string.Equals(p.Name, psuName, StringComparison.OrdinalIgnoreCase));
+
+                if (psuCfg == null) continue;
+
+                if (psuCfg.BatteryUnitAh <= 0)
+                {
+                    result.Add(new HealthIssueItem
+                    {
+                        RuleName    = "BatteryPsuUnconfigured",
+                        Description = $"NAC PSU \"{psuName}\" — battery unit size not set in config",
+                        Count       = 0,
+                        Status      = HealthStatus.Ok,
+                    });
+                    continue;
+                }
+
+                var metrics = ComputePsuBatteryMetrics(kvp.Value, fa, psuCfg);
+                if (metrics == null) continue;
+
+                result.Add(new HealthIssueItem
+                {
+                    RuleName    = "BatteryPsuNeeded",
+                    Description = $"NAC PSU \"{psuName}\" — {metrics.BatteriesNeeded}\u00d7 {metrics.BatteryUnitAh:F1} Ah batteries needed "
+                                + $"(req. {metrics.RequiredCapacityAh:F2} Ah · {metrics.StandardSummary})",
+                    Count       = 0,
+                    Status      = HealthStatus.Ok,
+                });
+
+                if (metrics.IsPsuOverloaded)
+                {
+                    result.Add(new HealthIssueItem
+                    {
+                        RuleName    = "BatteryPsuOverload",
+                        Description = $"NAC PSU \"{psuName}\" overloaded in alarm — "
+                                    + $"{Math.Round(metrics.AlarmCurrentMa)} mA load exceeds "
+                                    + $"{Math.Round(metrics.OutputCurrentA * 1000)} mA output",
+                        Count       = 1,
+                        Status      = HealthStatus.Error,
+                    });
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Parses the alarm-mode current draw for a device.
+        /// Reads "_CurrentDrawAlarm" from Properties first; falls back to standby CurrentDraw
+        /// (conservative — treats both modes as equal when alarm draw is unknown).
+        /// </summary>
+        private static double ParseAlarmCurrent(AddressableDevice device)
+        {
+            if (device.Properties.TryGetValue("_CurrentDrawAlarm", out string alarmStr)
+                && !string.IsNullOrEmpty(alarmStr)
+                && double.TryParse(alarmStr,
+                       System.Globalization.NumberStyles.Any,
+                       System.Globalization.CultureInfo.InvariantCulture,
+                       out double alarmMa))
+            {
+                return alarmMa;
+            }
+            return device.CurrentDraw ?? 0.0;
+        }
+
         // ── Overall Status ────────────────────────────────────────────────────
 
         /// <summary>

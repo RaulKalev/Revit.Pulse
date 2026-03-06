@@ -1,6 +1,6 @@
 # Pulse — Architecture Guide
 
-> Last updated after **Gap 3 — per-module device config** (`IProvidesDeviceConfig`, `IModuleDeviceConfig`, `FireAlarmDeviceConfig`, `DeviceConfigStore.ModuleConfigBlobs`).
+> Last updated after **NAC PSU Host enhancements** — PSU host element circuit metrics, Battery/PSU section with EN 54-4 sizing, standard-size battery recommendation, per-unit voltage, and formula breakdown.
 
 This document describes the runtime pipeline, module system, storage
 strategy, and diagram scene-graph that form the backbone of Pulse.
@@ -39,6 +39,9 @@ strategy, and diagram scene-graph that form the backbone of Pulse.
 │    Modules/Metrics — SystemMetricsCalculator,         │
 │                     CapacityMetrics, HealthIssueItem  │
 │                     DistributionGroup, CablingMetrics │
+│                     BatteryMetrics                    │
+│                     (RecommendedCapacitySummary,       │
+│                      FormulaBreakdown)                │
 │    Graph          — Node, Edge (topology tree)       │
 │    Graph/Canvas   — DiagramScene, CanvasGraphModel,  │
 │                     LevelAnchor, PanelCluster …      │
@@ -398,8 +401,10 @@ circuit-level gauges from the node's properties and sub-device list:
 |----------|--------|
 | `MaNormal` | Sum of standby current draws across all assigned sounder devices (pure device current — EOL supervisory is **not** included) |
 | `MaUsed` (Alarm Load) | Sum of alarm current draws across all assigned sounder devices |
-| `ScMaMax` | `OutputCurrentMaxMa` node property set by `FireAlarmTopologyBuilder`; when absent, falls back to `max(MaNormal, MaUsed) × 1.25` so the gauge fills to ~80 % at peak |
+| `ScMaMax` | Priority: (1) `OutputCurrentMaxMa` node property from `FireAlarmTopologyBuilder`; (2) assigned PSU config `OutputCurrentA × 1000`; (3) `max(MaNormal, MaUsed) × 1.25` |
 | V-Drop / Remaining V | Derived from wire parameters (ρ, A) and cable length — unchanged |
+
+When a **PSU host element** (`IsSubDeviceNode` = true) is selected, the same metrics pipeline aggregates across **all hosted SubCircuits** via `SubCircuitService.GetSubCircuitsByHost()`, and the dashboard also renders the Battery / PSU section (see §9.6).
 
 **`GaugeControl` display when `Maximum = 0`:** shows `"value unit"` only
 (e.g. `"425 mA"`), omitting the denominator and percent text, so an
@@ -409,6 +414,35 @@ unknown ceiling is still readable.
 toggled `IsWireRoutingVisible` on the currently selected Loop or
 SubCircuit node; if no compatible node is selected, a status-bar prompt
 is shown instead.
+
+---
+
+### 9.6 Battery Metrics Pipeline
+
+When a PSU host element is selected and a PSU config is assigned:
+
+```
+MetricsPanelViewModel.BuildBattery()
+  └─ IsSubDeviceNode(_selectedNode)
+       └─ SubCircuitService.GetSubCircuitsByHost(hostElementId)
+            └─ SubCircuitPsuAssignments[hosted[0].Id] → psuName
+                 └─ DeviceConfigService.LoadModuleConfig<FireAlarmDeviceConfig>()
+                      └─ faDevCfg.PsuUnits.FirstOrDefault(p => p.Name == psuName)
+                           └─ SystemMetricsCalculator.ComputePsuBatteryMetrics(hosted, fa, psuCfg)
+                                └─ BatteryMetrics  (StandbyCurrentMa, AlarmCurrentMa, BatteryVoltageV, ...)
+                                     └─ RecommendedCapacitySummary  e.g. "2× 12V/12.0Ah = 24.0 Ah  (req. 15.47 Ah)"
+                                     └─ FormulaBreakdown            four-step equation trace
+```
+
+**`BatteryMetrics` key computed properties:**
+
+| Property | Formula |
+|----------|---------|
+| `RequiredCapacityAh` | `(Is/1000 × ts + Ia/1000 × ta/60) × f` (EN 54-4) |
+| `RecommendedBatteryCount` | Smallest even integer (2, 4, 6…) where `count × size ≥ reqAh` |
+| `RecommendedBatteryUnitAh` | Matching standard size from sorted VRLA/AGM array |
+| `RecommendedCapacitySummary` | `N× VV/X.XAh = Y.Y Ah  (req. Z.ZZ Ah)` with `unitV = VoltageV / 2` |
+| `FormulaBreakdown` | Four lines: symbolic → values substituted → terms evaluated → result Ah |
 
 ---
 

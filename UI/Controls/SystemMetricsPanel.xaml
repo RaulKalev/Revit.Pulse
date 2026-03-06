@@ -766,6 +766,147 @@
                         <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,0,8,0"
                                 Visibility="{Binding ShowCablingSection, Converter={StaticResource BoolToVis}}"/>
 
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <!-- BATTERY / PSU SECTION                              -->
+                        <!-- ═══════════════════════════════════════════════════ -->
+                        <ToggleButton Style="{StaticResource SectionHeaderToggle}"
+                                      IsChecked="{Binding IsBatterySectionExpanded, Mode=TwoWay}"
+                                      Visibility="{Binding ShowBatterySection, Converter={StaticResource BoolToVis}}">
+                            <TextBlock Text="BATTERY / PSU"
+                                       FontSize="9" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource IconForegroundBrush}"/>
+                        </ToggleButton>
+
+                        <StackPanel Margin="0,0,0,4"
+                                    Visibility="{Binding IsBatterySectionExpanded, Converter={StaticResource BoolToVis}}">
+
+                            <!-- Capacity row -->
+                            <Grid Margin="8,2,8,1"
+                                  Visibility="{Binding ShowBatterySection, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Grid.Column="0" Width="6" Height="6" Margin="0,0,5,0"
+                                         VerticalAlignment="Center"
+                                         Fill="{Binding BatteryCapacityStatus, Converter={StaticResource CapStatusToBrush}}"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding BatteryCapacitySummary}"
+                                           FontSize="10"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap"/>
+                            </Grid>
+
+                            <!-- Recommended battery row (hidden when empty) -->
+                            <Grid Margin="8,1,8,1">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding BatteryRecommendedSummary}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding BatteryRecommendedSummary}" Value="—">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Recommended" FontSize="10"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           Opacity="0.75"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding BatteryRecommendedSummary}"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           TextWrapping="Wrap"/>
+                            </Grid>
+
+                            <!-- Standby current row -->
+                            <Grid Margin="8,1,8,1"
+                                  Visibility="{Binding ShowBatterySection, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Standby load" FontSize="10"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           Opacity="0.75"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding BatteryStandbyCurrentSummary}"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource ForegroundBrush}"/>
+                            </Grid>
+
+                            <!-- Alarm current row -->
+                            <Grid Margin="8,1,8,1"
+                                  Visibility="{Binding ShowBatterySection, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="Alarm load" FontSize="10"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           Opacity="0.75"
+                                           VerticalAlignment="Center"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding BatteryAlarmCurrentSummary}"
+                                           FontSize="10" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource ForegroundBrush}"/>
+                            </Grid>
+
+                            <!-- PSU output row (hidden when empty) -->
+                            <Grid Margin="8,1,8,1">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding BatteryPsuSummary}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Ellipse Grid.Column="0" Width="6" Height="6" Margin="0,0,5,0"
+                                         VerticalAlignment="Center"
+                                         Fill="{Binding BatteryPsuStatus, Converter={StaticResource CapStatusToBrush}}"/>
+                                <TextBlock Grid.Column="1"
+                                           Text="{Binding BatteryPsuSummary}"
+                                           FontSize="10"
+                                           Foreground="{DynamicResource ForegroundBrush}"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap"/>
+                            </Grid>
+
+                            <!-- Standard/params note row -->
+                            <Grid Margin="8,1,8,4"
+                                  Visibility="{Binding ShowBatterySection, Converter={StaticResource BoolToVis}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding BatteryStandardSummary}"
+                                           FontSize="9" Opacity="0.55"
+                                           Foreground="{DynamicResource IconForegroundBrush}"
+                                           TextWrapping="Wrap"/>
+                            </Grid>
+
+                        </StackPanel>
+
+                        <!-- Section separator (only when battery section is visible) -->
+                        <Border Height="1" Background="{DynamicResource BorderBrush}" Margin="8,0,8,0"
+                                Visibility="{Binding ShowBatterySection, Converter={StaticResource BoolToVis}}"/>
+
                         </StackPanel>
                     </ScrollViewer>
 

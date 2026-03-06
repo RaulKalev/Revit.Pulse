@@ -509,6 +509,7 @@
                                                                                                             <ColumnDefinition Width="*"/>
                                                                                                             <ColumnDefinition Width="Auto"/>
                                                                                                             <ColumnDefinition Width="Auto"/>
+                                                                                                            <ColumnDefinition Width="Auto"/>
                                                                                                         </Grid.ColumnDefinitions>
                                                                                                         <!-- Sub-device select button -->
                                                                                                         <Button Grid.Column="0"
@@ -533,8 +534,19 @@
                                                                                                                            VerticalAlignment="Center"/>
                                                                                                             </StackPanel>
                                                                                                         </Button>
+                                                                                                        <!-- PSU combobox — visible only when PSUs are configured and this device hosts SubCircuits -->
+                                                                                                        <ComboBox Grid.Column="1"
+                                                                                                                  ItemsSource="{Binding AvailablePsus}"
+                                                                                                                  SelectedItem="{Binding AssignedPsu, Mode=TwoWay}"
+                                                                                                                  Style="{StaticResource DarkComboBoxStyle}"
+                                                                                                                  VerticalAlignment="Center"
+                                                                                                                  MinWidth="80"
+                                                                                                                  Margin="0,0,4,0"
+                                                                                                                  ToolTip="Assign PSU for this NAC circuit"
+                                                                                                                  Visibility="{Binding AvailablePsus.Count,
+                                                                                                                               Converter={StaticResource CountToVisibility}}"/>
                                                                                                         <!-- "⎇" Add SubCircuit button — visible only for true sub-devices -->
-                                                                                                        <Button Grid.Column="1"
+                                                                                                        <Button Grid.Column="2"
                                                                                                                 Command="{Binding AddSubCircuitCommand}"
                                                                                                                 ToolTip="Create NAC SubCircuit from this device"
                                                                                                                 Width="18" Height="18"
@@ -571,7 +583,7 @@
                                                                                                                                      Foreground="{DynamicResource IconForegroundBrush}"/>
                                                                                                         </Button>
                                                                                                         <!-- "−" remove button -->
-                                                                                                        <Button Grid.Column="2"
+                                                                                                        <Button Grid.Column="3"
                                                                                                                 Command="{Binding RemoveSubDeviceCommand}"
                                                                                                                 ToolTip="Remove sub-device assignment"
                                                                                                                 Width="18" Height="18"

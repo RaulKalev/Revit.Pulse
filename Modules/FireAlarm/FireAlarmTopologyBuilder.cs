@@ -348,19 +348,19 @@ namespace Pulse.Modules.FireAlarm
                     deviceByElementId[dev.RevitElementId.Value] = dev;
 
             // Build a reverse map: sub-device node id → parent Device node id.
-            // Used so a SubCircuit whose HostElementId is a sub-device ("001.1") is
-            // displayed as a child of the Output Module ("001"), not the sub-device.
-            // The XAML only renders one level of Device children, so the SubCircuit must
-            // attach to the Output Module for it to be visible.
-            var nodeById = new Dictionary<string, Node>(StringComparer.Ordinal);
+            // The XAML device-row template only renders one level of Device children;
+            // a SubCircuit hosted by a sub-device ("001.1") must therefore be attached
+            // to the parent Output Module ("001") so it is visible.  The HostElementId
+            // is preserved on the node property for routing/coordinate purposes.
+            var nodeByIdTemp = new Dictionary<string, Node>(StringComparer.Ordinal);
             foreach (var n in data.Nodes)
-                nodeById[n.Id] = n;
+                nodeByIdTemp[n.Id] = n;
 
             var parentDeviceOfNode = new Dictionary<string, string>(StringComparer.Ordinal);
             foreach (var edge in data.Edges)
             {
-                if (nodeById.TryGetValue(edge.SourceId, out var src)
-                    && nodeById.TryGetValue(edge.TargetId, out var tgt)
+                if (nodeByIdTemp.TryGetValue(edge.SourceId, out var src)
+                    && nodeByIdTemp.TryGetValue(edge.TargetId, out var tgt)
                     && src.NodeType == "Device"
                     && tgt.NodeType == "Device")
                 {
@@ -527,9 +527,8 @@ namespace Pulse.Modules.FireAlarm
 
                 // ── Edge: host device → SubCircuit ────────────────────────────────────
                 // If the host is a sub-device ("001.1"), attach to its parent Output Module
-                // ("001") instead so the SubCircuit appears at the correct XAML render level
-                // (Device children, not Device-grandchildren which are never rendered).
-                // HostElementId is still the sub-device — used for routing coordinates.
+                // ("001") so the SubCircuit is rendered at the correct XAML level.
+                // HostElementId is stored on the node for cable routing.
                 if (nodeByElementId.TryGetValue(sc.HostElementId, out var hostNode))
                 {
                     string edgeSourceId = parentDeviceOfNode.TryGetValue(hostNode.Id, out string parentId)

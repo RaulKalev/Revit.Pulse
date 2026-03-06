@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 using Pulse.Core.Settings;
+using Pulse.Modules.FireAlarm;
 
 namespace Pulse.UI.ViewModels
 {
@@ -58,6 +59,41 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _maxAddresses, value);
         }
 
+        private double _batteryUnitAh;
+        public double BatteryUnitAh
+        {
+            get => _batteryUnitAh;
+            set => SetField(ref _batteryUnitAh, value);
+        }
+
+        private double _psuOutputCurrentA;
+        public double PsuOutputCurrentA
+        {
+            get => _psuOutputCurrentA;
+            set => SetField(ref _psuOutputCurrentA, value);
+        }
+
+        private double _requiredStandbyHours;
+        public double RequiredStandbyHours
+        {
+            get => _requiredStandbyHours;
+            set => SetField(ref _requiredStandbyHours, value);
+        }
+
+        private double _requiredAlarmMinutes;
+        public double RequiredAlarmMinutes
+        {
+            get => _requiredAlarmMinutes;
+            set => SetField(ref _requiredAlarmMinutes, value);
+        }
+
+        private double _batterySafetyFactor;
+        public double BatterySafetyFactor
+        {
+            get => _batterySafetyFactor;
+            set => SetField(ref _batterySafetyFactor, value);
+        }
+
         public ControlPanelConfigViewModel(ControlPanelConfig model)
         {
             if (model == null) throw new ArgumentNullException(nameof(model));
@@ -68,6 +104,11 @@ namespace Pulse.UI.ViewModels
             _maxLoopCount = model.MaxLoopCount;
             _maxMaPerLoop = model.MaxMaPerLoop;
             _maxAddresses = model.MaxAddresses;
+            _batteryUnitAh = model.BatteryUnitAh;
+            _psuOutputCurrentA = model.PsuOutputCurrentA;
+            _requiredStandbyHours = model.RequiredStandbyHours;
+            _requiredAlarmMinutes = model.RequiredAlarmMinutes;
+            _batterySafetyFactor = model.BatterySafetyFactor;
         }
 
         public ControlPanelConfig ToModel() => new ControlPanelConfig
@@ -78,7 +119,12 @@ namespace Pulse.UI.ViewModels
             AddressesPerLoop = AddressesPerLoop,
             MaxLoopCount = MaxLoopCount,
             MaxMaPerLoop = MaxMaPerLoop,
-            MaxAddresses = MaxAddresses
+            MaxAddresses = MaxAddresses,
+            BatteryUnitAh = BatteryUnitAh,
+            PsuOutputCurrentA = PsuOutputCurrentA,
+            RequiredStandbyHours = RequiredStandbyHours,
+            RequiredAlarmMinutes = RequiredAlarmMinutes,
+            BatterySafetyFactor = BatterySafetyFactor
         };
     }
 
@@ -310,6 +356,88 @@ namespace Pulse.UI.ViewModels
         };
     }
 
+    /// <summary>
+    /// Editable ViewModel for a single <see cref="PsuConfig"/>.
+    /// </summary>
+    public class PsuConfigViewModel : ViewModelBase
+    {
+        public string Id { get; }
+
+        private string _name;
+        public string Name
+        {
+            get => _name;
+            set => SetField(ref _name, value);
+        }
+
+        private double _voltageV;
+        public double VoltageV
+        {
+            get => _voltageV;
+            set => SetField(ref _voltageV, value);
+        }
+
+        private double _batteryUnitAh;
+        public double BatteryUnitAh
+        {
+            get => _batteryUnitAh;
+            set => SetField(ref _batteryUnitAh, value);
+        }
+
+        private double _psuOutputCurrentA;
+        public double PsuOutputCurrentA
+        {
+            get => _psuOutputCurrentA;
+            set => SetField(ref _psuOutputCurrentA, value);
+        }
+
+        private double _requiredStandbyHours;
+        public double RequiredStandbyHours
+        {
+            get => _requiredStandbyHours;
+            set => SetField(ref _requiredStandbyHours, value);
+        }
+
+        private double _requiredAlarmMinutes;
+        public double RequiredAlarmMinutes
+        {
+            get => _requiredAlarmMinutes;
+            set => SetField(ref _requiredAlarmMinutes, value);
+        }
+
+        private double _batterySafetyFactor;
+        public double BatterySafetyFactor
+        {
+            get => _batterySafetyFactor;
+            set => SetField(ref _batterySafetyFactor, value);
+        }
+
+        public PsuConfigViewModel(PsuConfig model)
+        {
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            Id = model.Id;
+            _name = model.Name;
+            _voltageV = model.VoltageV;
+            _batteryUnitAh = model.BatteryUnitAh;
+            _psuOutputCurrentA = model.OutputCurrentA;
+            _requiredStandbyHours = model.RequiredStandbyHours;
+            _requiredAlarmMinutes = model.RequiredAlarmMinutes;
+            _batterySafetyFactor = model.BatterySafetyFactor;
+        }
+
+        public PsuConfig ToModel() => new PsuConfig
+        {
+            Id = Id,
+            Name = Name ?? string.Empty,
+            VoltageV = VoltageV,
+            BatteryUnitAh = BatteryUnitAh,
+            OutputCurrentA = PsuOutputCurrentA,
+            RequiredStandbyHours = RequiredStandbyHours,
+            RequiredAlarmMinutes = RequiredAlarmMinutes,
+            BatterySafetyFactor = BatterySafetyFactor
+        };
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     //  Root DeviceConfigViewModel
     // ─────────────────────────────────────────────────────────────────────────
@@ -332,6 +460,9 @@ namespace Pulse.UI.ViewModels
 
         public ObservableCollection<PaperSizeConfigViewModel> PaperSizes { get; }
             = new ObservableCollection<PaperSizeConfigViewModel>();
+
+        public ObservableCollection<PsuConfigViewModel> PsuUnits { get; }
+            = new ObservableCollection<PsuConfigViewModel>();
 
         // ─── Selection ───────────────────────────────────────────────────────
         private ControlPanelConfigViewModel _selectedPanel;
@@ -362,9 +493,16 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _selectedPaperSize, value);
         }
 
+        private PsuConfigViewModel _selectedPsuUnit;
+        public PsuConfigViewModel SelectedPsuUnit
+        {
+            get => _selectedPsuUnit;
+            set => SetField(ref _selectedPsuUnit, value);
+        }
+
         // ─── Tab state ───────────────────────────────────────────────────────
         private int _activeTab;
-        /// <summary>0 = Control Panels, 1 = Loop Modules, 2 = Wires.</summary>
+        /// <summary>0 = Control Panels, 1 = Loop Modules, 2 = Wires, 3 = Paper, 4 = PSU Units.</summary>
         public int ActiveTab
         {
             get => _activeTab;
@@ -376,6 +514,7 @@ namespace Pulse.UI.ViewModels
                     OnPropertyChanged(nameof(IsLoopModulesTabActive));
                     OnPropertyChanged(nameof(IsWiresTabActive));
                     OnPropertyChanged(nameof(IsPaperSizesTabActive));
+                    OnPropertyChanged(nameof(IsPsuUnitsTabActive));
                 }
             }
         }
@@ -384,12 +523,14 @@ namespace Pulse.UI.ViewModels
         public bool IsLoopModulesTabActive => _activeTab == 1;
         public bool IsWiresTabActive       => _activeTab == 2;
         public bool IsPaperSizesTabActive  => _activeTab == 3;
+        public bool IsPsuUnitsTabActive    => _activeTab == 4;
 
         // ─── Commands ────────────────────────────────────────────────────────
         public ICommand SelectPanelsTabCommand { get; }
         public ICommand SelectLoopModulesTabCommand { get; }
         public ICommand SelectWiresTabCommand { get; }
         public ICommand SelectPaperSizesTabCommand { get; }
+        public ICommand SelectPsuUnitsTabCommand { get; }
 
         public ICommand AddPanelCommand { get; }
         public ICommand RemovePanelCommand { get; }
@@ -400,6 +541,9 @@ namespace Pulse.UI.ViewModels
 
         public ICommand AddPaperSizeCommand { get; }
         public ICommand RemovePaperSizeCommand { get; }
+
+        public ICommand AddPsuUnitCommand { get; }
+        public ICommand RemovePsuUnitCommand { get; }
 
         public ICommand SaveCommand { get; }
         public ICommand CancelCommand { get; }
@@ -425,11 +569,16 @@ namespace Pulse.UI.ViewModels
             foreach (var ps in store.PaperSizes)
                 PaperSizes.Add(new PaperSizeConfigViewModel(ps));
 
+            var faConfig = DeviceConfigService.LoadModuleConfig<FireAlarmDeviceConfig>("FireAlarm");
+            foreach (var psu in faConfig.PsuUnits)
+                PsuUnits.Add(new PsuConfigViewModel(psu));
+
             // Tab commands
             SelectPanelsTabCommand      = new RelayCommand(_ => ActiveTab = 0);
             SelectLoopModulesTabCommand = new RelayCommand(_ => ActiveTab = 1);
             SelectWiresTabCommand       = new RelayCommand(_ => ActiveTab = 2);
             SelectPaperSizesTabCommand  = new RelayCommand(_ => ActiveTab = 3);
+            SelectPsuUnitsTabCommand    = new RelayCommand(_ => ActiveTab = 4);
 
             // Panel CRUD
             AddPanelCommand = new RelayCommand(_ =>
@@ -495,6 +644,22 @@ namespace Pulse.UI.ViewModels
                 SelectedPaperSize = PaperSizes.Count > 0 ? PaperSizes[0] : null;
             });
 
+            // PSU unit CRUD
+            AddPsuUnitCommand = new RelayCommand(_ =>
+            {
+                var vm = new PsuConfigViewModel(new PsuConfig
+                    { Name = $"PSU {PsuUnits.Count + 1}", VoltageV = 24.0, RequiredStandbyHours = 24.0, RequiredAlarmMinutes = 30.0, BatterySafetyFactor = 1.25 });
+                PsuUnits.Add(vm);
+                SelectedPsuUnit = vm;
+            });
+
+            RemovePsuUnitCommand = new RelayCommand(_ =>
+            {
+                if (SelectedPsuUnit == null) return;
+                PsuUnits.Remove(SelectedPsuUnit);
+                SelectedPsuUnit = PsuUnits.Count > 0 ? PsuUnits[0] : null;
+            });
+
             // Save / Cancel
             SaveCommand   = new RelayCommand(_ => ExecuteSave());
             CancelCommand = new RelayCommand(_ => Cancelled?.Invoke());
@@ -504,6 +669,7 @@ namespace Pulse.UI.ViewModels
             if (LoopModules.Count > 0) SelectedLoopModule = LoopModules[0];
             if (Wires.Count > 0)       SelectedWire       = Wires[0];
             if (PaperSizes.Count > 0)  SelectedPaperSize  = PaperSizes[0];
+            if (PsuUnits.Count > 0)    SelectedPsuUnit    = PsuUnits[0];
         }
 
         // ─── Helpers ─────────────────────────────────────────────────────────
@@ -531,6 +697,14 @@ namespace Pulse.UI.ViewModels
                 store.PaperSizes.Add(vm.ToModel());
 
             DeviceConfigService.Save(store);
+
+            // Save PSU units into the FireAlarm module config blob
+            var faConfig = DeviceConfigService.LoadModuleConfig<FireAlarmDeviceConfig>("FireAlarm");
+            faConfig.PsuUnits.Clear();
+            foreach (var vm in PsuUnits)
+                faConfig.PsuUnits.Add(vm.ToModel());
+            DeviceConfigService.SaveModuleConfig("FireAlarm", faConfig);
+
             Saved?.Invoke();
         }
     }
