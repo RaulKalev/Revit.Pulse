@@ -1,7 +1,7 @@
 # Pulse — Proposals & Roadmap
 
-> Last updated: March 6, 2026.
-> PSU host element work (circuit metrics, battery sizing, EN 54-4 formula, standard-size even-count battery recommendation) is complete and shipped.
+> Last updated: March 7, 2026.
+> PSU host element work (circuit metrics, battery sizing, EN 54-4 formula, standard-size even-count battery recommendation) is complete and shipped. BOQ enhancements (control panels, loop modules, cables grouped by wire type, batteries) and CSV export are complete and shipped.
 
 ---
 
@@ -22,7 +22,9 @@
 | Fire Alarm | Battery / PSU sizing data (FormulaBreakdown + RecommendedCapacitySummary) shown in dashboard |
 | Fire Alarm | Loop balance health check — Warning row + Highlight when spread ≥ 40 % and overloaded loop ≥ 70 %; included in AI System Check prompt |
 | UI | System Intelligence Dashboard — 6 sections |
-| UI | BOQ window — grouping, custom formula columns, export/import |
+| UI | BOQ window — grouping, custom formula columns, settings export/import, CSV data export |
+| UI | BOQ window — enhanced row groups: Control Panels, Loop Modules, Cables (by wire type with length), Batteries (FACP + field PSU) |
+| UI | BOQ column list shows all visible columns; − button removes selected column; structural columns auto-visible on first load |
 | UI | 3D Manhattan wire routing with auto-measured cable length |
 | UI | Custom symbol designer + mapping |
 | UI | AI System Check prompt export |
@@ -32,8 +34,9 @@
 
 ## 🔵 High Priority — Natural Next Steps
 
-**1. BOQ CSV/Excel Export**
-The BOQ grid has grouping and sorting but no data export. Adding CSV / Excel (.xlsx via ClosedXML) export is the most-requested workflow for any quantity surveyor or consultant. Settings export/import is already in place; this is data export.
+**1. BOQ CSV/Excel Export** ~~— CSV export shipped~~
+
+~~CSV export is now implemented (Export CSV toolbar button, respects visible columns, grouping, and sorting; UTF-8 with proper escaping). Excel (.xlsx via ClosedXML) export remains open if needed.~~
 
 **2. Diagram PDF/Image Export**
 Paper sizes are already configured. The diagram canvas renders to WPF visuals. Exporting to PDF (via `PrintDialog` + `XpsDocument`) or PNG/SVG would complete the print workflow. The `PaperSizeConfig` model is already in place.

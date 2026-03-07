@@ -81,10 +81,10 @@ WPF user interface using Material Design:
 | `SymbolMappingViewModel` | Device-type to custom symbol mapping |
 | `SymbolDesignerViewModel` | Custom symbol drawing canvas |
 | `DiagramFeatureService` | Diagram ↔ topology wire-assignment orchestration |
-| `BoqWindow` | Modeless Bill of Quantities window with aggregated grouping and settings panel |
-| `BoqWindowViewModel` | BOQ root VM — column management, aggregated grouping, sorting, settings persistence |
-| `BoqRowViewModel` | Single BOQ row wrapper; exposes string indexer `[FieldKey]` for DataGrid; carries `Count` for aggregated rows |
-| `BoqColumnViewModel` | Column state VM — `IsVisible`, `DisplayOrder`, `Header`, `FieldKey`, `IsCustom` |
+| `BoqWindow` | Modeless Bill of Quantities window with aggregated grouping, settings panel, and CSV export |
+| `BoqWindowViewModel` | BOQ root VM — column management (visible-only filter, default-visible structural keys, hide command), aggregated grouping, sorting, CSV export (`ExportCsvCommand`), settings persistence |
+| `BoqRowViewModel` | Single BOQ row wrapper; exposes string indexer `[FieldKey]` for DataGrid; for pre-aggregated rows (cables, batteries) `_Count` returns the `Quantity` parameter (e.g. `125.3 m`) instead of the raw integer count |
+| `BoqColumnViewModel` | Column state VM — `IsVisible`, `DisplayOrder`, `Header`, `FieldKey`, `IsCustom`, `IsDiscovered` |
 
 ### Pulse.Modules.FireAlarm
 
@@ -99,7 +99,7 @@ First implemented module:
 | `CableLengthCalculator` | Calculates per-loop cable length using Manhattan (right-angle) routing in Revit internal units, returns metres |
 | `FireAlarmRulePack` | Validates data with 5 rules |
 | `FireAlarmParameterKeys` | Centralized logical parameter key constants |
-| `FireAlarmBoqDataProvider` | Implements `IBoqDataProvider` — maps `ModuleData` to `BoqItem` rows with Revit family name, type name, level, panel, loop, address, and all discovered parameters |
+| `FireAlarmBoqDataProvider` | Implements `IBoqDataProvider` — maps `ModuleData` to `BoqItem` rows across five groups: (1) fire alarm devices with Revit family/type/level/loop/panel/address; (2) control panels per assigned config; (3) loop modules per assigned config; (4) cables — one row per wire type with total length summed across assigned loops; (5) batteries — one row per FACP panel and one per field PSU group |
 ---
 
 ## Features
@@ -108,10 +108,24 @@ First implemented module:
 
 The **BOQ window** is a modeless panel opened from the main toolbar that shows all devices in a configurable DataGrid.
 
+**Row groups (Fire Alarm module):**
+- **Fire Alarm Devices** — one row per device with Revit category, family, type, level, panel, loop, address, and all mapped parameters
+- **Control Panels** — one row per assigned FACP config with capacity parameters (MaxAddresses, MaxLoopCount, MaxMaPerLoop)
+- **Loop Modules** — one row per assigned loop module config with AddressesPerLoop and MaxMaPerLoop
+- **Cables** — one row per wire type; the Count column shows total length in metres (`125.3 m`); wire properties (CoreCount, CoreSizeMm2, FireResistance, Color) are additional parameters
+- **Batteries — Control Panel / Field PSU** — one row per panel or PSU group; shows Quantity (batteries needed), RequiredCapacity_Ah, TotalCapacity_Ah, BatteryUnitAh
+
+**Toolbar buttons:**
+- **Export CSV** — exports the current view (visible columns, active grouping/sorting) to a UTF-8 CSV file; filename auto-includes date/time
+- **Export / Import** — export or import column settings as JSON
+
 **Column management (settings panel, right-side drawer):**
-- Toggle column visibility by checking/unchecking columns in the settings list
+- The COLUMNS list shows **all currently visible columns** (standard and discovered)
+- **+** (parameter picker) — add parameters from Revit or from the discovered key list to the visible columns
+- **−** (remove) — hides the selected column; it returns to the available list in the picker
 - Re-order columns with Move Up / Move Down
 - Add custom formula columns via the Custom Column editor
+- Structural columns (Quantity, CableLength_m, capacity params) are **auto-shown** on first load without needing the picker
 - Column state persisted to Revit Extensible Storage per document
 
 **Grouping:**

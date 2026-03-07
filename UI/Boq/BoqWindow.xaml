@@ -181,6 +181,17 @@
                                        Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}" />
 
                             <Button Style="{StaticResource PulseActionButtonStyle}"
+                                    Command="{Binding ExportCsvCommand}"
+                                    ToolTip="Export current view to CSV"
+                                    Margin="0,0,4,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Kind="FileDelimited" Width="14" Height="14"
+                                                             VerticalAlignment="Center" Margin="0,0,4,0" />
+                                    <TextBlock Text="Export CSV" FontSize="11" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <Button Style="{StaticResource PulseActionButtonStyle}"
                                     Command="{Binding ExportSettingsCommand}"
                                     ToolTip="Export BOQ settings to JSON file"
                                     Margin="0,0,4,0">

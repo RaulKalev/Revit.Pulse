@@ -1,6 +1,6 @@
 # Pulse — Architecture Guide
 
-> Last updated after **NAC PSU Host enhancements** — PSU host element circuit metrics, Battery/PSU section with EN 54-4 sizing, standard-size battery recommendation, per-unit voltage, and formula breakdown.
+> Last updated after **BOQ enhancements** — new row groups (Control Panels, Loop Modules, Cables by wire type, Batteries), CSV export, column list visibility fix, Category name from Revit, and − button to remove columns.
 
 This document describes the runtime pipeline, module system, storage
 strategy, and diagram scene-graph that form the backbone of Pulse.

@@ -142,6 +142,7 @@ namespace Pulse.UI.Boq
         public ICommand SaveSettingsCommand     { get; }
         public ICommand ExportSettingsCommand   { get; }
         public ICommand ImportSettingsCommand   { get; }
+        public ICommand ExportCsvCommand        { get; }
         public ICommand AddCustomColumnCommand  { get; }
         public ICommand EditCustomColumnCommand { get; }
         public ICommand DeleteCustomColumnCommand { get; }
@@ -233,6 +234,7 @@ namespace Pulse.UI.Boq
             SaveSettingsCommand        = new RelayCommand(ExecuteSaveSettings);
             ExportSettingsCommand      = new RelayCommand(ExecuteExportSettings);
             ImportSettingsCommand      = new RelayCommand(ExecuteImportSettings);
+            ExportCsvCommand           = new RelayCommand(ExecuteExportCsv, () => _rowsSource.Count > 0);
             AddCustomColumnCommand     = new RelayCommand(ExecuteAddCustomColumn);
             EditCustomColumnCommand    = new RelayCommand(ExecuteEditCustomColumn,
                                             () => SelectedColumn?.IsCustom == true);
@@ -762,6 +764,51 @@ namespace Pulse.UI.Boq
             }
 
             RowCount = _rowsSource.Count;
+        }
+
+        // ── CSV export ────────────────────────────────────────────────────────
+
+        private void ExecuteExportCsv()
+        {
+            var dlg = new SaveFileDialog
+            {
+                Title           = "Export BOQ to CSV",
+                Filter          = "CSV Files (*.csv)|*.csv|All Files (*.*)|*.*",
+                DefaultExt      = ".csv",
+                FileName        = $"BOQ_{_settings.ModuleKey}_{DateTime.Now:yyyyMMdd_HHmm}.csv",
+                OverwritePrompt = true
+            };
+
+            if (dlg.ShowDialog() != true) return;
+
+            try
+            {
+                var visibleCols = GetVisibleColumnsOrdered();
+                var sb = new System.Text.StringBuilder();
+
+                // Header row
+                sb.AppendLine(string.Join(",", visibleCols.Select(c => CsvEscape(c.Header))));
+
+                // Data rows (current view — respects grouping/sorting)
+                foreach (var row in _rowsSource)
+                    sb.AppendLine(string.Join(",", visibleCols.Select(c =>
+                        CsvEscape((row[c.FieldKey] ?? string.Empty).ToString()))));
+
+                System.IO.File.WriteAllText(dlg.FileName, sb.ToString(), System.Text.Encoding.UTF8);
+                StatusText = $"Exported {_rowsSource.Count} rows to {System.IO.Path.GetFileName(dlg.FileName)}";
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"CSV export failed: {ex.Message}";
+            }
+        }
+
+        private static string CsvEscape(string value)
+        {
+            if (string.IsNullOrEmpty(value)) return string.Empty;
+            if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
+                return $"\"{value.Replace("\"", "\"\"")}\"";
+            return value;
         }
 
         // ── Settings persist / export / import ────────────────────────────────
