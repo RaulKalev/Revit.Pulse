@@ -26,6 +26,7 @@
 | UI | BOQ window — enhanced row groups: Control Panels, Loop Modules, Cables (by wire type with length), Batteries (FACP + field PSU) |
 | UI | BOQ column list shows all visible columns; − button removes selected column; structural columns auto-visible on first load |
 | UI | 3D Manhattan wire routing with auto-measured cable length |
+| Fire Alarm | SubCircuit cable length read back from drawn routing lines — routed length preferred over Manhattan estimate |
 | UI | Custom symbol designer + mapping |
 | UI | AI System Check prompt export |
 | Docs | README, ARCHITECTURE, MANUAL updated for PSU host features |
@@ -50,8 +51,9 @@ The `Zone` model exists in `Core.SystemModel` but is unused. Integrating zone-to
 
 ~~**6. Loop Balance Health Checks** — completed~~
 
-**7. SubCircuit Cable Length from Routed Lines**
-Loop routing is fully implemented. SubCircuit routing lines are drawn and togglable, but cable length is not yet read back from them on Refresh. Completing this parity step would give accurate V-drop on SubCircuits with drawn routes.
+~~**7. SubCircuit Cable Length from Routed Lines** — completed~~
+
+~~SubCircuit routing lines are drawn and togglable; on Refresh, routed wire lengths are read back from `"Pulse Wire – "` model lines (via `RevitCollectorService.GetRoutedWireLengths`) and preferred over the Manhattan estimate in `FireAlarmTopologyBuilder`. Full parity with loop routing.~~
 
 **8. Multi-PSU Scenarios (daisy-chained PSUs)**
 Currently one PSU config per host element. Modelling scenarios where a second PSU charges the same battery bank, or where SubCircuits span two output modules, is a future topology enhancement.
