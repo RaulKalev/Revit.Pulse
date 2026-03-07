@@ -28,7 +28,7 @@ namespace Pulse
 
             panel.CreatePushButton<PulseFireAlarm>()
                 .SetLargeImage("pack://application:,,,/Pulse;component/Assets/Light%20-%20Pulse%20-%20Fire.tiff")
-                .SetText("Fire Alarm")
+                .SetText("Fire\nAlarm")
                 .SetToolTip("Open Pulse – Fire Alarm Module\n\n• Get a clear overview of your fire alarm system\n• View panels, loops, and devices in one place\n• Review loads, capacity, cable lengths, and device distribution\n• Spot issues early during design\n• Generate information for diagrams, documentation, and system review")
                 .SetContextualHelp("https://raulkalev.github.io/rktools/pulse/index.html");
 
