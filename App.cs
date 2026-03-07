@@ -29,15 +29,7 @@ namespace Pulse
             panel.CreatePushButton<PulseFireAlarm>()
                 .SetLargeImage("pack://application:,,,/Pulse;component/Assets/Light%20-%20Pulse%20-%20Fire.tiff")
                 .SetText("Fire Alarm")
-                .SetToolTip("Pulse — Fire Alarm Module")
-                .SetLongDescription(
-                    "Pulse is a modern fire alarm engineering tool for Revit.\n\n" +
-                    "• Build panel → loop → device topology with V-drop analysis\n" +
-                    "• Size batteries and PSUs using the EN 54-4 formula\n" +
-                    "• Draw and measure wire routing on the model\n" +
-                    "• Generate a Bill of Quantities with CSV export\n" +
-                    "• Run an AI-assisted system health check\n\n" +
-                    "Press F1 for full documentation.")
+                .SetToolTip("Open Pulse – Fire Alarm Module\n\n• Get a clear overview of your fire alarm system\n• View panels, loops, and devices in one place\n• Review loads, capacity, cable lengths, and device distribution\n• Spot issues early during design\n• Generate information for diagrams, documentation, and system review")
                 .SetContextualHelp("https://raulkalev.github.io/rktools/pulse/index.html");
 
             return Result.Succeeded;
