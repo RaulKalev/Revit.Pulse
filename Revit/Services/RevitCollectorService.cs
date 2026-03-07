@@ -44,6 +44,10 @@ namespace Pulse.Revit.Services
                     ElementId = element.Id.Value
                 };
 
+                // Inject the Revit category name so BOQ and other consumers can
+                // display the correct category rather than a mapped type value.
+                data.Parameters["_CategoryName"] = categoryName ?? string.Empty;
+
                 // Always expose the element's built-in Name (family type name) so
                 // matchers can use it without requiring a configured parameter.
                 data.Parameters["_Name"] = element.Name ?? string.Empty;

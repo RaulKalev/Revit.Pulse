@@ -147,6 +147,7 @@ namespace Pulse.UI.Boq
         public ICommand DeleteCustomColumnCommand { get; }
         public ICommand MoveColumnUpCommand     { get; }
         public ICommand MoveColumnDownCommand   { get; }
+        public ICommand HideColumnCommand        { get; }
         public ICommand AddGroupingRuleCommand  { get; }
         public ICommand RemoveGroupingRuleCommand { get; }
         public ICommand AddSortingRuleCommand   { get; }
@@ -206,14 +207,13 @@ namespace Pulse.UI.Boq
             // Set up the CollectionViewSource
             _rows = CollectionViewSource.GetDefaultView(_rowsSource);
 
-            // Set up filtered column view — shows only picker-added (discovered) visible columns.
+            // Set up filtered column view — shows all currently visible columns.
             FilteredColumns = CollectionViewSource.GetDefaultView(_allColumns);
             FilteredColumns.Filter = obj =>
             {
                 if (obj is BoqColumnViewModel col)
                 {
-                    // Only show Revit parameter columns that were added via the picker and are visible.
-                    if (!col.IsDiscovered || !col.IsVisible) return false;
+                    if (!col.IsVisible) return false;
                     if (string.IsNullOrWhiteSpace(_columnSearchText)) return true;
                     return col.Header.IndexOf(_columnSearchText, StringComparison.OrdinalIgnoreCase) >= 0
                         || col.FieldKey.IndexOf(_columnSearchText, StringComparison.OrdinalIgnoreCase) >= 0;
@@ -241,6 +241,8 @@ namespace Pulse.UI.Boq
             MoveColumnUpCommand        = new RelayCommand(ExecuteMoveColumnUp,
                                             () => SelectedColumn != null);
             MoveColumnDownCommand      = new RelayCommand(ExecuteMoveColumnDown,
+                                            () => SelectedColumn != null);
+            HideColumnCommand          = new RelayCommand(ExecuteHideColumn,
                                             () => SelectedColumn != null);
             AddGroupingRuleCommand     = new RelayCommand(ExecuteAddGroupingRule);
             RemoveGroupingRuleCommand  = new RelayCommand(ExecuteRemoveGroupingRule,
@@ -286,6 +288,7 @@ namespace Pulse.UI.Boq
             {
                 RebuildAvailableFieldKeys();
                 FilteredColumns?.Refresh();
+                ColumnsChanged?.Invoke(this, EventArgs.Empty);
             }
         }
 
@@ -338,9 +341,12 @@ namespace Pulse.UI.Boq
 
             var items = _dataProvider.GetItems(data);
             var discoveredKeys = _dataProvider.DiscoverParameterKeys(data);
+            var defaultVisibleKeys = new HashSet<string>(
+                _dataProvider.GetDefaultVisibleParameterKeys(),
+                StringComparer.OrdinalIgnoreCase);
 
             // Merge any newly-discovered parameter keys into column definitions
-            MergeDiscoveredColumns(discoveredKeys);
+            MergeDiscoveredColumns(discoveredKeys, defaultVisibleKeys);
 
             // Cache all individual rows; RebuildDisplayRows will aggregate as needed
             var customDefs = _settings.CustomColumns.AsReadOnly();
@@ -359,7 +365,7 @@ namespace Pulse.UI.Boq
 
         // ── Column management ─────────────────────────────────────────────────
 
-        private void MergeDiscoveredColumns(IReadOnlyList<string> parameterKeys)
+        private void MergeDiscoveredColumns(IReadOnlyList<string> parameterKeys, HashSet<string> defaultVisibleKeys = null)
         {
             // Build lookup of existing columns
             var existing = new HashSet<string>(
@@ -390,7 +396,8 @@ namespace Pulse.UI.Boq
             {
                 if (!existing.Contains(key))
                 {
-                    var def = new BoqColumnDefinition(key, key, isVisible: false)
+                    bool shouldBeVisible = defaultVisibleKeys != null && defaultVisibleKeys.Contains(key);
+                    var def = new BoqColumnDefinition(key, key, isVisible: shouldBeVisible)
                     {
                         IsDiscovered = true
                     };
@@ -504,6 +511,13 @@ namespace Pulse.UI.Boq
         }
 
         // ── Column move ───────────────────────────────────────────────────────
+
+        private void ExecuteHideColumn()
+        {
+            if (SelectedColumn == null) return;
+            SelectedColumn.IsVisible = false;
+            SelectedColumn = null;
+        }
 
         private void ExecuteMoveColumnUp()
         {

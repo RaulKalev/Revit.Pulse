@@ -32,5 +32,12 @@ namespace Pulse.Core.Boq
         /// dictionaries returned by <see cref="GetItems"/>.  Override for faster discovery.
         /// </summary>
         IReadOnlyList<string> DiscoverParameterKeys(ModuleData data);
+
+        /// <summary>
+        /// Returns the subset of parameter keys (from <see cref="DiscoverParameterKeys"/>) that
+        /// should be visible in the DataGrid by default on first discovery (i.e. when no persisted
+        /// user preference exists for the key).  May return an empty list.
+        /// </summary>
+        IReadOnlyList<string> GetDefaultVisibleParameterKeys();
     }
 }

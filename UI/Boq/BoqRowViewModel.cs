@@ -42,9 +42,17 @@ namespace Pulse.UI.Boq
             {
                 if (string.IsNullOrEmpty(key)) return string.Empty;
 
-                // Reserved synthetic key for the aggregated count column
+                // Reserved synthetic key for the aggregated count column.
+                // For pre-aggregated rows (cables, batteries, panels) that carry an
+                // explicit Quantity parameter, prefer that value so the Count column
+                // shows meaningful data (e.g. cable length in metres) instead of 1.
                 if (string.Equals(key, "_Count", StringComparison.OrdinalIgnoreCase))
+                {
+                    var qty = _item.GetValue("Quantity");
+                    if (qty != null && !string.IsNullOrEmpty(qty.ToString()))
+                        return qty;
                     return Count;
+                }
 
                 // 1. Check custom columns first (may shadow a parameter with the same name)
                 if (_customCache.TryGetValue(key, out var cached)) return cached;

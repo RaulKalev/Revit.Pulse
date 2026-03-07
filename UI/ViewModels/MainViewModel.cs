@@ -681,7 +681,7 @@ namespace Pulse.UI.ViewModels
                 }
             }
 
-            var dataProvider = new FireAlarmBoqDataProvider();
+            var dataProvider = new FireAlarmBoqDataProvider(_topologyAssignments, DeviceConfigService.Load());
 
             var vm = new BoqWindowViewModel(
                 dataProvider:             dataProvider,
