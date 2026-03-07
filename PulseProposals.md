@@ -18,6 +18,9 @@
 | Fire Alarm | Standard-size even-count battery recommendation (VRLA/AGM 1.2–100 Ah) |
 | Fire Alarm | EN 54-4 formula breakdown displayed in dashboard (4-step trace) |
 | Fire Alarm | Per-unit battery voltage derived from PSU config VoltageV |
+| Fire Alarm | PSU config on host device propagates to all hosted SubCircuits in one action |
+| Fire Alarm | Battery / PSU sizing data (FormulaBreakdown + RecommendedCapacitySummary) shown in dashboard |
+| Fire Alarm | Loop balance health check — Warning row + Highlight when spread ≥ 40 % and overloaded loop ≥ 70 %; included in AI System Check prompt |
 | UI | System Intelligence Dashboard — 6 sections |
 | UI | BOQ window — grouping, custom formula columns, export/import |
 | UI | 3D Manhattan wire routing with auto-measured cable length |
@@ -35,12 +38,6 @@ The BOQ grid has grouping and sorting but no data export. Adding CSV / Excel (.x
 **2. Diagram PDF/Image Export**
 Paper sizes are already configured. The diagram canvas renders to WPF visuals. Exporting to PDF (via `PrintDialog` + `XpsDocument`) or PNG/SVG would complete the print workflow. The `PaperSizeConfig` model is already in place.
 
-**3. NAC SubCircuit PSU Config Assignment — UI polish**
-PSU config is currently assigned per-SubCircuit via a dropdown. A helper on the host device node that propagates the same PSU config to all hosted SubCircuits in one click would reduce friction.
-
-**4. Battery Report (per-PSU)**
-The `FormulaBreakdown` and `RecommendedCapacitySummary` are now computed. Generating a structured text or PDF battery sizing report per PSU (or all PSUs at once) — similar to the AI System Check — would close the loop for commissioning documentation.
-
 ---
 
 ## 🟡 Medium Priority — Fire Alarm Enhancements
@@ -48,8 +45,7 @@ The `FormulaBreakdown` and `RecommendedCapacitySummary` are now computed. Genera
 **5. Zone / Cause-Effect Modelling**
 The `Zone` model exists in `Core.SystemModel` but is unused. Integrating zone-to-device assignment, zone counts, and cause-effect (input zone → output zones) would unlock fire-fighting mode mapping and code compliance checks.
 
-**6. Loop Balance Health Checks**
-The AI System Check prompt already flags loop imbalance textually. Surfacing this as a first-class Health Status row (with a Highlight button) — e.g. "Loop 2 is 92% full while Loop 3 is 14% full" — would help designers redistribute devices.
+~~**6. Loop Balance Health Checks** — completed~~
 
 **7. SubCircuit Cable Length from Routed Lines**
 Loop routing is fully implemented. SubCircuit routing lines are drawn and togglable, but cable length is not yet read back from them on Refresh. Completing this parity step would give accurate V-drop on SubCircuits with drawn routes.
@@ -80,13 +76,16 @@ Currently `device-config.json` is machine-wide only. Adding an import-from-URL o
 
 ## 🟢 Lower Priority — Future Modules
 
-**14. Emergency Lighting Module**
+**14. Battery Report Export**
+The battery sizing data (`FormulaBreakdown`, `RecommendedCapacitySummary`, standby/alarm currents) is already computed and displayed in the dashboard. Adding a clipboard-copy or PDF/text export per PSU — mirroring the AI System Check export — would complete the commissioning documentation workflow.
+
+**15. Emergency Lighting Module**
 Closest to Fire Alarm in architecture — similar circuit topology, battery standby calculations (BS 5266 / EN 50172), lux-level check per zone. The `IModuleDefinition` pattern is fully ready; no Core changes needed.
 
-**15. Security / Access Control Module**
+**16. Security / Access Control Module**
 Door controllers, readers, lock types, zones. Different topology (reader → controller rather than device → loop) but the graph model is flexible enough.
 
-**16. BMS / HVAC Monitoring Module**
+**17. BMS / HVAC Monitoring Module**
 Sensor point mapping, setpoint validation, equipment hierarchy. Likely needs a new `ZoneAnchor` renderer in the diagram canvas.
 
 ---

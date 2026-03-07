@@ -126,6 +126,17 @@ namespace Pulse.Modules.FireAlarm.Metrics
                 sb.AppendLine($"  - [{issue.Status.ToString().ToUpperInvariant()}] {issue.Description}");
             }
 
+            // Loop balance warnings (per panel)
+            foreach (var panel in fa.Panels)
+            {
+                foreach (var issue in SystemMetricsCalculator.ComputeLoopBalanceHealthIssues(
+                    panel, assignments, deviceStore))
+                {
+                    hasIssues = true;
+                    sb.AppendLine($"  - [WARNING] {issue.Description}");
+                }
+            }
+
             if (!hasIssues) sb.AppendLine("  - No issues detected.");
 
             sb.AppendLine();

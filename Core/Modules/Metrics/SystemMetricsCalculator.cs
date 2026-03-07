@@ -571,6 +571,77 @@ namespace Pulse.Core.Modules.Metrics
         }
 
         /// <summary>
+        /// Returns a <see cref="HealthIssueItem"/> for each loop that is significantly
+        /// more loaded than the least-loaded loop on the same panel, helping the designer
+        /// redistribute devices before a loop fills up.
+        ///
+        /// Utilisation is measured by address fraction (devices / max-addresses).
+        /// When a loop module config is not assigned the raw device count fraction
+        /// (devices / panel-total) is used for every loop on that panel so that
+        /// fractions remain comparable across the same panel.
+        /// </summary>
+        public static List<HealthIssueItem> ComputeLoopBalanceHealthIssues(
+            Panel panel,
+            TopologyAssignmentsStore assignments,
+            DeviceConfigStore deviceStore)
+        {
+            var result = new List<HealthIssueItem>();
+            if (panel == null || panel.Loops.Count < 2) return result;
+
+            // Build per-loop utilisation fractions.
+            // Try config-based fractions first; fall back to raw counts for the whole panel.
+            var fractions = new double[panel.Loops.Count];
+            bool allConfigured = true;
+
+            for (int i = 0; i < panel.Loops.Count; i++)
+            {
+                var cap = ComputeForLoop(panel.Loops[i], assignments, deviceStore);
+                if (cap != null && cap.AddressesMax > 0)
+                    fractions[i] = cap.AddressFraction;
+                else
+                    allConfigured = false;
+            }
+
+            if (!allConfigured)
+            {
+                // Mixed or absent configs — use raw device-count fraction of panel total.
+                int totalDevices = panel.Loops.Sum(l => l.Devices.Count);
+                if (totalDevices == 0) return result;
+                for (int i = 0; i < panel.Loops.Count; i++)
+                    fractions[i] = panel.Loops[i].Devices.Count / (double)totalDevices;
+            }
+
+            double maxFraction = fractions.Max();
+            double minFraction = fractions.Min();
+            double spread      = maxFraction - minFraction;
+
+            if (spread < MetricsThresholds.LoopImbalanceSpreadThreshold) return result;
+
+            // Emit a warning for every over-loaded loop.
+            for (int i = 0; i < panel.Loops.Count; i++)
+            {
+                if (fractions[i] < MetricsThresholds.WarningFraction) continue;
+
+                var loop = panel.Loops[i];
+                var elementIds = loop.Devices
+                    .Where(d => d.RevitElementId.HasValue)
+                    .Select(d => d.RevitElementId.Value)
+                    .ToList();
+
+                result.Add(new HealthIssueItem
+                {
+                    RuleName           = "LoopImbalance",
+                    Description        = $"Loop balance \u2014 {loop.DisplayName} ({Math.Round(fractions[i] * 100)}%) vs min ({Math.Round(minFraction * 100)}%)",
+                    Count              = 0,
+                    Status             = HealthStatus.Warning,
+                    AffectedElementIds = elementIds,
+                });
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Parses the alarm-mode current draw for a device.
         /// Reads "_CurrentDrawAlarm" from Properties first; falls back to standby CurrentDraw
         /// (conservative — treats both modes as equal when alarm draw is unknown).

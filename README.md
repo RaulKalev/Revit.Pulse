@@ -239,13 +239,13 @@ The **System Intelligence Dashboard** (`SystemMetricsPanel`) provides a live ove
 | Section | Content |
 |---------|---------|
 | Capacity | Address and mA gauges (used / max, colour-coded by threshold) |
-| Health Status | Rule violations + capacity overload rows, each with count and highlight command |
+| Health Status | Rule violations + capacity overload rows + loop balance warnings (≥ 40 % spread, ≥ 70 % loaded loop), each with count and highlight command |
 | Device Distribution | Breakdown of device types with percentage bars |
 | Cabling & Spatial | Per-loop cable lengths, numerically sorted; total project cabling |
 | AI System Check | Copies a structured prompt to the clipboard; once-per-session info popup |
 | Quick Actions (pinned) | Refresh, Highlight Warnings, Copy Report, Open Settings |
 
-**Thresholds** (`MetricsThresholds`): Warning at 70 %, Critical at 85 %.
+**Thresholds** (`MetricsThresholds`): Warning at 70 %, Critical at 85 %, loop imbalance spread at 40 %.
 
 **`ControlPanelConfig.MaxAddresses`**: when non-zero, overrides the automatic `AddressesPerLoop × loopCount` calculation for the panel capacity gauge and AI prompt. Set to `0` (default) for automatic behaviour.
 
@@ -254,6 +254,7 @@ The **System Intelligence Dashboard** (`SystemMetricsPanel`) provides a live ove
 - Panel enforces a minimum expanded height of 300 px
 - Cabling loops are sorted numerically (e.g. L2 < L10)
 - Capacity overload conditions surface as Warning/Error rows in the Health Status section
+- Loop balance warnings surface when one loop is ≥ 70 % full and the spread across loops on the same panel is ≥ 40 %; affected devices are highlightable in Revit and the imbalance is included in the AI System Check prompt
 
 ---
 

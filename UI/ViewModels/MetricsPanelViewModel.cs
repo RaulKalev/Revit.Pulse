@@ -1096,6 +1096,13 @@ namespace Pulse.UI.ViewModels
                 {
                     HealthIssues.Add(new HealthIssueRowViewModel(item, HighlightElementsRequested));
                 }
+
+                // Append loop balance warnings
+                foreach (var item in SystemMetricsCalculator.ComputeLoopBalanceHealthIssues(
+                    _selectedPanel, _lastAssignments, _lastDeviceStore))
+                {
+                    HealthIssues.Add(new HealthIssueRowViewModel(item, HighlightElementsRequested));
+                }
             }
 
             TotalHealthIssueCount = HealthIssues.Sum(r => r.Count > 0 ? r.Count : (r.Status != HealthStatus.Ok ? 1 : 0));
