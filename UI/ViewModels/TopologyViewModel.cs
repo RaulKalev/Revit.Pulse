@@ -159,6 +159,27 @@ namespace Pulse.UI.ViewModels
         /// the selected element IDs via <see cref="TopologyAssignmentsService.AddDevicesToSubCircuit"/>.
         /// </summary>
         public event Action<TopologyNodeViewModel> PickMultipleForSubCircuitRequested;
+
+        // ── Lighting line events ───────────────────────────────────────────────────────
+
+        /// <summary>Fired when the user clicks "Assign" on a Lighting Line node.
+        /// MainViewModel writes the current Revit selection to the Line + Controller params.</summary>
+        public event Action<TopologyNodeViewModel> LightingLineAssignRequested;
+
+        /// <summary>Fired when the user clicks "Pick" on a Lighting Line node.
+        /// MainViewModel starts an interactive Revit pick session then writes params.</summary>
+        public event Action<TopologyNodeViewModel> LightingLinePickAssignRequested;
+
+        /// <summary>Fired when the user clicks the "Highlight" button on a Lighting Line node.
+        /// MainViewModel applies temporary overrides in the active Revit view.</summary>
+        public event Action<TopologyNodeViewModel> LightingLineHighlightRequested;
+
+        /// <summary>Fired when the user changes the color of a Lighting Line node (second arg = new hex).</summary>
+        public event Action<TopologyNodeViewModel, string> LightingLineColorChangeRequested;
+
+        /// <summary>Set by MainViewModel to provide line color lookups to the topology builder.</summary>
+        public Modules.Lighting.LightingLinesColorService LightingLinesColor { get; set; }
+
         /// <summary>
         /// Returns the Loop node whose parent matches <paramref name="panelName"/> and
         /// label matches <paramref name="loopName"/>, or null if not found.
@@ -371,6 +392,15 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onPickMultipleForSubCircuit = vm =>
                 PickMultipleForSubCircuitRequested?.Invoke(vm);
 
+            // ── Lighting line callbacks (null for non-Lighting modules) ────────────────────
+            bool isLighting = data.GetPayload<Modules.Lighting.LightingPayload>() != null;
+            Action<TopologyNodeViewModel> onAssignToLine     = isLighting ? vm => LightingLineAssignRequested?.Invoke(vm) : (Action<TopologyNodeViewModel>)null;
+            Action<TopologyNodeViewModel> onAssignInteractive = isLighting ? vm => LightingLinePickAssignRequested?.Invoke(vm) : (Action<TopologyNodeViewModel>)null;
+            Action<TopologyNodeViewModel> onHighlightLine    = isLighting ? vm => LightingLineHighlightRequested?.Invoke(vm) : (Action<TopologyNodeViewModel>)null;
+            Action<TopologyNodeViewModel, string> onColorChange = isLighting
+                ? (vm, hex) => LightingLineColorChangeRequested?.Invoke(vm, hex)
+                : (Action<TopologyNodeViewModel, string>)null;
+
             // Build the tree recursively
             foreach (string rootId in rootIds)
             {
@@ -391,7 +421,11 @@ namespace Pulse.UI.ViewModels
                                           onRemoveFromSubCircuit: onRemoveFromSubCircuit,
                                           onVDropPctChanged: onVDropPctChanged,
                                           onAssignPsu: onAssignPsu,
-                                          psuOptions: psuOptions);
+                                          psuOptions: psuOptions,
+                                          onAssignToLine: onAssignToLine,
+                                          onAssignInteractive: onAssignInteractive,
+                                          onHighlightLine: onHighlightLine,
+                                          onColorChange: onColorChange);
                     RootNodes.Add(vm);
                 }
             }
@@ -424,7 +458,12 @@ namespace Pulse.UI.ViewModels
             Action<TopologyNodeViewModel> onVDropPctChanged = null,
             bool isSubDevice = false,
             Action<TopologyNodeViewModel> onAssignPsu = null,
-            IReadOnlyList<string> psuOptions = null)
+            IReadOnlyList<string> psuOptions = null,
+            // Lighting-specific
+            Action<TopologyNodeViewModel> onAssignToLine = null,
+            Action<TopologyNodeViewModel> onAssignInteractive = null,
+            Action<TopologyNodeViewModel> onHighlightLine = null,
+            Action<TopologyNodeViewModel, string> onColorChange = null)
         {
             // Determine available config options and current assignment for this node type
             IReadOnlyList<string> availableConfigs = null;
@@ -504,7 +543,15 @@ namespace Pulse.UI.ViewModels
                 initialVDropPct:          initialVDropPct,
                 onAssignPsu:              availablePsus != null ? onAssignPsu : null,
                 availablePsus:            availablePsus,
-                initialPsu:               initialPsu);
+                initialPsu:               initialPsu,
+                // Lighting: only wire callbacks on Loop nodes
+                onAssignToLine:           node.NodeType == "Loop" ? onAssignToLine : null,
+                onAssignInteractive:      node.NodeType == "Loop" ? onAssignInteractive : null,
+                onHighlightLine:          node.NodeType == "Loop" ? onHighlightLine : null,
+                onColorChange:            node.NodeType == "Loop" ? onColorChange : null,
+                initialColorHex:          node.NodeType == "Loop"
+                    ? LightingLinesColor?.GetColor(parentLabel, node.Label)
+                    : null);
 
             // Count warnings for this entity
             int warningCount = data.RuleResults.Count(r => r.EntityId == node.Id && r.Severity >= Core.Rules.Severity.Warning);
@@ -573,7 +620,11 @@ namespace Pulse.UI.ViewModels
                                                onVDropPctChanged: onVDropPctChanged,
                                                isSubDevice: node.NodeType == "Device",
                                                onAssignPsu: onAssignPsu,
-                                               psuOptions: psuOptions);
+                                               psuOptions: psuOptions,
+                                               onAssignToLine: onAssignToLine,
+                                               onAssignInteractive: onAssignInteractive,
+                                               onHighlightLine: onHighlightLine,
+                                               onColorChange: onColorChange);
                     vm.Children.Add(childVm);
                 }
             }
@@ -802,6 +853,60 @@ namespace Pulse.UI.ViewModels
         private readonly Action<TopologyNodeViewModel> _onToggleWireRouting;
         private readonly Action<TopologyNodeViewModel> _onVDropPctChanged;
 
+        // ── Lighting line actions ──────────────────────────────────────
+        private readonly Action<TopologyNodeViewModel> _onAssignToLine;
+        private readonly Action<TopologyNodeViewModel> _onAssignInteractive;
+        private readonly Action<TopologyNodeViewModel> _onHighlightLine;
+        private readonly Action<TopologyNodeViewModel, string> _onColorChange;
+
+        /// <summary>True only for Loop nodes in the Lighting module — shows Assign/Highlight buttons.</summary>
+        public bool IsLightingLine => _onAssignToLine != null;
+
+        private string _lineColorHex;
+        /// <summary>Hex color string for this DALI line (used as dot tint + highlight color).</summary>
+        public string LineColorHex
+        {
+            get => _lineColorHex;
+            set
+            {
+                if (SetField(ref _lineColorHex, value))
+                    _onColorChange?.Invoke(this, value);
+            }
+        }
+
+        /// <summary>Silent setter — updates the binding without triggering the save callback.</summary>
+        public void SetLineColorHexSilent(string value)
+        {
+            if (_lineColorHex == value) return;
+            _lineColorHex = value;
+            OnPropertyChanged(nameof(LineColorHex));
+        }
+
+        private static bool TryParseHexToWinFormsColor(string hex, out System.Drawing.Color color)
+        {
+            color = System.Drawing.Color.Empty;
+            if (string.IsNullOrEmpty(hex)) return false;
+            try
+            {
+                var wpfColor = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
+                color = System.Drawing.Color.FromArgb(wpfColor.R, wpfColor.G, wpfColor.B);
+                return true;
+            }
+            catch { return false; }
+        }
+
+        /// <summary>Assigns the current Revit selection to this DALI line.</summary>
+        public ICommand AssignToLineCommand { get; private set; }
+
+        /// <summary>Starts an interactive Revit pick session to assign elements to this line.</summary>
+        public ICommand AssignInteractiveCommand { get; private set; }
+
+        /// <summary>Highlights all elements on this line in the active Revit view.</summary>
+        public ICommand HighlightLineCommand { get; private set; }
+
+        /// <summary>Opens a color picker dialog to change this line's color.</summary>
+        public ICommand PickColorCommand { get; private set; }
+
         private bool _isWireRoutingVisible;
         /// <summary>Whether 3-D wire routing model lines are currently shown for this loop.</summary>
         public bool IsWireRoutingVisible
@@ -1010,7 +1115,13 @@ namespace Pulse.UI.ViewModels
             double initialVDropPct = 16.7,
             Action<TopologyNodeViewModel> onAssignPsu = null,
             IReadOnlyList<string> availablePsus = null,
-            string initialPsu = null)
+            string initialPsu = null,
+            // Lighting-specific
+            Action<TopologyNodeViewModel> onAssignToLine = null,
+            Action<TopologyNodeViewModel> onAssignInteractive = null,
+            Action<TopologyNodeViewModel> onHighlightLine = null,
+            Action<TopologyNodeViewModel, string> onColorChange = null,
+            string initialColorHex = null)
         {
             GraphNode   = graphNode ?? throw new ArgumentNullException(nameof(graphNode));
             IsSubDevice = isSubDevice;
@@ -1023,6 +1134,28 @@ namespace Pulse.UI.ViewModels
             _onToggleWireRouting    = onToggleWireRouting;
             _onVDropPctChanged      = onVDropPctChanged;
             ParentLabel             = parentLabel;
+            // Lighting
+            _onAssignToLine    = onAssignToLine;
+            _onAssignInteractive = onAssignInteractive;
+            _onHighlightLine   = onHighlightLine;
+            _onColorChange     = onColorChange;
+            _lineColorHex      = initialColorHex ?? Modules.Lighting.LightingLineData.DefaultColor;
+            AssignToLineCommand     = new RelayCommand(_ => _onAssignToLine?.Invoke(this),  _ => _onAssignToLine != null);
+            AssignInteractiveCommand = new RelayCommand(_ => _onAssignInteractive?.Invoke(this), _ => _onAssignInteractive != null);
+            HighlightLineCommand    = new RelayCommand(_ => _onHighlightLine?.Invoke(this), _ => _onHighlightLine != null);
+            PickColorCommand = new RelayCommand(_ =>
+            {
+                if (_onColorChange == null) return;
+                using (var dlg = new System.Windows.Forms.ColorDialog())
+                {
+                    // Seed with current color if parseable
+                    if (TryParseHexToWinFormsColor(_lineColorHex, out var current))
+                        dlg.Color = current;
+                    dlg.FullOpen = true;
+                    if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+                        LineColorHex = $"#{dlg.Color.R:X2}{dlg.Color.G:X2}{dlg.Color.B:X2}";
+                }
+            }, _ => _onColorChange != null);
             ToggleAddSlotCommand      = new RelayCommand(_ => IsAddSlotOpen = !IsAddSlotOpen);
             PickFromRevitCommand      = new RelayCommand(_ => { IsAddSlotOpen = false; _onPickElementForDevice?.Invoke(this); });
             PickMultipleForSubCircuitCommand = new RelayCommand(

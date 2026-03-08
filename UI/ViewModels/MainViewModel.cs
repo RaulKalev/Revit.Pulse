@@ -47,6 +47,8 @@ namespace Pulse.UI.ViewModels
         private readonly SymbolMappingOrchestrator _symbolOrchestrator;
         private readonly DiagramFeatureService _diagramFeatureService;
         private readonly BoqSettingsService _boqSettingsService;
+        private readonly Modules.Lighting.LightingLinesColorService _linesColorService;
+        private readonly Modules.Lighting.LightingDeviceDatabaseService _deviceCatalogService;
 
         // ── BOQ state ────────────────────────────────────────────────────────
         private BoqSettings _boqSettings;
@@ -76,6 +78,7 @@ namespace Pulse.UI.ViewModels
         public ICommand OpenDeviceConfiguratorCommand { get; }
         public ICommand OpenSymbolMappingCommand { get; }
         public ICommand OpenBOQCommand { get; }
+        public ICommand OpenLightingDeviceManagerCommand { get; }
 
         // Status
         private string _statusText = "Ready. Press Refresh to load system data.";
@@ -203,10 +206,13 @@ namespace Pulse.UI.ViewModels
             _symbolOrchestrator = new SymbolMappingOrchestrator();
             _diagramFeatureService = new DiagramFeatureService(_appController);
             _boqSettingsService = new BoqSettingsService(_storageFacade);
+            _linesColorService = new Modules.Lighting.LightingLinesColorService(_assignmentsService);
+            _deviceCatalogService = new Modules.Lighting.LightingDeviceDatabaseService();
 
             // Create child ViewModels
             Topology  = new TopologyViewModel();
             Topology.SubCircuitService = _scService;
+            Topology.LightingLinesColor = _linesColorService;
             Inspector = new InspectorViewModel();
             Inspector.SubCircuitService = _scService;
             Inspector.CurrentDrawValueCommitted += OnCurrentDrawValueCommitted;
@@ -223,6 +229,12 @@ namespace Pulse.UI.ViewModels
             Topology.DeleteSubCircuitRequested          += OnDeleteSubCircuitRequested;
             Topology.PickMultipleForSubCircuitRequested  += OnPickMultipleForSubCircuitRequested;
             Topology.RemoveFromSubCircuitRequested       += OnRemoveFromSubCircuitRequested;
+
+            // Lighting line events
+            Topology.LightingLineAssignRequested      += OnLightingLineAssignRequested;
+            Topology.LightingLinePickAssignRequested  += OnLightingLinePickAssignRequested;
+            Topology.LightingLineHighlightRequested   += OnLightingLineHighlightRequested;
+            Topology.LightingLineColorChangeRequested += OnLightingLineColorChangeRequested;
             Diagram   = new DiagramViewModel();
 
             // Metrics panel ViewModel — highlight callback is wired here so it can
@@ -333,6 +345,7 @@ namespace Pulse.UI.ViewModels
                 ExecuteOpenSymbolMapping,
                 () => _appController.HasCapability(ModuleCapabilities.SymbolMapping));
             OpenBOQCommand = new RelayCommand(ExecuteOpenBOQ);
+            OpenLightingDeviceManagerCommand = new RelayCommand(ExecuteOpenLightingDeviceManager);
 
             // Load previously saved settings from Extensible Storage (we are on the API thread here)
             LoadInitialSettings(uiApp.ActiveUIDocument?.Document);
@@ -764,6 +777,81 @@ namespace Pulse.UI.ViewModels
             _boqWindow.Show();
             StatusText = "BOQ window opened.";
         }
+
+        // ── Lighting line handlers ──────────────────────────────────────────────
+
+        private void OnLightingLineAssignRequested(TopologyNodeViewModel vm)
+        {
+            var (lineParam, ctrlParam) = ResolveLightingParams();
+            if (lineParam == null || ctrlParam == null)
+            {
+                StatusText = "Configure Line/Controller parameter names in Settings.";
+                return;
+            }
+            _storageFacade.RaiseAssignToLine(
+                controllerName: vm.ParentLabel, lineName: vm.Label,
+                lineParamName: lineParam, controllerParamName: ctrlParam,
+                onComplete: fb =>
+                {
+                    StatusText = fb.Message;
+                    if (fb.Success && fb.AssignedCount > 0) ExecuteRefresh();
+                });
+        }
+
+        private void OnLightingLinePickAssignRequested(TopologyNodeViewModel vm)
+        {
+            var (lineParam, ctrlParam) = ResolveLightingParams();
+            if (lineParam == null || ctrlParam == null)
+            {
+                StatusText = "Configure Line/Controller parameter names in Settings.";
+                return;
+            }
+            _storageFacade.RaiseInteractiveLightingAssign(
+                controllerName: vm.ParentLabel, lineName: vm.Label,
+                lineParamName: lineParam, controllerParamName: ctrlParam,
+                promptMessage: $"Select fixtures for {vm.ParentLabel} / {vm.Label} (Finish to confirm)",
+                onComplete: fb =>
+                {
+                    StatusText = fb.Message;
+                    if (fb.Success && fb.AssignedCount > 0) ExecuteRefresh();
+                });
+        }
+
+        private void OnLightingLineHighlightRequested(TopologyNodeViewModel vm)
+        {
+            var (lineParam, ctrlParam) = ResolveLightingParams();
+            if (lineParam == null || ctrlParam == null) return;
+            _storageFacade.RaiseHighlightLightingLine(
+                controllerName: vm.ParentLabel, lineName: vm.Label,
+                lineParamName: lineParam, controllerParamName: ctrlParam,
+                colorHex: vm.LineColorHex);
+        }
+
+        private void OnLightingLineColorChangeRequested(TopologyNodeViewModel vm, string newHex)
+        {
+            _linesColorService.SetColor(vm.ParentLabel, vm.Label, newHex);
+            _linesColorService.PersistToStore();
+            _assignmentsService.RequestSave();
+        }
+
+        private (string lineParam, string ctrlParam) ResolveLightingParams()
+        {
+            var settings = _appController.ActiveSettings;
+            if (settings == null) return (null, null);
+            string lineParam = settings.GetRevitParameterName(Modules.Lighting.LightingParameterKeys.Line);
+            string ctrlParam = settings.GetRevitParameterName(Modules.Lighting.LightingParameterKeys.Controller);
+            return (string.IsNullOrEmpty(lineParam) ? null : lineParam,
+                    string.IsNullOrEmpty(ctrlParam) ? null : ctrlParam);
+        }
+
+        private void ExecuteOpenLightingDeviceManager()
+        {
+            var vm = new LightingDeviceManagerViewModel(_deviceCatalogService);
+            var win = new LightingDeviceManagerWindow(vm) { Owner = _ownerWindow };
+            win.ShowDialog();
+        }
+
+        // ── End Lighting line handlers ──────────────────────────────────────────
 
         /// <summary>Save topology expand state to %APPDATA%\Pulse\ui-state.json.</summary>
         public void SaveExpandState()

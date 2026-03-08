@@ -57,6 +57,18 @@ namespace Pulse.Revit.Services
         private readonly FetchCategoryParametersHandler _fetchCategoryParamsHandler;
         private readonly ExternalEvent _fetchCategoryParamsEvent;
 
+        // Lighting: assign current selection to a DALI line
+        private readonly AssignToLineHandler _assignToLineHandler;
+        private readonly ExternalEvent _assignToLineEvent;
+
+        // Lighting: interactive pick + assign to a DALI line
+        private readonly InteractiveLightingAssignHandler _interactiveAssignHandler;
+        private readonly ExternalEvent _interactiveAssignEvent;
+
+        // Lighting: highlight elements belonging to a line in the active view
+        private readonly HighlightLightingLineHandler _highlightLineHandler;
+        private readonly ExternalEvent _highlightLineEvent;
+
         private readonly ILogger _logger;
 
         public StorageFacade(ILogger logger = null)
@@ -89,6 +101,15 @@ namespace Pulse.Revit.Services
 
             _fetchCategoryParamsHandler = new FetchCategoryParametersHandler();
             _fetchCategoryParamsEvent   = ExternalEvent.Create(_fetchCategoryParamsHandler);
+
+            _assignToLineHandler = new AssignToLineHandler();
+            _assignToLineEvent   = ExternalEvent.Create(_assignToLineHandler);
+
+            _interactiveAssignHandler = new InteractiveLightingAssignHandler();
+            _interactiveAssignEvent   = ExternalEvent.Create(_interactiveAssignHandler);
+
+            _highlightLineHandler = new HighlightLightingLineHandler();
+            _highlightLineEvent   = ExternalEvent.Create(_highlightLineHandler);
         }
 
         // ─── Read helpers (call from Revit API thread or construction) ───────
@@ -310,6 +331,67 @@ namespace Pulse.Revit.Services
             _fetchCategoryParamsHandler.OnCompleted  = onCompleted;
             _fetchCategoryParamsHandler.OnError       = onError;
             _fetchCategoryParamsEvent.Raise();
+        }
+
+        // ─── Lighting write-back helpers ───────────────────────────────────
+
+        /// <summary>
+        /// Assigns the current Revit selection to a DALI line.
+        /// Writes Line + Controller instance parameters to every selected element.
+        /// </summary>
+        public void RaiseAssignToLine(
+            string controllerName,
+            string lineName,
+            string lineParamName,
+            string controllerParamName,
+            Action<Pulse.Modules.Lighting.AssignLineFeedback> onComplete = null)
+        {
+            _assignToLineHandler.ControllerName     = controllerName;
+            _assignToLineHandler.LineName           = lineName;
+            _assignToLineHandler.LineParamName      = lineParamName;
+            _assignToLineHandler.ControllerParamName = controllerParamName;
+            _assignToLineHandler.OnComplete         = onComplete;
+            _assignToLineEvent.Raise();
+        }
+
+        /// <summary>
+        /// Opens an interactive Revit pick session; writes Line + Controller params after the user picks.
+        /// </summary>
+        public void RaiseInteractiveLightingAssign(
+            string controllerName,
+            string lineName,
+            string lineParamName,
+            string controllerParamName,
+            string promptMessage = null,
+            Action<Pulse.Modules.Lighting.AssignLineFeedback> onComplete = null)
+        {
+            _interactiveAssignHandler.ControllerName      = controllerName;
+            _interactiveAssignHandler.LineName            = lineName;
+            _interactiveAssignHandler.LineParamName       = lineParamName;
+            _interactiveAssignHandler.ControllerParamName = controllerParamName;
+            if (!string.IsNullOrEmpty(promptMessage))
+                _interactiveAssignHandler.PromptMessage   = promptMessage;
+            _interactiveAssignHandler.OnComplete          = onComplete;
+            _interactiveAssignEvent.Raise();
+        }
+
+        /// <summary>
+        /// Highlights all devices on the specified DALI line in the active view.
+        /// </summary>
+        public void RaiseHighlightLightingLine(
+            string controllerName,
+            string lineName,
+            string lineParamName,
+            string controllerParamName,
+            string colorHex = null)
+        {
+            _highlightLineHandler.ControllerName      = controllerName;
+            _highlightLineHandler.LineName            = lineName;
+            _highlightLineHandler.LineParamName       = lineParamName;
+            _highlightLineHandler.ControllerParamName = controllerParamName;
+            if (!string.IsNullOrEmpty(colorHex))
+                _highlightLineHandler.ColorHex        = colorHex;
+            _highlightLineEvent.Raise();
         }
     }
 }

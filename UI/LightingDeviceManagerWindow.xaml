@@ -1,0 +1,261 @@
+<Window
+    x:Class="Pulse.UI.LightingDeviceManagerWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="clr-namespace:Pulse.UI"
+    Title="Pulse — DALI Device Catalog"
+    Width="700"
+    Height="500"
+    MinWidth="540"
+    MinHeight="380"
+    AllowsTransparency="True"
+    Background="Transparent"
+    WindowStyle="None"
+    WindowStartupLocation="CenterOwner"
+    mc:Ignorable="d">
+
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/DarkTheme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/Pulse;component/UI/Themes/ElementStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+            <!-- Compact label style -->
+            <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="{DynamicResource IconForegroundBrush}"/>
+                <Setter Property="FontSize"   Value="11"/>
+                <Setter Property="VerticalAlignment" Value="Center"/>
+                <Setter Property="Margin"     Value="0,0,0,4"/>
+            </Style>
+
+            <!-- Compact TextBox -->
+            <Style x:Key="CompactTextBoxStyle" TargetType="TextBox">
+                <Setter Property="Background"      Value="{DynamicResource SecondaryBackgroundBrush}"/>
+                <Setter Property="Foreground"      Value="{DynamicResource ForegroundBrush}"/>
+                <Setter Property="BorderBrush"     Value="{DynamicResource BorderBrush}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding"         Value="6,4"/>
+                <Setter Property="FontSize"        Value="12"/>
+                <Setter Property="CaretBrush"      Value="{DynamicResource ForegroundBrush}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4"
+                                    Padding="{TemplateBinding Padding}">
+                                <ScrollViewer x:Name="PART_ContentHost"
+                                              Focusable="False"
+                                              HorizontalScrollBarVisibility="Hidden"
+                                              VerticalScrollBarVisibility="Hidden"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsFocused" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#FF0078D7"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Setter Property="Margin" Value="0,0,0,8"/>
+            </Style>
+
+            <!-- List item style -->
+            <Style x:Key="DeviceListItemStyle" TargetType="ListBoxItem">
+                <Setter Property="OverridesDefaultStyle" Value="True"/>
+                <Setter Property="Padding"               Value="10,6"/>
+                <Setter Property="Cursor"                Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListBoxItem">
+                            <Border x:Name="Bg"
+                                    Background="Transparent"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bg" Property="Background" Value="{DynamicResource HighlightBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter TargetName="Bg" Property="Background" Value="{DynamicResource SelectionHoverBrush}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Background="Transparent">
+        <!-- Glass edge -->
+        <Border BorderBrush="{DynamicResource BorderBrush}"
+                BorderThickness="2"
+                CornerRadius="10"
+                Opacity="0.7"
+                SnapsToDevicePixels="True">
+            <Border.Effect>
+                <BlurEffect KernelType="Gaussian" Radius="2"/>
+            </Border.Effect>
+        </Border>
+
+        <!-- Main surface -->
+        <Border Margin="2"
+                Background="{DynamicResource PrimaryBackgroundBrush}"
+                CornerRadius="10">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="30"/>    <!-- Title bar -->
+                    <RowDefinition Height="*"/>     <!-- Body -->
+                    <RowDefinition Height="Auto"/>  <!-- Footer -->
+                </Grid.RowDefinitions>
+
+                <!-- ── Title bar ──────────────────────────────────────── -->
+                <ui:TitleBar Grid.Row="0" IsMinimizeVisible="False"/>
+
+                <!-- ── Body ───────────────────────────────────────────── -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="240"/>  <!-- Device list -->
+                        <ColumnDefinition Width="1"/>    <!-- Divider -->
+                        <ColumnDefinition Width="*"/>    <!-- Detail form -->
+                    </Grid.ColumnDefinitions>
+
+                    <!-- ── Device list (left) ─────────────────────────── -->
+                    <Grid Grid.Column="0"
+                          Background="{DynamicResource SecondaryBackgroundBrush}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="*"/>     <!-- List -->
+                            <RowDefinition Height="Auto"/>  <!-- Toolbar -->
+                        </Grid.RowDefinitions>
+
+                        <ListBox Grid.Row="0"
+                                 ItemsSource="{Binding Devices}"
+                                 SelectedItem="{Binding SelectedDevice, Mode=TwoWay}"
+                                 Background="Transparent"
+                                 BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                 ItemContainerStyle="{StaticResource DeviceListItemStyle}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <StackPanel>
+                                        <TextBlock Text="{Binding Model}"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource ForegroundBrush}"/>
+                                        <TextBlock FontSize="10"
+                                                   Foreground="{DynamicResource IconForegroundBrush}">
+                                            <Run Text="{Binding Manufacturer}"/>
+                                            <Run Text=" · "/>
+                                            <Run Text="{Binding Type}"/>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+
+                        <!-- Add / Remove / Move toolbar -->
+                        <Border Grid.Row="1"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                Padding="4">
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="+ Controller"
+                                        Command="{Binding AddControllerCommand}"
+                                        Style="{StaticResource PulseActionButtonStyle}"
+                                        FontSize="10" Padding="6,3"
+                                        Margin="0,0,4,0"
+                                        ToolTip="Add a new DALI controller entry"/>
+                                <Button Content="+ PSU"
+                                        Command="{Binding AddPowerSupplyCommand}"
+                                        Style="{StaticResource PulseActionButtonStyle}"
+                                        FontSize="10" Padding="6,3"
+                                        Margin="0,0,4,0"
+                                        ToolTip="Add a new power supply entry"/>
+                                <Button Command="{Binding RemoveDeviceCommand}"
+                                        Style="{StaticResource PulseActionButtonStyle}"
+                                        FontSize="10" Padding="6,3"
+                                        ToolTip="Remove selected device">
+                                    <TextBlock Text="✕" FontSize="10"/>
+                                </Button>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Divider -->
+                    <Border Grid.Column="1" Background="{DynamicResource BorderBrush}"/>
+
+                    <!-- ── Detail form (right) ────────────────────────── -->
+                    <ScrollViewer Grid.Column="2"
+                                  Style="{StaticResource PulseScrollViewerStyle}"
+                                  Padding="16,12">
+                        <StackPanel Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
+                            <!-- Manufacturer -->
+                            <TextBlock Text="Manufacturer" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Text="{Binding SelectedDevice.Manufacturer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource CompactTextBoxStyle}"/>
+
+                            <!-- Model -->
+                            <TextBlock Text="Model" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Text="{Binding SelectedDevice.Model, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource CompactTextBoxStyle}"/>
+
+                            <!-- Type -->
+                            <TextBlock Text="Type" Style="{StaticResource FieldLabelStyle}"/>
+                            <ComboBox SelectedItem="{Binding SelectedDevice.Type, Mode=TwoWay}"
+                                      Style="{StaticResource DarkComboBoxStyle}"
+                                      Margin="0,0,0,8">
+                                <ComboBoxItem Content="controller"/>
+                                <ComboBoxItem Content="power_supply"/>
+                            </ComboBox>
+
+                            <!-- DALI Lines -->
+                            <TextBlock Text="DALI lines" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Text="{Binding SelectedDevice.DaliLines, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource CompactTextBoxStyle}"/>
+
+                            <!-- Max Addresses per Line -->
+                            <TextBlock Text="Max addresses per line" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Text="{Binding SelectedDevice.MaxAddressesPerLine, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource CompactTextBoxStyle}"/>
+
+                            <!-- Rated Current mA per Line -->
+                            <TextBlock Text="Rated current per line (mA)" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Text="{Binding SelectedDevice.RatedCurrentMaPerLine, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource CompactTextBoxStyle}"/>
+
+                            <!-- Guaranteed Current mA per Line -->
+                            <TextBlock Text="Guaranteed current per line (mA)" Style="{StaticResource FieldLabelStyle}"/>
+                            <TextBox Text="{Binding SelectedDevice.GuaranteedCurrentMaPerLine, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource CompactTextBoxStyle}"/>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- ── Footer ─────────────────────────────────────────── -->
+                <Border Grid.Row="2"
+                        BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="0,1,0,0"
+                        Padding="12,8">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Content="Cancel"
+                                Command="{Binding CancelCommand}"
+                                Style="{StaticResource PulseActionButtonStyle}"
+                                Padding="14,6"
+                                Margin="0,0,8,0"/>
+                        <Button Content="Save"
+                                Command="{Binding SaveCommand}"
+                                Style="{StaticResource PulsePrimaryButtonStyle}"
+                                Padding="14,6"/>
+                    </StackPanel>
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

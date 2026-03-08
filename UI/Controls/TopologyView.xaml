@@ -16,6 +16,7 @@
             </ResourceDictionary.MergedDictionaries>
             <BooleanToVisibilityConverter x:Key="BoolToVis"/>
             <converters:CountToVisibilityConverter x:Key="CountToVisibility"/>
+            <converters:HexStringToBrushConverter x:Key="HexToBrush"/>
         </ResourceDictionary>
     </UserControl.Resources>
 
@@ -275,6 +276,54 @@
                                                                     </ToggleButton.Template>
                                                                 </ToggleButton>
                                                             </Grid>
+
+                                                            <!-- ── Lighting DALI line toolbar (Lighting module only) ── -->
+                                                            <Border Visibility="{Binding IsLightingLine, Converter={StaticResource BoolToVis}}"
+                                                                    Background="{DynamicResource SecondaryBackgroundBrush}"
+                                                                    BorderBrush="{DynamicResource BorderBrush}"
+                                                                    BorderThickness="0,1,0,0"
+                                                                    Padding="6,4">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <!-- Color dot — click to pick color -->
+                                                                    <Button Command="{Binding PickColorCommand}"
+                                                                            ToolTip="Change line colour"
+                                                                            OverridesDefaultStyle="True"
+                                                                            Cursor="Hand" Focusable="False"
+                                                                            Width="18" Height="18"
+                                                                            Background="Transparent"
+                                                                            BorderThickness="0"
+                                                                            Margin="0,0,6,0">
+                                                                        <Button.Template>
+                                                                            <ControlTemplate TargetType="Button">
+                                                                                <Ellipse Width="14" Height="14"
+                                                                                         Fill="{Binding LineColorHex, Converter={StaticResource HexToBrush}}"
+                                                                                         Stroke="{DynamicResource BorderBrush}"
+                                                                                         StrokeThickness="1"/>
+                                                                            </ControlTemplate>
+                                                                        </Button.Template>
+                                                                    </Button>
+                                                                    <!-- Assign selection -->
+                                                                    <Button Content="Assign selection"
+                                                                            Command="{Binding AssignToLineCommand}"
+                                                                            ToolTip="Write current Revit selection to this DALI line"
+                                                                            Style="{StaticResource PulseActionButtonStyle}"
+                                                                            FontSize="10" Padding="7,3"
+                                                                            Margin="0,0,4,0"/>
+                                                                    <!-- Interactive pick -->
+                                                                    <Button Content="Pick elements"
+                                                                            Command="{Binding AssignInteractiveCommand}"
+                                                                            ToolTip="Interactively pick elements to assign to this line"
+                                                                            Style="{StaticResource PulseActionButtonStyle}"
+                                                                            FontSize="10" Padding="7,3"
+                                                                            Margin="0,0,4,0"/>
+                                                                    <!-- Highlight in view -->
+                                                                    <Button Content="Highlight"
+                                                                            Command="{Binding HighlightLineCommand}"
+                                                                            ToolTip="Highlight all devices on this line in the active Revit view"
+                                                                            Style="{StaticResource PulseActionButtonStyle}"
+                                                                            FontSize="10" Padding="7,3"/>
+                                                                </StackPanel>
+                                                            </Border>
 
                                                             <!-- Loop content (devices), shown when expanded -->
                                                             <StackPanel Visibility="{Binding IsExpanded, Converter={StaticResource BoolToVis}}">
