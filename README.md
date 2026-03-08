@@ -34,7 +34,7 @@ Framework-agnostic contracts and models:
 | `Core.Graph.Canvas` | `DiagramScene`, `CanvasGraphModel`, `CanvasGraphBuilder` — diagram and topology scene graphs |
 | `Core.SystemModel` | `ISystemEntity`, `Panel`, `Loop`, `Zone`, `AddressableDevice` |
 | `Core.Rules` | `IRule`, `RuleResult`, `Severity` — validation engine |
-| `Core.Modules` | `IModuleDefinition`, `PulseAppController`, `ModuleCatalog`, `ModuleCapabilities`, `TopologyAssignmentsService`, `SymbolMappingOrchestrator`; `ModuleData` — pipeline container with typed `Payload` slot |
+| `Core.Modules` | `IModuleDefinition`, `PulseAppController`, `ModuleCatalog`, `ModuleCapabilities`, `TopologyAssignmentsService`, `SymbolMappingOrchestrator`; `ModuleData` — pipeline container with typed `Payload` slot (`GetPayload<T>()`) |
 | `Core.Modules.Metrics` | `SystemMetricsCalculator`, `CapacityMetrics`, `HealthIssueItem`, `DistributionGroup`, `CablingMetrics`, `BatteryMetrics` — System Intelligence metrics engine; `BatteryMetrics` carries EN 54-4 battery sizing results including `RecommendedCapacitySummary` (standard-size even-count recommendation with voltage) and `FormulaBreakdown` (four-step equation trace) |
 | `Core.Settings` | `ModuleSettings`, `ParameterMapping`, `TopologyAssignmentsStore`, `DeviceConfigStore` (+ `ModuleConfigBlobs` opaque per-module hardware blobs), `IModuleDeviceConfig`, `CustomSymbolDefinition`, `LevelVisibilitySettings`, `DiagramCanvasSettings`, `UiStateService`; `ControlPanelConfig.MaxAddresses` for per-panel address cap override |
 | `Core.Logging` | `ILogger` abstraction |
@@ -88,8 +88,6 @@ WPF user interface using Material Design:
 
 ### Pulse.Modules.FireAlarm
 
-First implemented module:
-
 | Component | Purpose |
 |-----------|---------|
 | `FireAlarmModuleDefinition` | Registers the module and provides factory methods; implements `IProvidesDeviceConfig` |
@@ -100,6 +98,21 @@ First implemented module:
 | `FireAlarmRulePack` | Validates data with 5 rules |
 | `FireAlarmParameterKeys` | Centralized logical parameter key constants |
 | `FireAlarmBoqDataProvider` | Implements `IBoqDataProvider` — maps `ModuleData` to `BoqItem` rows across five groups: (1) fire alarm devices with Revit family/type/level/loop/panel/address; (2) control panels per assigned config; (3) loop modules per assigned config; (4) cables — one row per wire type with total length summed across assigned loops; (5) batteries — one row per FACP panel and one per field PSU group |
+
+### Pulse.Modules.Lighting
+
+Addressable lighting systems (DALI and future protocols):
+
+| Component | Purpose |
+|-----------|---------|
+| `LightingModuleDefinition` | Registers the module; implements `IProvidesDeviceConfig`; capabilities: `CapacityGauges \| ConfigAssignment` |
+| `LightingDeviceConfig` | `IModuleDeviceConfig` wrapper — holds `LightingControllerConfig` entries (default: DALI, MaxAddressesPerLine=64, MaxLines=4, MaxMaPerLine=250); stored in `DeviceConfigStore.ModuleConfigBlobs["Lighting"]` |
+| `LightingCollector` | Groups elements by controller → line → device; resolves controller element IDs; captures elevation and level |
+| `LightingTopologyBuilder` | Builds Controller → Line → Device graph; writes `_ElevationFt`, `_LoopId`, controller/line/address/current/system node properties |
+| `LightingRulePack` | Validates data with 6 rules |
+| `LightingParameterKeys` | Centralized logical parameter key constants: `Controller`, `Line`, `Address`, `DeviceType`, `CurrentDraw`, `DeviceId`, `SystemType` |
+| `LightingBoqDataProvider` | Implements `IBoqDataProvider` — two row groups: devices + controllers |
+
 ---
 
 ## Features
@@ -302,7 +315,7 @@ Parameters are never hardcoded in logic. The flow is:
 3. The **collector** resolves Revit parameter names from settings before extracting values.
 4. Users can customize mappings via settings (stored in Extensible Storage).
 
-Default Fire Alarm parameter mappings:
+**Default Fire Alarm parameter mappings:**
 
 | Logical Key | Default Revit Parameter | Required |
 |-------------|------------------------|----------|
@@ -321,6 +334,18 @@ Default Fire Alarm parameter mappings:
 | NominalVoltage | Nominal voltage | No |
 
 > **Note:** Cable length is derived automatically from `"Pulse Wire – "` model lines drawn by the routing feature — no parameter mapping is needed for cable routes.
+
+**Default Lighting parameter mappings:**
+
+| Logical Key | Default Revit Parameter | Required |
+|-------------|------------------------|----------|
+| Controller | DALI_Controller | Yes |
+| Line | DALI_Line | Yes |
+| Address | DALI_Address | No |
+| DeviceType | Device type | No |
+| CurrentDraw | Current draw (mA) | No |
+| DeviceId | id | No |
+| SystemType | System type | No |
 
 ---
 
@@ -386,7 +411,9 @@ NuGet packages are used for Revit API references (`Nice3point.Revit.Api`).
 
 ---
 
-## Rules (Stage 1)
+## Rules
+
+**Fire Alarm:**
 
 | Rule | Severity | Description |
 |------|----------|-------------|
@@ -395,6 +422,17 @@ NuGet packages are used for Revit API references (`Nice3point.Revit.Api`).
 | MissingAddress | Warning | Device has no address |
 | DuplicateAddress | Error | Multiple devices share same address on a loop |
 | MissingRequiredParameter | Warning | A required parameter value is empty |
+
+**Lighting:**
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| MissingControllerRule | Error | Device has no controller assignment |
+| MissingLineRule | Error | Device has no line assignment |
+| MissingAddressRule | Warning | Device has no DALI address |
+| DuplicateAddressRule | Error | Multiple devices share same address on a line |
+| LineAddressOverCapacityRule | Error | Line exceeds 64-address DALI limit |
+| LineCurrentOverCapacityRule | Error | Line exceeds 250 mA current limit |
 
 ---
 

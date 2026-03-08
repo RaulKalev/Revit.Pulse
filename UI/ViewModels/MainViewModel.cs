@@ -6,12 +6,14 @@ using System.Windows;
 using System.Windows.Input;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
+using MaterialDesignThemes.Wpf;
 using Pulse.Core.Boq;
 using Pulse.Core.Modules;
 using Pulse.Core.Rules;
 using Pulse.Core.Settings;
 using Pulse.Core.Graph;
 using Pulse.Modules.FireAlarm;
+using Pulse.Modules.Lighting;
 using Pulse.Revit.Services;
 using Pulse.UI;
 using Pulse.UI.Boq;
@@ -135,6 +137,18 @@ namespace Pulse.UI.ViewModels
             set => SetField(ref _activeModuleName, value);
         }
 
+        private PackIconKind _moduleIconKind = PackIconKind.Fire;
+        public PackIconKind ModuleIconKind
+        {
+            get => _moduleIconKind;
+            set => SetField(ref _moduleIconKind, value);
+        }
+
+        private static PackIconKind IconForModule(string moduleId) =>
+            string.Equals(moduleId, "Lighting", StringComparison.OrdinalIgnoreCase)
+                ? PackIconKind.LightbulbOn
+                : PackIconKind.Fire;
+
         // Owner window — set via Initialize() so settings dialog can use it as parent
         private Window _ownerWindow;
 
@@ -151,7 +165,7 @@ namespace Pulse.UI.ViewModels
             _storageFacade.SyncWriteDiagramSettings(doc, Diagram.Visibility);
         }
 
-        public MainViewModel(UIApplication uiApp)
+        public MainViewModel(UIApplication uiApp, string initialModuleId = null)
         {
             _uiApp = uiApp ?? throw new ArgumentNullException(nameof(uiApp));
 
@@ -160,11 +174,20 @@ namespace Pulse.UI.ViewModels
 
             // Use reflection-based module discovery with manual fallback.
             // The fallback list ensures that if reflection fails to find
-            // FireAlarmModuleDefinition, the module is still registered.
-            var fallback = new IModuleDefinition[] { new FireAlarmModuleDefinition() };
+            // module definitions, the modules are still registered.
+            var fallback = new IModuleDefinition[]
+            {
+                new FireAlarmModuleDefinition(),
+                new Modules.Lighting.LightingModuleDefinition()
+            };
             _appController.DiscoverModules(fallback);
 
+            // Activate the requested module (if specified and found)
+            if (!string.IsNullOrEmpty(initialModuleId))
+                _appController.SetActiveModule(initialModuleId);
+
             ActiveModuleName = _appController.ActiveModule.DisplayName;
+            ModuleIconKind = IconForModule(_appController.ActiveModule.ModuleId);
 
             _refreshPipeline = new RefreshPipeline();
             _selectionFacade = new SelectionHighlightFacade();
@@ -325,6 +348,26 @@ namespace Pulse.UI.ViewModels
         }
 
         /// <summary>
+        /// Switch the active module at runtime (e.g. when the user clicks a different
+        /// ribbon button while the Pulse window is already open).
+        /// Reloads settings and triggers a refresh for the new module.
+        /// </summary>
+        public void SwitchModule(string moduleId)
+        {
+            if (string.IsNullOrEmpty(moduleId)) return;
+            if (string.Equals(_appController.ActiveModule?.ModuleId, moduleId, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            if (!_appController.SetActiveModule(moduleId))
+                return;
+
+            ActiveModuleName = _appController.ActiveModule.DisplayName;
+            ModuleIconKind = IconForModule(_appController.ActiveModule.ModuleId);
+            LoadInitialSettings(_uiApp.ActiveUIDocument?.Document);
+            ExecuteRefresh();
+        }
+
+        /// <summary>
         /// Execute a data refresh from Revit.
         /// Delegates to <see cref="RefreshPipeline"/> which runs via ExternalEvent.
         /// </summary>
@@ -370,7 +413,8 @@ namespace Pulse.UI.ViewModels
 
             // Update statistics
             var fa = data.GetPayload<FireAlarmPayload>();
-            TotalDevices = fa?.Devices?.Count ?? 0;
+            var lg = data.GetPayload<LightingPayload>();
+            TotalDevices = fa?.Devices?.Count ?? lg?.Devices?.Count ?? 0;
             TotalWarnings = data.WarningCount;
             TotalErrors = data.ErrorCount;
 
@@ -391,18 +435,24 @@ namespace Pulse.UI.ViewModels
             Diagram.LoadLevels(data.Levels);
             Diagram.LoadAssignments(_topologyAssignments);
             Diagram.LoadLevelElevationOffsets(_topologyAssignments);
-            Diagram.LoadPanels(fa?.Panels ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.Panel>(), fa?.Loops ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.Loop>(), devStore);
+
+            // Module-specific diagram population
+            var panels = fa?.Panels ?? lg?.Controllers ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.Panel>();
+            var loops  = fa?.Loops  ?? lg?.Lines       ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.Loop>();
+            Diagram.LoadPanels(panels, loops, devStore);
 
             // Populate SubCircuit diagram blocks (additive — no-op if no SubCircuits exist)
-            Diagram.LoadSubCircuits(fa?.SubCircuits ?? new System.Collections.Generic.List<Pulse.Modules.FireAlarm.SubCircuit>(), fa?.Devices ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.AddressableDevice>(), fa?.Panels ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.Panel>(), fa?.Loops ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.Loop>());
+            Diagram.LoadSubCircuits(fa?.SubCircuits ?? new System.Collections.Generic.List<Pulse.Modules.FireAlarm.SubCircuit>(), fa?.Devices ?? new System.Collections.Generic.List<Pulse.Core.SystemModel.AddressableDevice>(), panels, loops);
 
             // Refresh metrics panel with the new data
             Metrics.Refresh(data, _topologyAssignments, devStore);
 
             // Update status
-            int panelCount = fa?.Panels?.Count ?? 0;
-            int loopCount  = fa?.Loops?.Count ?? 0;
-            StatusText = $"{TotalDevices} devices | {panelCount} panels | {loopCount} loops | {TotalWarnings} warnings | {TotalErrors} errors";
+            int panelCount = panels.Count;
+            int loopCount  = loops.Count;
+            string panelLabel = fa != null ? "panels" : "controllers";
+            string loopLabel  = fa != null ? "loops"  : "lines";
+            StatusText = $"{TotalDevices} devices | {panelCount} {panelLabel} | {loopCount} {loopLabel} | {TotalWarnings} warnings | {TotalErrors} errors";
 
             // Sub-device assignment diagnostic: tell the user exactly why a pick did/didn't appear.
             if (_pendingSubDeviceElementId.HasValue)
@@ -481,16 +531,19 @@ namespace Pulse.UI.ViewModels
 
             if (currentData == null || node.NodeType != "Device") return result;
 
+            // Try FireAlarm payload first, then Lighting
             var currentFa = currentData.GetPayload<FireAlarmPayload>();
-            if (currentFa == null) return result;
+            var currentLg = currentData.GetPayload<LightingPayload>();
+            var allDevices = currentFa?.Devices ?? currentLg?.Devices;
+            if (allDevices == null) return result;
 
             // Find the device entry matching this node
-            var device = currentFa.Devices.Find(
+            var device = allDevices.Find(
                 d => d.RevitElementId.HasValue && d.RevitElementId.Value == node.RevitElementId.Value);
             if (device == null) return result;
 
             // Get all sibling devices on the same loop, sorted by numeric address
-            var siblings = currentFa.Devices
+            var siblings = allDevices
                 .FindAll(d => d.LoopId == device.LoopId && d.RevitElementId.HasValue);
 
             siblings.Sort((a, b) => ParseAddress(a.Address).CompareTo(ParseAddress(b.Address)));
@@ -681,7 +734,7 @@ namespace Pulse.UI.ViewModels
                 }
             }
 
-            var dataProvider = new FireAlarmBoqDataProvider(_topologyAssignments, DeviceConfigService.Load());
+            var dataProvider = CreateBoqDataProvider();
 
             var vm = new BoqWindowViewModel(
                 dataProvider:             dataProvider,
@@ -718,6 +771,18 @@ namespace Pulse.UI.ViewModels
             var state = UiStateService.Load();
             state.ExpandedNodeIds = new HashSet<string>(Topology.GetExpandedNodeIds());
             UiStateService.Save(state);
+        }
+
+        /// <summary>
+        /// Creates the BOQ data provider appropriate for the active module.
+        /// </summary>
+        private IBoqDataProvider CreateBoqDataProvider()
+        {
+            var store = DeviceConfigService.Load();
+            string moduleId = _appController.ActiveModule?.ModuleId;
+            if (string.Equals(moduleId, "Lighting", StringComparison.OrdinalIgnoreCase))
+                return new LightingBoqDataProvider(_topologyAssignments, store);
+            return new FireAlarmBoqDataProvider(_topologyAssignments, store);
         }
 
         /// <summary>

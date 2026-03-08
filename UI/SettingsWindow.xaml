@@ -98,7 +98,7 @@
 
                         <!-- Module header -->
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,3">
-                            <materialDesign:PackIcon Kind="Fire"
+                            <materialDesign:PackIcon Kind="{Binding ModuleIconKind}"
                                                      Width="20" Height="20"
                                                      Foreground="#FFDC6B6B"
                                                      VerticalAlignment="Center"

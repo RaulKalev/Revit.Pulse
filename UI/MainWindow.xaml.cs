@@ -23,11 +23,11 @@ namespace Pulse.UI
         /// <summary>Exposes the root ViewModel so the launch command can flush pending ES writes on close.</summary>
         public MainViewModel ViewModel => _viewModel;
 
-        public MainWindow(UIApplication uiApp)
+        public MainWindow(UIApplication uiApp, string initialModuleId = null)
         {
             InitializeComponent();
 
-            _viewModel = new MainViewModel(uiApp);
+            _viewModel = new MainViewModel(uiApp, initialModuleId);
             DataContext = _viewModel;
             _viewModel.Initialize(this);
 

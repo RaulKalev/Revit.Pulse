@@ -81,7 +81,7 @@
                     <DockPanel>
                         <!-- Module name -->
                         <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
-                            <materialDesign:PackIcon Kind="Fire" Width="18" Height="18"
+                            <materialDesign:PackIcon Kind="{Binding ModuleIconKind}" Width="18" Height="18"
                                                      Foreground="#FFDC6B6B" VerticalAlignment="Center" Margin="0,0,6,0"/>
                             <TextBlock Text="{Binding ActiveModuleName}"
                                        FontSize="13" FontWeight="SemiBold"

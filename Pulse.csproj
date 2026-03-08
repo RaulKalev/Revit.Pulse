@@ -15,6 +15,8 @@
     <Resource Include="Assets\Pulse.tiff" />
     <Resource Include="Assets\Light - Pulse - Fire.tiff" />
     <Resource Include="Assets\Dark - Pulse - Fire.tiff" />
+    <Resource Include="Assets\Light - Pulse - Lighting.tiff" />
+    <Resource Include="Assets\Dark - Pulse - Lighting.tiff" />
   </ItemGroup>
 
   <!-- NuGet Packages -->

@@ -1,6 +1,6 @@
 # Pulse — Architecture Guide
 
-> Last updated after **BOQ enhancements** — new row groups (Control Panels, Loop Modules, Cables by wire type, Batteries), CSV export, column list visibility fix, Category name from Revit, and − button to remove columns.
+> Last updated after **Lighting module** — new `Pulse.Modules.Lighting` module (DALI), separate ribbon button with light/dark mode icon theming via `RibbonThemeUtils`, shared `PulseWindowManager` command entry-point, and per-module `PackIconKind` binding in the WPF shell toolbar and settings header.
 
 This document describes the runtime pipeline, module system, storage
 strategy, and diagram scene-graph that form the backbone of Pulse.
@@ -28,6 +28,9 @@ strategy, and diagram scene-graph that form the backbone of Pulse.
 │                     RulePack, ParameterKeys         │
 │                     SubCircuit (entity + CRUD),     │
 │                     FireAlarmSubCircuitService       │
+│    Lighting/      — Collector, TopologyBuilder,     │
+│                     RulePack, ParameterKeys,        │
+│                     LightingDeviceConfig             │
 ├────────────────────────────────────────────────────┤
 │  Core/            — NO Revit dependency             │
 │    Modules        — PulseAppController, ModuleCatalog│
@@ -71,31 +74,33 @@ strategy, and diagram scene-graph that form the backbone of Pulse.
 ### 2.1 Startup
 
 ```
-PulseFireAlarm.Execute()            ← IExternalCommand entry point
-  └─ MainWindow created
-       └─ MainViewModel(uiApp)
-            ├─ PulseAppController    — module registry + state
-            ├─ RefreshPipeline       — CollectDevicesHandler + ExternalEvent
-            ├─ SelectionHighlightFacade
-            ├─ StorageFacade         — read/write ES + JSON persistence
-            ├─ TopologyAssignmentsService — per-document assignment lifecycle
-            ├─ SymbolMappingOrchestrator  — custom symbol library + mapping
-            ├─ DiagramFeatureService      — diagram wire orchestration
-            ├─ MetricsPanelViewModel      — System Intelligence Dashboard
-            │
-            ├─ ModuleCatalog.Discover(expectedModuleIds, [FireAlarmFallback])
-            │    └─ reflection scan → register into PulseAppController
-            │
-            ├─ Capability guards wired (Diagram, Wiring, SymbolMapping, ConfigAssignment)
-            │
-            ├─ DeviceConfigService.Load()            ← reads device-config.json
-            │    └─ PulseAppController.ApplySettings() → parameter mappings applied
-            │
-            ├─ StorageFacade.ReadDiagramSettings(doc) → DiagramViewModel.LoadVisibility
-            ├─ StorageFacade.ReadTopologyAssignments(doc) → TopologyAssignmentsService.Load
-            ├─ StorageFacade.ReadBoqSettings(doc) → MainViewModel._boqSettings
-            │
-            └─ Automatic first refresh via RefreshPipeline
+PulseFireAlarm.Execute() / PulseLighting.Execute()  ← IExternalCommand entry points
+  └─ PulseWindowManager.OpenOrFocus(commandData, moduleId)
+       ├─ If window already open: calls ViewModel.SwitchModule(moduleId) + brings to front
+       └─ If window closed: creates MainWindow(uiApp, moduleId)
+            └─ MainViewModel(uiApp, initialModuleId)
+                 ├─ PulseAppController    — module registry + state
+                 ├─ RefreshPipeline       — CollectDevicesHandler + ExternalEvent
+                 ├─ SelectionHighlightFacade
+                 ├─ StorageFacade         — read/write ES + JSON persistence
+                 ├─ TopologyAssignmentsService — per-document assignment lifecycle
+                 ├─ SymbolMappingOrchestrator  — custom symbol library + mapping
+                 ├─ DiagramFeatureService      — diagram wire orchestration
+                 ├─ MetricsPanelViewModel      — System Intelligence Dashboard
+                 │
+                 ├─ ModuleCatalog.Discover(expectedModuleIds, [FA + Lighting fallback])
+                 │    └─ reflection scan → register into PulseAppController
+                 │
+                 ├─ Capability guards wired (Diagram, Wiring, SymbolMapping, ConfigAssignment)
+                 │
+                 ├─ DeviceConfigService.Load()            ← reads device-config.json
+                 │    └─ PulseAppController.ApplySettings() → parameter mappings applied
+                 │
+                 ├─ StorageFacade.ReadDiagramSettings(doc) → DiagramViewModel.LoadVisibility
+                 ├─ StorageFacade.ReadTopologyAssignments(doc) → TopologyAssignmentsService.Load
+                 ├─ StorageFacade.ReadBoqSettings(doc) → MainViewModel._boqSettings
+                 │
+                 └─ Automatic first refresh via RefreshPipeline
 ```
 
 ### 2.2 Refresh Cycle
@@ -162,7 +167,7 @@ a hardcoded fallback list is used.
 | `Diagram` | 1 | Module supports schematic diagram rendering |
 | `Wiring` | 2 | Module supports wire parameter assignment |
 | `SymbolMapping` | 4 | Module supports custom device symbols |
-| `CapacityGauges` | 8 | Module produces capacity data (future) |
+| `CapacityGauges` | 8 | Module produces capacity data |
 | `ConfigAssignment` | 16 | Module uses control-panel config assignment |
 | `All` | 31 | All flags combined |
 
@@ -171,6 +176,26 @@ Optional feature interfaces (`IProvidesDiagramFeatures`,
 `IProvidesWiringFeatures`, `IProvidesSymbolMapping`,
 `IProvidesDeviceConfig`) are retrieved via
 `PulseAppController.GetFeature<T>()`.
+
+### 3.4 Registered Modules
+
+| Module | ModuleId | Capabilities |
+|--------|----------|-------------|
+| Fire Alarm | `FireAlarm` | `Diagram \| Wiring \| SymbolMapping \| ConfigAssignment` |
+| Lighting | `Lighting` | `CapacityGauges \| ConfigAssignment` |
+
+### 3.5 Runtime Module Switching
+
+`PulseWindowManager` is a shared singleton command entry-point for all module `IExternalCommand` implementations. When a Revit button is pressed:
+
+- If the window is **already open** it calls `MainViewModel.SwitchModule(moduleId)` — which activates the new module, reloads settings, and fires a refresh — then brings the window to the foreground.
+- If the window is **closed** it creates a new `MainWindow(uiApp, moduleId)`.
+
+`MainViewModel.ModuleIconKind` (`PackIconKind`) is updated whenever the active module changes. The toolbar and settings dialog header bind to this property, showing `PackIconKind.Fire` for Fire Alarm and `PackIconKind.LightbulbOn` for Lighting.
+
+### 3.6 Ribbon Button Theming
+
+`App.cs` subscribes to `ricaun.Revit.UI.Utils.RibbonThemeUtils.ThemeChanged`. On startup it reads `RibbonThemeUtils.IsDark` to choose the initial icon variant; on each theme change it swaps both button images between `Light - Pulse - Fire.tiff` / `Dark - Pulse - Fire.tiff` and `Light - Pulse - Lighting.tiff` / `Dark - Pulse - Lighting.tiff`.
 
 ---
 

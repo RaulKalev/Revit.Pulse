@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows.Input;
+using MaterialDesignThemes.Wpf;
 using Pulse.Core.Settings;
 
 namespace Pulse.UI.ViewModels
@@ -58,6 +59,10 @@ namespace Pulse.UI.ViewModels
         // ─── Display ──────────────────────────────────────────────────────────
         public string ModuleName { get; }
         public string ModuleDescription { get; }
+        public PackIconKind ModuleIconKind =>
+            ModuleName.IndexOf("Lighting", StringComparison.OrdinalIgnoreCase) >= 0
+                ? PackIconKind.LightbulbOn
+                : PackIconKind.Fire;
 
         // ─── Editable fields ─────────────────────────────────────────────────
         private string _revitCategory;
