@@ -688,4 +688,46 @@
         </Setter>
     </Style>
 
+    <!-- ======================== -->
+    <!--  Dark TextBox Style      -->
+    <!-- ======================== -->
+    <Style x:Key="DarkTextBoxStyle" TargetType="{x:Type TextBox}">
+        <Setter Property="Background"               Value="{DynamicResource PrimaryBackgroundBrush}" />
+        <Setter Property="Foreground"               Value="{DynamicResource ForegroundBrush}" />
+        <Setter Property="BorderBrush"              Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness"          Value="1" />
+        <Setter Property="Padding"                  Value="6,0" />
+        <Setter Property="FontSize"                 Value="12" />
+        <Setter Property="TextAlignment"            Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="CaretBrush"               Value="{DynamicResource ForegroundBrush}" />
+        <Setter Property="SelectionBrush"           Value="#FF0078D7" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type TextBox}">
+                    <Border x:Name="Bd"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="4"
+                            Padding="{TemplateBinding Padding}">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Focusable="False"
+                                      VerticalAlignment="Center"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsFocused" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="#FF0078D7" />
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource IconForegroundBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
 </ResourceDictionary>

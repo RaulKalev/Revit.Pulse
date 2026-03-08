@@ -588,7 +588,7 @@ namespace Pulse.UI.Controls
                     IsHitTestVisible = false
                 };
                 Canvas.SetLeft(paperLabel, pLeft + 5);
-                Canvas.SetTop(paperLabel,  pTop  + 3);
+                Canvas.SetTop(paperLabel,  pTop  - 14);
                 DiagramCanvas.Children.Add(paperLabel);
             }
 
@@ -656,7 +656,7 @@ namespace Pulse.UI.Controls
                     var nameLabel = new TextBlock
                     {
                         Text         = level.Name,
-                        FontSize     = 9,
+                        FontSize     = 8,
                         FontWeight   = FontWeights.SemiBold,
                         Foreground   = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
                         MaxWidth     = effectiveW - 16,
@@ -689,7 +689,7 @@ namespace Pulse.UI.Controls
                         var prevLabel = new TextBlock
                         {
                             Text         = prevName,
-                            FontSize     = 9,
+                            FontSize     = 8,
                             FontWeight   = FontWeights.SemiBold,
                             Foreground   = new SolidColorBrush(Color.FromArgb(0xAA, 0xFF, 0xFF, 0xFF)),
                             MaxWidth     = effectiveW - 16,

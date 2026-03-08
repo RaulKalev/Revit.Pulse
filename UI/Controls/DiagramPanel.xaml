@@ -38,7 +38,7 @@
                             Style="{StaticResource PulseActionButtonStyle}"
                             Width="24" Height="24"
                             Padding="0"
-                            Margin="0,0,4,0"
+                            Margin="4,0,4,0"
                             ToolTip="Toggle diagram panel"
                             Click="ToggleButton_Click">
                         <materialDesign:PackIcon x:Name="ToggleIcon"
@@ -54,6 +54,7 @@
                             Height="24"
                             Visibility="Collapsed"
                             Padding="6,0"
+                            Margin="4,0,0,0"
                             ToolTip="Show hidden / deleted items"
                             Click="RestoreButton_Click">
                         <StackPanel Orientation="Horizontal">
