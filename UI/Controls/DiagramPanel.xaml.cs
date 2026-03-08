@@ -1276,28 +1276,46 @@ namespace Pulse.UI.Controls
                             int compressedMaxPerRow = maxPerRow;
                             if (showRep)
                             {
-                                wireSlotsByWi = new List<WireSlot>[wireCount];
-                                int tempRemain = total;
+                                // Compress all devices globally, then split evenly across wires
+                                // so each wire gets the same number of visual slots regardless
+                                // of how the uncollapsed devices were distributed.
+                                var allSlots   = BuildCompressedRow(loopInfo.DeviceTypesByAddress, 0, total);
+                                int totalSlots = allSlots.Count;
+                                wireSlotsByWi  = new List<WireSlot>[wireCount];
+                                int slotRem    = totalSlots;
+                                int slotOff    = 0;
                                 for (int wi2 = wireCount - 1; wi2 >= 0; wi2--)
                                 {
-                                    int wd       = (tempRemain + wi2) / (wi2 + 1);
-                                    int startOff = total - tempRemain;
-                                    wireSlotsByWi[wi2] = BuildCompressedRow(
-                                        loopInfo.DeviceTypesByAddress, startOff, wd);
-                                    tempRemain -= wd;
+                                    int sc = (slotRem + wi2) / (wi2 + 1);
+                                    wireSlotsByWi[wi2] = allSlots.GetRange(slotOff, sc);
+                                    slotOff += sc;
+                                    slotRem -= sc;
+                                }
+                                // Ensure no wire ends with a dots slot — always end on a device.
+                                // If a cut landed after "..." steal the following device from the next wire.
+                                for (int wi2 = wireCount - 1; wi2 > 0; wi2--)
+                                {
+                                    var wSlots = wireSlotsByWi[wi2];
+                                    if (wSlots.Count > 0 && wSlots[wSlots.Count - 1].IsDots)
+                                    {
+                                        var nextSlots = wireSlotsByWi[wi2 - 1];
+                                        if (nextSlots.Count > 0)
+                                        {
+                                            wSlots.Add(nextSlots[0]);
+                                            nextSlots.RemoveAt(0);
+                                        }
+                                    }
                                 }
                                 compressedMaxPerRow = wireSlotsByWi.Max(s => s?.Count ?? 0);
                             }
 
-                            // farEdge: flipped=true → right of laneX, flipped=false → left of laneX.
-                            // +1 extra column when wireCount > 2 so inner rows' last device (col maxPerRow+1)
-                            // never sits on the connector (which lands at col maxPerRow+2).
+                            // farEdge: use compressed slot count when collapsed, uncompressed otherwise.
+                            int effectiveMaxPerRow = showRep ? compressedMaxPerRow : maxPerRow;
                             double farEdge = laneX;
                             if (total > 0)
                             {
                                 int extraCol = wireCount > 2 ? 1 : 0;
-                                double requiredReach = deviceSpacing *
-                                    ((showRep ? compressedMaxPerRow : maxPerRow) + 1 + extraCol);
+                                double requiredReach = deviceSpacing * (effectiveMaxPerRow + 1 + extraCol);
                                 farEdge = flipped ? laneX + requiredReach : laneX - requiredReach;
                             }
 
@@ -1323,6 +1341,23 @@ namespace Pulse.UI.Controls
                             double wireX1   = Math.Max(laneX,  farEdge);
                             double nearX_lo = Math.Min(nearX, farEdge);
                             double nearX_hi = Math.Max(nearX, farEdge);
+
+                            // Pre-compute per-wire device counts (same allocation used later for devices)
+                            int[] wdCounts = new int[wireCount];
+                            int[] wdStarts = new int[wireCount];
+                            {
+                                int rem = total;
+                                for (int wi = wireCount - 1; wi >= 0; wi--)
+                                {
+                                    int wd    = (rem + wi) / (wi + 1);
+                                    int rowFB = wireCount - 1 - wi;
+                                    wdCounts[rowFB] = wd;
+                                    rem -= wd;
+                                }
+                                int s2 = 0;
+                                for (int r = 0; r < wireCount; r++) { wdStarts[r] = s2; s2 += wdCounts[r]; }
+                            }
+
                             for (int wi = 0; wi < wireCount; wi++)
                             {
                                 double wyH       = wireYs[wi];
@@ -1339,13 +1374,17 @@ namespace Pulse.UI.Controls
                                 else
                                 {
                                     int slotCntH = slotRow.Count;
+                                    int rowDevsW = wdCounts[wi];
+                                    // Use fixed spacing from settings — do not stretch slots to fill span
+                                    double rowSpW    = deviceSpacing;
+                                    double rowGapW   = rowSpW * 0.44;
                                     var gaps = new List<(double lo, double hi)>();
                                     for (int si = 0; si < slotCntH; si++)
                                     {
                                         if (!slotRow[si].IsDots) continue;
                                         int lDi   = revWire ? slotCntH - 1 - si : si;
-                                        double sx = laneX + dirSign * deviceSpacing * (lDi + colOffset);
-                                        gaps.Add((sx - gapHalf, sx + gapHalf));
+                                        double sx = laneX + dirSign * (deviceSpacing * colOffset + rowSpW * lDi);
+                                        gaps.Add((sx - rowGapW, sx + rowGapW));
                                     }
                                     gaps.Sort((a, b) => a.lo.CompareTo(b.lo));
                                     double curX = rowX0;
@@ -1383,21 +1422,7 @@ namespace Pulse.UI.Controls
 
                             var flatTypes = loopInfo.DeviceTypesByAddress;
 
-                            // ── Per-wire device allocation (bottom-up: rowFB=0=bottom) ────────
-                            int[] wdCounts = new int[wireCount];
-                            int[] wdStarts = new int[wireCount];
-                            {
-                                int rem = total;
-                                for (int wi = wireCount - 1; wi >= 0; wi--)
-                                {
-                                    int wd    = (rem + wi) / (wi + 1);
-                                    int rowFB = wireCount - 1 - wi;
-                                    wdCounts[rowFB] = wd;
-                                    rem -= wd;
-                                }
-                                int s2 = 0;
-                                for (int r = 0; r < wireCount; r++) { wdStarts[r] = s2; s2 += wdCounts[r]; }
-                            }
+                            // ── Per-wire device allocation already computed above ─────────────
 
                             // ── Device drawing ─────────────────────────────────────
                             // rowFB=0 → bottom wire, lowest addresses, L→R ascending
@@ -1413,10 +1438,13 @@ namespace Pulse.UI.Controls
 
                                 bool isSpineRow2 = (rowFB == 0 || rowFB == wireCount - 1);
                                 int  devColOff   = isSpineRow2 ? 1 : 2; // inner rows: push 1 col away from nearX connector
+                                // Use fixed spacing from settings — do not stretch collapsed slots
+                                double rowDevSp = deviceSpacing;
+                                double rowDotStep = rowDevSp * 0.44 * 0.65;
                                 for (int di = 0; di < slotCount; di++)
                                 {
-                                    // Devices fan away from the spine; inner rows offset by 2 columns
-                                    double devX = laneX + dirSign * deviceSpacing * (di + devColOff);
+                                    // First device anchored at col devColOff; rest spaced by rowDevSp
+                                    double devX = laneX + dirSign * (deviceSpacing * devColOff + rowDevSp * di);
 
                                     // Reversed rows: map display index to reversed slot/address
                                     int edi = revRow && slots != null ? slotCount - 1 - di : di;
@@ -1424,7 +1452,7 @@ namespace Pulse.UI.Controls
                                     if (slots != null && slots[edi].IsDots)
                                     {
                                         double dotR    = 1.5;
-                                        double dotStep = gapHalf * 0.65;
+                                        double dotStep = rowDotStep;
                                         for (int d = -1; d <= 1; d++)
                                         {
                                             var dot = new Ellipse
