@@ -534,22 +534,78 @@
                             </Grid>
 
                             <!-- Repetitions -->
-                            <CheckBox x:Name="CbShowRepetitions"
-                                      Margin="0,0,0,6"
-                                      Foreground="{DynamicResource ForegroundBrush}"
-                                      FontSize="11">
-                                <TextBlock Text="Collapse repeated devices (·4 in a row)"
-                                           FontSize="11" TextWrapping="Wrap"/>
-                            </CheckBox>
+                            <ToggleButton x:Name="CbShowRepetitions"
+                                          Style="{StaticResource PulseCheckToggleStyle}"
+                                          Margin="0,0,0,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Width="15" Height="15"
+                                                             Margin="0,0,6,0"
+                                                             VerticalAlignment="Center">
+                                        <materialDesign:PackIcon.Style>
+                                            <Style TargetType="materialDesign:PackIcon">
+                                                <Setter Property="Kind"       Value="CheckboxBlankOutline"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource IconForegroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="True">
+                                                        <Setter Property="Kind"       Value="CheckboxMarkedOutline"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </materialDesign:PackIcon.Style>
+                                    </materialDesign:PackIcon>
+                                    <TextBlock Text="Collapse repeated devices (·4 in a row)"
+                                               FontSize="11" TextWrapping="Wrap">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource IconForegroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </ToggleButton>
 
                             <!-- Address labels -->
-                            <CheckBox x:Name="CbShowAddressLabels"
-                                      Margin="0,0,0,6"
-                                      Foreground="{DynamicResource ForegroundBrush}"
-                                      FontSize="11">
-                                <TextBlock Text="Show address labels"
-                                           FontSize="11" TextWrapping="Wrap"/>
-                            </CheckBox>
+                            <ToggleButton x:Name="CbShowAddressLabels"
+                                          Style="{StaticResource PulseCheckToggleStyle}"
+                                          Margin="0,0,0,6">
+                                <StackPanel Orientation="Horizontal">
+                                    <materialDesign:PackIcon Width="15" Height="15"
+                                                             Margin="0,0,6,0"
+                                                             VerticalAlignment="Center">
+                                        <materialDesign:PackIcon.Style>
+                                            <Style TargetType="materialDesign:PackIcon">
+                                                <Setter Property="Kind"       Value="CheckboxBlankOutline"/>
+                                                <Setter Property="Foreground" Value="{DynamicResource IconForegroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="True">
+                                                        <Setter Property="Kind"       Value="CheckboxMarkedOutline"/>
+                                                        <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </materialDesign:PackIcon.Style>
+                                    </materialDesign:PackIcon>
+                                    <TextBlock Text="Show address labels"
+                                               FontSize="11" TextWrapping="Wrap">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource IconForegroundBrush}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=ToggleButton}}" Value="True">
+                                                        <Setter Property="Foreground" Value="{DynamicResource ForegroundBrush}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </ToggleButton>
 
                             <!-- Label offset -->
                             <Grid Margin="0,0,0,10">
