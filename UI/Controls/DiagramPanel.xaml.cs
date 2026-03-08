@@ -664,8 +664,8 @@ namespace Pulse.UI.Controls
                         Tag          = level.Name + "|text-above",
                         Cursor       = Cursors.Hand
                     };
-                    if (hasPaper) Canvas.SetLeft(nameLabel, drawLeft + 8);
-                    else          Canvas.SetRight(nameLabel, 8);
+                    if (hasPaper) Canvas.SetLeft(nameLabel, drawLeft);
+                    else          Canvas.SetRight(nameLabel, 0);
                     Canvas.SetTop(nameLabel, y - 13);
                     DiagramCanvas.Children.Add(nameLabel);
                     _visualElements[level.Name + "|text-above"] = nameLabel;
@@ -697,9 +697,9 @@ namespace Pulse.UI.Controls
                             Tag          = prevName + "|text-below",
                             Cursor       = Cursors.Hand
                         };
-                        if (hasPaper) Canvas.SetLeft(prevLabel, drawLeft + 8);
-                        else          Canvas.SetRight(prevLabel, 8);
-                        Canvas.SetTop(prevLabel, y + 2);
+                        if (hasPaper) Canvas.SetLeft(prevLabel, drawLeft);
+                        else          Canvas.SetRight(prevLabel, 0);
+                        Canvas.SetTop(prevLabel, y + 1);
                         DiagramCanvas.Children.Add(prevLabel);
                         _visualElements[prevName + "|text-below"] = prevLabel;
                     }
